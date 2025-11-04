@@ -10,10 +10,10 @@ struct StructWithTypeInfo {}
 // force emission
 auto ti = typeid(StructWithTypeInfo);
 
-// CHECK: _D18pragma_no_typeinfo17ClassWithTypeInfo7__ClassZ = global %object.TypeInfo_Class
+// CHECK: _D18pragma_no_typeinfo17ClassWithTypeInfo7__ClassZ = linkonce_odr global %object.TypeInfo_Class
 class ClassWithTypeInfo {}
 
-// CHECK: _D18pragma_no_typeinfo21InterfaceWithTypeInfo11__InterfaceZ = global %object.TypeInfo_Class
+// CHECK: _D18pragma_no_typeinfo21InterfaceWithTypeInfo11__InterfaceZ = linkonce_odr global %object.TypeInfo_Class
 interface InterfaceWithTypeInfo {}
 
 

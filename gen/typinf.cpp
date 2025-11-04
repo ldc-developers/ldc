@@ -506,8 +506,19 @@ class DeclareOrDefineVisitor : public Visitor {
     auto cd = decl->tinfo->isTypeClass()->sym;
     DtoResolveClass(cd);
 
+    auto irclass = getIrAggr(cd, true);
     IrGlobal *irg = getIrGlobal(decl, true);
-    irg->value = getIrAggr(cd)->getClassInfoSymbol();
+    
+    auto ti = irclass->getClassInfoSymbol();
+    irg->value = ti;
+    
+    // check if the definition can be elided
+    if (irclass->suppressTypeInfo()) {
+        return;
+    }
+    
+    irclass->getClassInfoSymbol(true);
+    ti->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
   }
 
   // Build all other TypeInfos.
