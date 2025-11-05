@@ -858,6 +858,64 @@ void DtoResolveVariable(VarDeclaration *vd) {
   }
 }
 
+namespace {
+bool eval(VarDeclaration *vd, Expression *e)  {
+  
+  auto ve = e->isVarExp();
+  if (!ve) {
+    return false;
+  }
+  VarDeclaration *v = nullptr;
+  if (ve)
+    v = ve->var->isVarDeclaration();
+  return vd == v;
+}
+bool walk(VarDeclaration *vd, CommaExp *ce) {
+  IF_LOG Logger::println("ce = %s", ce->toChars());
+  if (auto ce2 = ce->e2->isCommaExp()) {
+    if (walk(vd, ce2))
+      return true;
+  }
+  if (auto ce1 = ce->e1->isCommaExp()) {
+    if (walk(vd, ce1))
+      return true;
+  }
+  if (eval(vd, ce->e2))
+    return true;
+  if (eval(vd, ce->e1))
+    return true;
+  return false;
+}
+bool varIsSret(VarDeclaration *vd, IrFunction *f) {
+  if (!f->sretArg)
+    return false;
+  auto fd = f->decl;
+  auto rets = fd->returns;
+  if (!rets)
+    return false;
+#if LDC_LLVM_VER >= 1800
+  #define startswith starts_with
+#endif
+  llvm::StringRef name = vd->ident->toChars();
+  if (name.startswith("__tmpfordtor") ||name.startswith("__sl")) {
+    return true;
+  }
+#if LDC_LLVM_VER >= 1800
+  #undef startswith
+#endif
+  for (d_size_t i = 0; i < rets->length; i++) {
+    auto rs = (*rets)[i];
+    Expression *e = rs->exp;
+    CommaExp *ce = e->isCommaExp();
+    if (ce) {
+      if (walk(vd, ce)) return true;
+    }
+    if (eval(vd, e))
+      return true;
+  }
+  return false;
+}
+}
 /******************************************************************************
  * DECLARATION EXP HELPER
  ******************************************************************************/
@@ -906,29 +964,22 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
     // We also allocate a variable for zero-sized variables, because they are technically not `null` when loaded.
     // The x86_64 ABI "loads" zero-sized function arguments, and without an allocation ASan will report an error (Github #4816).
-    llvm::Value *allocainst;
-    bool isRealAlloca = false;
     LLType *lltype = DtoType(type); // void for noreturn
     if (lltype->isVoidTy()) {
-      allocainst = getNullPtr();
-    } else if (type != vd->type) {
-      allocainst = DtoAlloca(type, vd->toChars());
-      isRealAlloca = true;
-    } else {
-      allocainst = DtoAlloca(vd, vd->toChars());
-      isRealAlloca = true;
+      irLocal->value = getNullPtr();
     }
-
-    irLocal->value = allocainst;
-
-    if (!lltype->isVoidTy())
+    else {
+      auto allocainst = type != vd->type ? DtoAlloca(type, vd->toChars())
+                                         : DtoAlloca(vd, vd->toChars());
+      irLocal->value = allocainst;
+      
       gIR->DBuilder.EmitLocalVariable(allocainst, vd);
-
-    // Lifetime annotation is only valid on alloca.
-    if (isRealAlloca) {
+      
       // The lifetime of a stack variable starts from the point it is declared
-      gIR->funcGen().localVariableLifetimeAnnotator.addLocalVariable(
-          allocainst, DtoConstUlong(size(type)));
+      if (!vd->isParameter() && !varIsSret(vd, gIR->func())) {
+        gIR->funcGen().localVariableLifetimeAnnotator.addLocalVariable(
+               allocainst, DtoConstUlong(size(type)));
+      }
     }
   }
 
