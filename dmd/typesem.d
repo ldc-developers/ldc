@@ -2328,6 +2328,18 @@ Type typeSemantic(Type type, Loc loc, Scope* sc)
             }
             else
             {
+version (IN_LLVM)
+{
+                // Kludge for 8/16 bit targets and `__LINE__` default arguments of type int:
+                // insert hidden cast if the parameter type is size_t.
+                // Without this, importing object.d fails (Exception constructors taking size_t line numbers).
+                if (e.isLineInitExp() && target.ptrsize < 4 && fparam.type.equivalent(Type.tsize_t))
+                {
+                    if (!e.type)
+                        e.type = Type.tint32;
+                    e = e.castTo(sc, fparam.type);
+                }
+}
                 e = inferType(e, fparam.type);
                 Scope* sc2 = sc.push();
                 sc2.inDefaultArg = true;
