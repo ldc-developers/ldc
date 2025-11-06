@@ -61,11 +61,11 @@ void main() {
   // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnOuterByValFSQBh5OuterZQl
   // CHECK-SAME: ptr {{noalias sret.*|inreg noalias}} align 32 %.sret_tmp
   // The argument is either passed by aligned (optimizer hint) pointer or as an array of i32/64 and copied into an aligned stack slot inside the callee.
-  // CHECK-SAME: {{(align 32 .*%|\[[0-9]+ x i..\])}}
+  // CHECK-SAME: {{(align 32 ( captures\(none\) )?%|\[[0-9]+ x i..\])}}
 
   inner = passAndReturnInnerByVal(inner);
   // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnInnerByValFSQBh5InnerZQl
   // CHECK-SAME: ptr {{noalias sret.*|inreg noalias}} align 32 %.sret_tmp
   // The argument is either passed by aligned (optimizer hint) pointer or as an array of i32/64 and copied into an aligned stack slot inside the callee.
-  // CHECK-SAME: {{(align 32 .*%|\[[0-9]+ x i..\])}}
+  // CHECK-SAME: {{(align 32 ( captures\(none\) )?%|\[[0-9]+ x i..\])}}
 }
