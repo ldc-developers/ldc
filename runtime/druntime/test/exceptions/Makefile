@@ -3,11 +3,16 @@ ifdef IN_LDC
 include ../../../../dmd/osmodel.mak
 endif
 
+$(info $(shell which apk &>/dev/null; echo $$?))
+$(info $(shell which apk &>/dev/null && echo 1 ; echo $$?))
+$(info $(shell command -v apk &>/dev/null ; echo $$?))
+$(info $(shell command -v apk &>/dev/null && echo 1 ; echo $$?))
+
+
 ifeq ($(OS),linux)
     # FIXME: detect musl libc robustly; just checking Alpine Linux' apk tool for now
-    ifeq (1,$(shell which apk &>/dev/null && echo 1))
-        IS_MUSL:=1
-    endif
+    IS_MUSL != command -v apk &>/dev/null && echo 1
+    $(warning ~~~ musl $(IS_MUSL))
 endif
 
 TESTS=stderr_msg unittest_assert invalid_memory_operation static_dtor \
@@ -65,6 +70,8 @@ endif
 ifeq ($(OS),windows)
     TESTS+=winstack
 endif
+
+$(warning ~~~ All the tests are: $(TESTS))
 include ../common.mak
 
 $(ROOT)/line_trace.done: $(ROOT)/line_trace$(DOTEXE)
