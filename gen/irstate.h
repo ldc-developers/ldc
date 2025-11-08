@@ -250,7 +250,7 @@ public:
   // Exception: ulong[]-typed hex strings (not null-terminated either).
   llvm::GlobalVariable *getCachedStringLiteral(StringExp *se);
   llvm::GlobalVariable *getCachedStringLiteral(llvm::StringRef s
-#if LDC_LLVM_VER >= 1600
+#if LDC_LLVM_VER >= 1700
                                                ,std::optional< unsigned > = std::nullopt
 #endif
                                                );
