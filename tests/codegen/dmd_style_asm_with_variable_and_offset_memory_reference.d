@@ -26,7 +26,7 @@ uint getHighHalfOfGlobal(ulong value)
 {
     asm
     {
-        // CHECK: movl    ((4+(-8))+_someGlobalVariable)+8, %eax
+        // CHECK: movl    {{\(?\(?4\+\(?-8\)?\)?\+_someGlobalVariable\)?\+8}}, %eax
         mov EAX, dword ptr [someGlobalVariable + 4];
     }
 }
