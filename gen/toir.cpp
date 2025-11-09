@@ -3000,17 +3000,20 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     return true;
   }
   // and temporaries
-  else if (isTemporaryVar(rhs)) {
+  else if (auto vd = isTemporaryVar(rhs)) {
     Logger::println("success, in-place-constructing temporary");
-    auto lhsLVal = DtoLVal(lhs);
-    auto rhsLVal = DtoLVal(rhs);
-    if (!llvm::isa<llvm::AllocaInst>(rhsLVal)) {
-      error(rhs->loc, "lvalue of temporary is not an alloca, please "
-                      "file an LDC issue");
-      fatal();
-    }
-    if (lhsLVal != rhsLVal)
-      rhsLVal->replaceAllUsesWith(lhsLVal);
+    assert(!isSpecialRefVar(vd) && "Can this happen?");
+
+    // evaluate lhs to an lvalue, the target address
+    auto lval = DtoLVal(lhs);
+
+    // pre-set the lvalue of the temporary to that address
+    getIrLocal(vd, true)->value = lval;
+    gIR->DBuilder.EmitLocalVariable(lval, vd);
+
+    // evaluate rhs, constructing the pre-allocated temporary
+    toElem(rhs);
+
     return true;
   }
 
