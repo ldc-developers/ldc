@@ -746,18 +746,16 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V,
       for (auto A = B; A != E; ++A) {
         if (A->get() == V) {
 #if LDC_LLVM_VER >= 2100
-          if (CB->paramHasAttr(A - B, llvm::Attribute::AttrKind::Captures)) {
-            return capturesNothing(
-                        CB->getParamAttr(A - B, llvm::Attribute::AttrKind::Captures)
-                           .getCaptureInfo());
-          }
-
+          if (!(CB->paramHasAttr(A - B, llvm::Attribute::AttrKind::Captures) &&
+                capturesNothing(
+                    CB->getParamAttr(A - B, llvm::Attribute::AttrKind::Captures)
+                        .getCaptureInfo()))) {
 #else
           if (!CB->paramHasAttr(A - B, llvm::Attribute::AttrKind::NoCapture)) {
+#endif
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }
-#endif
 
           if (auto call = dyn_cast<CallInst>(static_cast<Instruction *>(CB))) {
             if (call->isTailCall()) {
