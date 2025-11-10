@@ -366,7 +366,7 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
 #if LDC_LLVM_VER >= 1700
         "" /*MemoryProfileUsePath*/,
 #if LDC_LLVM_VER < 2200
-                      llvm::vfs::getRealFileSystem(),
+        llvm::vfs::getRealFileSystem(),
 #endif
 #endif
         PGOOptions::PGOAction::IRInstr, PGOOptions::CSPGOAction::NoCSAction,
@@ -380,7 +380,7 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
 #if LDC_LLVM_VER >= 1700
         "" /*MemoryProfileUsePath*/,
 #if LDC_LLVM_VER < 2200
-                      llvm::vfs::getRealFileSystem(),
+        llvm::vfs::getRealFileSystem(),
 #endif
 #endif
         PGOOptions::PGOAction::IRUse, PGOOptions::CSPGOAction::NoCSAction,
@@ -394,7 +394,7 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
 #if LDC_LLVM_VER >= 1700
         "" /*MemoryProfileUsePath*/,
 #if LDC_LLVM_VER < 2200
-                      llvm::vfs::getRealFileSystem(),
+        llvm::vfs::getRealFileSystem(),
 #endif
 #endif
         PGOOptions::PGOAction::SampleUse, PGOOptions::CSPGOAction::NoCSAction,
