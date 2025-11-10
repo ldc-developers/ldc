@@ -45,29 +45,28 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
   std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile;
 
   // Set LLVM Diagnostics outputfile if requested
-  if (opts::saveOptimizationRecord.getNumOccurrences() > 0) {
-    llvm::SmallString<128> diagnosticsFilename;
-    if (!opts::saveOptimizationRecord.empty()) {
-      diagnosticsFilename = opts::saveOptimizationRecord.getValue();
-    } else {
-      diagnosticsFilename = filename;
-      llvm::sys::path::replace_extension(diagnosticsFilename, "opt.yaml");
-    }
-
-    // If there is instrumentation data available, also output function hotness
-    const bool withHotness = opts::isUsingPGOProfile();
-
-    auto remarksFileOrError = llvm::setupLLVMOptimizationRemarks(
-        ctx, diagnosticsFilename, "", "", withHotness);
-    if (llvm::Error e = remarksFileOrError.takeError()) {
-      error(irs.dmodule->loc, "Could not create file %s: %s",
-            diagnosticsFilename.c_str(), llvm::toString(std::move(e)).c_str());
-      fatal();
-    }
-    diagnosticsOutputFile = std::move(*remarksFileOrError);
+  if (opts::saveOptimizationRecord.getNumOccurrences() == 0)
+    return std::unique_ptr<llvm::ToolOutputFile>();
+  llvm::SmallString<128> diagnosticsFilename;
+  if (!opts::saveOptimizationRecord.empty()) {
+    diagnosticsFilename = opts::saveOptimizationRecord.getValue();
+  } else {
+    diagnosticsFilename = filename;
+    llvm::sys::path::replace_extension(diagnosticsFilename, "opt.yaml");
   }
 
-  return diagnosticsOutputFile;
+   // If there is instrumentation data available, also output function hotness
+   const bool withHotness = opts::isUsingPGOProfile();
+
+   auto remarksFileOrError = llvm::setupLLVMOptimizationRemarks(
+        ctx, diagnosticsFilename, "", "", withHotness);
+   if (llvm::Error e = remarksFileOrError.takeError()) {
+    error(irs.dmodule->loc, "Could not create file %s: %s",
+          diagnosticsFilename.c_str(), llvm::toString(std::move(e)).c_str());
+    fatal();
+  }
+
+  return std::move(*remarksFileOrError);
 }
 
 void addLinkerMetadata(llvm::Module &M, const char *name,
