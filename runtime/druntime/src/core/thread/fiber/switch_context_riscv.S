@@ -6,6 +6,18 @@
  * Authors:   Denis Feklushkin
  */
 
+#if __ELF__
+/*
+ * Mark the resulting object file as not requiring execution permissions on
+ * stack memory. The absence of this section would mark the whole resulting
+ * library as requiring an executable stack, making it impossible to
+ * dynamically load druntime on several platforms where this is forbidden
+ * due to security policies.
+ */
+.section .note.GNU-stack,"",%progbits
+#endif
+
+
 #if defined(__riscv)
 
 // For save/load a register in memory, regardless of the size of machine register bit size
