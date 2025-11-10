@@ -37,16 +37,19 @@
 #include "mlir/IR/MLIRContext.h"
 #endif
 
+#if LDC_LLVM_VER < 2200
+namespace llvm {
+  using LLVMRemarkFileHandle = std::unique_ptr<llvm::ToolOutputFile>;
+}
+#endif
 namespace {
 
-std::unique_ptr<llvm::ToolOutputFile>
+llvm::LLVMRemarkFileHandle
 createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
                                   llvm::StringRef filename) {
-  std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile;
-
   // Set LLVM Diagnostics outputfile if requested
   if (opts::saveOptimizationRecord.getNumOccurrences() == 0)
-    return std::unique_ptr<llvm::ToolOutputFile>();
+    return llvm::LLVMRemarkFileHandle();
   llvm::SmallString<128> diagnosticsFilename;
   if (!opts::saveOptimizationRecord.empty()) {
     diagnosticsFilename = opts::saveOptimizationRecord.getValue();
@@ -266,7 +269,7 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   context_.setDiagnosticHandler(
           std::make_unique<InlineAsmDiagnosticHandler>(ir_));
 
-  std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile =
+  llvm::LLVMRemarkFileHandle diagnosticsOutputFile =
       createAndSetDiagnosticsOutputFile(*ir_, context_, filename);
 
   writeModule(&ir_->module, filename);
