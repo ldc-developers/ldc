@@ -49,10 +49,19 @@ runs:
           sudo ln -sf $tool-21 /usr/bin/$tool
           $tool --version
         done
-    - name: 'macOS arm64: Install Homebrew clang 21' # see mimalloc comment in ../3-build-native/action.yml
-      if: runner.os == 'macOS' && inputs.arch == 'arm64'
+    - name: 'macOS: Install Homebrew clang and lld 21' # see mimalloc comment in ../3-build-native/action.yml
+      if: runner.os == 'macOS'
       shell: bash
-      run: brew install llvm@21
+      run: |
+        set -eux
+        brew install llvm@21 lld@21
+        # https://github.com/llvm/llvm-project/issues/155531#issuecomment-3229499205
+        if [[ '${{ inputs.arch }}' == arm64 ]]; then
+          prefix="/opt/homebrew/opt/llvm"
+        else
+          prefix="/usr/local/opt/llvm"
+        fi
+        rm -rf "$prefix/include/c++/v1"
     - name: 'Windows: Install clang v21.1.5 from GitHub'
       if: runner.os == 'Windows'
       shell: bash
