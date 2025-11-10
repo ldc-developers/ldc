@@ -67,7 +67,9 @@ void LocalVariableLifetimeAnnotator::popScope() {
     return;
 
   for (const auto &var : scopes.back().variables) {
+#if LDC_LLVM_VER < 2200
     auto size = var.first;
+#endif
     auto address = var.second;
 
     assert(address);
