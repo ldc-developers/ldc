@@ -557,7 +557,7 @@ void setDefaultMathOptions(llvm::TargetOptions &targetOptions) {
     defaultFMF.setFast();
 #if LDC_LLVM_VER < 2200
     targetOptions.UnsafeFPMath = true;
-#if LDC_LLVM_VER < 2200
+#endif
   }
 }
 
