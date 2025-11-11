@@ -24,6 +24,7 @@
 #include "gen/mangling.h"
 #include "gen/pragma.h"
 #include "gen/tollvm.h"
+#include "gen/linkage.h"
 #include "ir/irdsymbol.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
@@ -102,9 +103,9 @@ LLGlobalVariable *IrAggr::getInitSymbol(bool define) {
 
   if (define) {
     auto initConstant = getDefaultInit();
-    if (!init->hasInitializer()) {
+    if (!init->hasInitializer())
       init = gIR->setGlobalVarInitializer(init, initConstant, aggrdecl);
-    }
+    init->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
   }
 
   return init;

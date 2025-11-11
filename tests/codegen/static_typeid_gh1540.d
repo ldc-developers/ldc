@@ -15,7 +15,7 @@ struct S
 {
 }
 
-// CHECK-DAG: _D{{.*}}1C7__ClassZ{{\"?}} = global %object.TypeInfo_Class
+// CHECK-DAG: _D{{.*}}1C7__ClassZ{{\"?}} = linkonce_odr global %object.TypeInfo_Class
 // CHECK-DAG: _D{{.*}}classvarC14TypeInfo_Class{{\"?}} = thread_local global ptr {{.*}}1C7__ClassZ
 auto classvar = typeid(C);
 
