@@ -19,6 +19,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: Ubuntu 24.04, LLVM 21, latest LDC beta
+            os: ubuntu-24.04
+            host_dc: ldc-beta
+            llvm_version: 21
+            cmake_flags: -DCMAKE_EXE_LINKER_FLAGS=-lcurl # work around libcurl dependency for ldc-profdata (LLVM apparently built with non-default LLVM_ENABLE_CURL=ON)
           - job_name: Ubuntu 24.04, LLVM 19, latest LDC beta
             os: ubuntu-24.04
             host_dc: ldc-beta
@@ -74,7 +79,14 @@ jobs:
         run: |
           set -eux
           sudo apt-get update
-          sudo apt-get install gdb lld-${{ matrix.llvm_version }} llvm-${{ matrix.llvm_version }}-dev libclang-common-${{ matrix.llvm_version }}-dev
+          version='${{ matrix.llvm_version }}'
+          if [[ "$version" -eq 21 ]]; then
+            curl -fL --retry 3 --max-time 30 -O https://apt.llvm.org/llvm.sh
+            sudo bash llvm.sh "$version"
+            sudo apt-get install gdb libcurl4-openssl-dev
+          else
+            sudo apt-get install gdb lld-${{ matrix.llvm_version }} llvm-${{ matrix.llvm_version }}-dev libclang-common-${{ matrix.llvm_version }}-dev
+          fi
 
       - name: 'macOS: Install a more recent GNU make'
         if: runner.os == 'macOS'
