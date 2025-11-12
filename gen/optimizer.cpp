@@ -74,6 +74,9 @@
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
+#if LDC_LLVM_VER >= 2000
+#include "llvm/Transforms/Instrumentation/RealtimeSanitizer.h"
+#endif
 
 using namespace llvm;
 
@@ -531,6 +534,14 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
   if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
     pb.registerOptimizerLastEPCallback(addSanitizerCoveragePass);
   }
+
+#if LDC_LLVM_VER >= 2000
+  if (opts::isSanitizerEnabled(opts::RealTimeSanitizer)) {
+    pb.registerOptimizerLastEPCallback(
+        [](ModulePassManager &mpm, OptimizationLevel level,
+           ThinOrFullLTOPhase) { mpm.addPass(RealtimeSanitizerPass()); });
+  }
+#endif // !LDC_LLVM_VER >= 2000
 #endif // !IN_JITRT
 
   if (!disableLangSpecificPasses) {

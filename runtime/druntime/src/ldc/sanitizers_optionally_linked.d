@@ -39,6 +39,9 @@ version (SupportSanitizers)
             void __sanitizer_finish_switch_fiber(void* fake_stack_save, const(void)** bottom_old, size_t* size_old);
             void* __asan_get_current_fake_stack();
             void* __asan_addr_is_in_fake_stack(void *fake_stack, void *addr, void **beg, void **end);
+            void __rtsan_disable();
+            void __rtsan_enable();
+            void __rtsan_notify_blocking_call(const(char)* name);
         });
     }
 
@@ -77,6 +80,30 @@ version (SupportSanitizers)
             return fptr(fake_stack, addr, beg, end);
         else
             return null;
+    }
+
+    nothrow @nogc
+    void rtsanDisable()
+    {
+        auto fptr = getOptionalSanitizerFunc!"__rtsan_disable"();
+        if (fptr)
+            fptr();
+    }
+
+    nothrow @nogc
+    void rtsanEnable()
+    {
+        auto fptr = getOptionalSanitizerFunc!"__rtsan_enable"();
+        if (fptr)
+            fptr();
+    }
+
+    nothrow @nogc
+    void rtsanNotifyBlockingCall(const(char) *name)
+    {
+        auto fptr = getOptionalSanitizerFunc!"__rtsan_notify_blocking_call"();
+        if (fptr)
+            fptr(name);
     }
 
     // This uses the forward declaration of `functionName` and returns a pointer to that function
