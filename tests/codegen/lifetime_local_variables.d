@@ -120,3 +120,61 @@ void foo_struct_foo() {
     // CHECK: call void @llvm.lifetime.end.p0{{(i8)?}}(i64 immarg 123
     // CHECK-NEXT: ret void
 }
+
+struct CodepointSet
+{
+    CodepointSet opBinary(string op, U)(U )
+    {
+        return this;
+    }
+
+    this(this) { }
+}
+
+CodepointSet memoizeExpr(string expr)()
+{
+    if (__ctfe)
+        return mixin(expr);
+    CodepointSet slot;
+    return slot;
+}
+
+struct unicode
+{
+    static CodepointSet opDispatch(string name)()
+    {
+        CodepointSet set;
+        return set;
+    }
+}
+
+void wordCharacter() {
+    // CHECK-LABEL: define void @wordCharacter()
+    // CHECK-NOT: call void @llvm.lifetime.start.p0{{(i8)?}}({{.*}}sret
+    memoizeExpr!"unicode.A | unicode.M";
+    // CHECK-LABEL: ret void
+}
+
+struct Grapheme
+{
+    /// Ctor
+    this(C)(C) { }
+
+    this(this) { }
+
+    ~this()    { }
+}
+
+enum jamoLBase = 0x1100;
+
+Grapheme decomposeHangul(dchar ch) {
+    // CHECK-LABEL: define void @decomposeHangul()
+    immutable idxS = ch ;
+    immutable idxT = idxS ;
+
+    immutable partL = jamoLBase ;
+    // CHECK-NOT: call void @llvm.lifetime.start.p0{{(i8)?}}({{.*}}sret
+    if (idxT )
+        return Grapheme(partL);
+    return Grapheme();
+}
