@@ -29,6 +29,7 @@
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "gen/typinf.h"
+#include "gen/linkage.h"
 #include "ir/iraggr.h"
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
@@ -89,8 +90,10 @@ LLGlobalVariable *IrClass::getVtblSymbol(bool define) {
 
   if (define) {
     auto init = getVtblInit(); // might define vtbl
-    if (!vtbl->hasInitializer())
+    if (!vtbl->hasInitializer()) {
       defineGlobal(vtbl, init, aggrdecl);
+      vtbl->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
+    }
   }
 
   return vtbl;
@@ -140,8 +143,10 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
 
   if (define) {
     auto init = getClassInfoInit();
-    if (!typeInfo->hasInitializer())
+    if (!typeInfo->hasInitializer()) {
       defineGlobal(typeInfo, init, aggrdecl);
+      typeInfo->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
+    }
   }
 
   return typeInfo;
@@ -367,7 +372,7 @@ LLConstant *IrClass::getClassInfoInit() {
   if (isInterface) {
     b.push_null_void_array();
   } else {
-    b.push_void_array(cd->size(Loc()), getInitSymbol());
+    b.push_void_array(cd->size(Loc()), getInitSymbol(true));
   }
 
   // string name
@@ -381,7 +386,7 @@ LLConstant *IrClass::getClassInfoInit() {
   if (isInterface) {
     b.push_array(0, getNullPtr());
   } else {
-    b.push_array(cd->vtbl.length, getVtblSymbol());
+    b.push_array(cd->vtbl.length, getVtblSymbol(true)); // override
   }
 
   // Interface[] interfaces
@@ -391,7 +396,9 @@ LLConstant *IrClass::getClassInfoInit() {
   assert(!isInterface || !cd->baseClass);
   if (cd->baseClass) {
     DtoResolveClass(cd->baseClass);
-    b.push(getIrAggr(cd->baseClass)->getClassInfoSymbol());
+    auto ti = getIrAggr(cd->baseClass)->getClassInfoSymbol(true);
+    ti->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
+    b.push(ti);
   } else {
     b.push_null(cinfoType);
   }
@@ -743,7 +750,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
     assert(itc && "null interface IrTypeClass");
 
     // classinfo
-    LLConstant *ci = irinter->getClassInfoSymbol();
+    LLConstant *ci = irinter->getClassInfoSymbol(true);
 
     // vtbl
     LLConstant *vtb;
@@ -772,6 +779,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
   LLConstant *arr = LLConstantArray::get(array_type, constants);
   auto ciarr = getInterfaceArraySymbol();
   defineGlobal(ciarr, arr, cd);
+  ciarr->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
 
   // return null, only baseclass provide interfaces
   if (cd->vtblInterfaces->length == 0) {
