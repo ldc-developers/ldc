@@ -1,4 +1,4 @@
-// RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
+// RUN: %ldc -enable-getelementptr-nuw -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 struct S {
     float x, y;
@@ -9,7 +9,7 @@ extern(C):  // Avoid name mangling
 // IndexExp in static array with const exp
 // CHECK-LABEL: @foo1
 int foo1(int[3] a) {
-    // CHECK: getelementptr inbounds [3 x i32]
+    // CHECK: getelementptr inbounds{{( nuw)?}} [3 x i32]
     return a[1];
 }
 
@@ -58,7 +58,7 @@ int foo7(int* p, int i) {
 // Struct field
 // CHECK-LABEL: @foo8
 float foo8(S s) {
-    // CHECK: getelementptr inbounds
+    // CHECK: getelementptr inbounds{{( nuw)?}}
     return s.y;
 }
 
@@ -79,7 +79,7 @@ int foo10(int[] a, int i) {
 // SliceExp for static array with const lower bound
 // CHECK-LABEL: @foo11
 int[] foo11(ref int[3] a) {
-    // CHECK: getelementptr inbounds i32, ptr
+    // CHECK: getelementptr inbounds{{( nuw)?}} i32, ptr
     return a[1 .. $];
 }
 

@@ -723,6 +723,11 @@ cl::opt<unsigned>
                    cl::desc("Warn for stack size bigger than the given number"),
                    cl::value_desc("threshold"));
 
+cl::opt<bool>
+    enableGetElementPtrNuw("enable-getelementptr-nuw", cl::ZeroOrMore,
+                           cl::desc("enable nuw(no-unsigned-wrap) flag to "
+                                    "LLVM's getelementptr insturction"));
+
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
