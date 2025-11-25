@@ -62,14 +62,14 @@ runs:
           prefix="/usr/local/opt/llvm"
         fi
         rm -rf "$prefix/include/c++/v1"
-    - name: 'Windows: Install clang v21.1.5 from GitHub'
+    - name: 'Windows: Install clang 21 from GitHub'
       if: runner.os == 'Windows'
       shell: bash
       run: |
         set -eux
         cd ..
         curl -fL --retry 3 --max-time 300 -o clang.exe \
-          https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.5/LLVM-21.1.5-win64.exe
+          https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.7/LLVM-21.1.7-win64.exe
         ./clang.exe //S # double-slash for bash
         rm clang.exe
         # C:\Program Files\LLVM\bin should already be in PATH
