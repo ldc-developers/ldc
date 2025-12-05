@@ -107,7 +107,7 @@ public:
         // https://developer.apple.com/library/archive/documentation/Xcode/Conceptual/iPhoneOSABIReference/Articles/ARM64FunctionCallingConventions.html#//apple_ref/doc/uid/TP40013702-SW1
         if (isDarwin()) {
           if (auto ts = tb->isTypeStruct()) {
-            if (ts->sym->fields.empty() && ts->sym->isPOD()) {
+            if (ts->sym->fields.empty() && dmd::isPOD(ts->sym)) {
               fty.args.erase(fty.args.begin() + i);
               continue;
             }

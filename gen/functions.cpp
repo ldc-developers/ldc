@@ -1064,7 +1064,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
 
-  if (fd->needsClosure())
+  if (fd->requiresClosure)
     verifyScopedDestructionInClosure(fd);
 
   assert(fd->ident != Id::empty);
