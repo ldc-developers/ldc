@@ -362,9 +362,10 @@ struct Param
 
 struct structalign_t
 {
-    unsigned short value;
-    d_bool pack;
-
+private:
+    uint16_t value;
+    uint8_t flags;
+public:
     bool isDefault() const;
     void setDefault();
     bool isUnknown() const;
@@ -372,7 +373,9 @@ struct structalign_t
     void set(unsigned value);
     unsigned get() const;
     bool isPack() const;
-    void setPack(bool pack);
+    void setPack();
+    bool fromAlignas() const;
+    void setAlignas();
 };
 
 // magic value means "match whatever the underlying C compiler does"
@@ -429,7 +432,7 @@ struct Global
     unsigned warnings;       // number of warnings reported so far
     unsigned gag;            // !=0 means gag reporting of errors & warnings
     unsigned gaggedErrors;   // number of errors reported while gagged
-    unsigned gaggedWarnings; // number of warnings reported while gagged
+    unsigned gaggedDeprecations; // number of deprecations reported while gagged
 
     void* console;         // opaque pointer to console for controlling text attributes
 

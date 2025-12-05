@@ -46,6 +46,7 @@ namespace dmd
 {
     Type *typeSemantic(Type *t, Loc loc, Scope *sc);
     Type *merge(Type *type);
+    Expression *defaultInitLiteral(Type *t, Loc loc);
 }
 
 enum class TY : uint8_t
@@ -222,7 +223,7 @@ public:
     virtual const char *kind();
     Type *copy() const;
     virtual Type *syntaxCopy();
-    bool equals(const RootObject * const o) const override;
+    bool equals(const Type * const t) const;
     // kludge for template.isType()
     DYNCAST dyncast() const override final { return DYNCAST_TYPE; }
     size_t getUniqueID() const;
@@ -243,7 +244,6 @@ public:
     virtual bool isUnsigned();
     virtual bool isScopeClass();
     virtual bool isString();
-    virtual bool isAssignable();
     virtual bool isBoolean();
     bool isConst() const       { return (mod & MODconst) != 0; }
     bool isImmutable() const   { return (mod & MODimmutable) != 0; }
@@ -270,7 +270,6 @@ public:
 
     virtual ClassDeclaration *isClassHandle();
     virtual structalign_t alignment();
-    virtual Expression *defaultInitLiteral(Loc loc);
     virtual int hasWild() const;
     virtual bool hasVoidInitPointers();
     virtual bool hasUnsafeBitpatterns();
@@ -320,7 +319,6 @@ public:
     const char *kind() override;
     TypeError *syntaxCopy() override;
 
-    Expression *defaultInitLiteral(Loc loc) override;
     void accept(Visitor *v) override { v->visit(this); }
 };
 
@@ -381,7 +379,6 @@ public:
     bool isScalar() override;
     bool isUnsigned() override;
     bool isBoolean() override;
-    Expression *defaultInitLiteral(Loc loc) override;
     TypeBasic *elementType();
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -405,7 +402,6 @@ public:
     unsigned alignsize() override;
     bool isString() override;
     structalign_t alignment() override;
-    Expression *defaultInitLiteral(Loc loc) override;
     bool hasUnsafeBitpatterns() override;
     bool hasVoidInitPointers() override;
     bool hasInvariant() override;
@@ -696,8 +692,6 @@ public:
     unsigned alignsize() override;
     TypeStruct *syntaxCopy() override;
     structalign_t alignment() override;
-    Expression *defaultInitLiteral(Loc loc) override;
-    bool isAssignable() override;
     bool isBoolean() override;
     bool needsDestruction() override;
     bool needsCopyOrPostblit() override;
@@ -728,7 +722,6 @@ public:
     bool isUnsigned() override;
     bool isBoolean() override;
     bool isString() override;
-    bool isAssignable() override;
     bool needsDestruction() override;
     bool needsCopyOrPostblit() override;
     bool needsNested() override;
@@ -771,7 +764,6 @@ public:
     static TypeTuple *create(Type *t1, Type *t2);
     const char *kind() override;
     TypeTuple *syntaxCopy() override;
-    bool equals(const RootObject * const o) const override;
     void accept(Visitor *v) override { v->visit(this); }
 };
 

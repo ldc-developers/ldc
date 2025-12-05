@@ -37,7 +37,7 @@ import dmd.dinterpret;
 import dmd.dsymbolsem;
 import dmd.dtemplate;
 import dmd.dtoh;
-// IN_LLVM import dmd.glue : generateCodeAndWrite;
+// IN_LLVM import dmd.glue : generateCodeAndWrite, ObjcGlue_initialize;
 import dmd.dmodule;
 // IN_LLVM import dmd.dmsc : backend_init, backend_term;
 import dmd.doc;
@@ -718,7 +718,7 @@ version (IN_LLVM) {} else
     }
     //if (global.errors)
     //    fatal();
-    Module.runDeferredSemantic();
+    runDeferredSemantic();
     if (Module.deferred.length)
     {
         for (size_t i = 0; i < Module.deferred.length; i++)
@@ -736,7 +736,7 @@ version (IN_LLVM) {} else
             message("semantic2 %s", m.toChars());
         m.semantic2(null);
     }
-    Module.runDeferredSemantic2();
+    runDeferredSemantic2();
     if (global.errors)
         removeHdrFilesAndFail(params, modules);
 
@@ -761,7 +761,7 @@ version (IN_LLVM) {} else
             modules.push(m);
         }
     }
-    Module.runDeferredSemantic3();
+    runDeferredSemantic3();
     if (global.errors)
         removeHdrFilesAndFail(params, modules);
 
@@ -778,7 +778,7 @@ else
         {
             if (params.v.verbose)
                 message("inline scan %s", m.toChars());
-            inlineScanModule(m);
+            inlineScanModule(m, global.errorSink);
         }
     }
 }
@@ -799,7 +799,7 @@ else
     {
         foreach (i; 1 .. modules[0].aimports.length)
             semantic3OnDependencies(modules[0].aimports[i]);
-        Module.runDeferredSemantic3();
+        runDeferredSemantic3();
 
         const data = (*ob)[];
         if (params.moduleDeps.name)
@@ -856,7 +856,7 @@ version (IN_LLVM)
     }
 
     if (global.params.cxxhdr.doOutput)
-        genCppHdrFiles(modules);
+        genCppHdrFiles(modules, global.errorSink);
 
     if (global.errors)
         fatal();
@@ -900,6 +900,7 @@ version (IN_LLVM)
 else // !IN_LLVM
 {
     {
+        ObjcGlue_initialize();
         timeTraceBeginEvent(TimeTraceEventType.codegenGlobal);
         scope (exit) timeTraceEndEvent(TimeTraceEventType.codegenGlobal);
         generateCodeAndWrite(modules[], libmodules[], params.libname, params.objdir,

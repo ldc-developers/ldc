@@ -26,6 +26,7 @@ import dmd.file_manager;
 import dmd.identifier;
 import dmd.location;
 import dmd.lexer : CompileEnv;
+import dmd.targetcompiler;
 import dmd.utils;
 
 version (IN_LLVM)
@@ -44,10 +45,6 @@ version (IN_LLVM)
 }
 else
     enum IN_LLVM = false;
-
-version (IN_GCC) {}
-else version (IN_LLVM) {}
-else version = MARS;
 
 /// Defines a setting for how compiler warnings and deprecations are handled
 enum DiagnosticReporting : ubyte
@@ -218,7 +215,7 @@ extern (C++) struct Param
     bool betterC;           // be a "better C" compiler; no dependency on D runtime
     bool addMain;           // add a default main() function
     bool allInst;           // generate code for all template instantiations
-    bool bitfields;         // support C style bit fields
+    bool bitfields = true;  // support C style bit fields
 
     CppStdRevision cplusplus = CppStdRevision.cpp11;    // version of C++ standard to support
 
@@ -369,6 +366,7 @@ enum hdr_ext  = "di";       // for D 'header' import files
 enum json_ext = "json";     // for JSON files
 enum map_ext  = "map";      // for .map files
 enum c_ext    = "c";        // for C source files
+enum h_ext    = "h";        // for C header source files
 enum i_ext    = "i";        // for preprocessed C source file
 version (IN_LLVM)
 {
@@ -406,7 +404,7 @@ extern (C++) struct Global
     uint warnings;          /// number of warnings reported so far
     uint gag;               /// !=0 means gag reporting of errors & warnings
     uint gaggedErrors;      /// number of errors reported while gagged
-    uint gaggedWarnings;    /// number of warnings reported while gagged
+    uint gaggedDeprecations; /// number of deprecations reported while gagged
 
     void* console;         /// opaque pointer to console for controlling text attributes
 
@@ -461,7 +459,7 @@ else
     extern (C++) uint startGagging() @safe
     {
         ++gag;
-        gaggedWarnings = 0;
+        gaggedDeprecations = 0;
         return gaggedErrors;
     }
 
@@ -501,27 +499,11 @@ else
         errorSinkNull = new ErrorSinkNull;
 
         this.fileManager = new FileManager();
+        compileEnv.vendor = TargetCompiler;
+        compileEnv.switchPrefix = SwitchPrefix;
 
-        version (MARS)
-        {
-            compileEnv.vendor = "Digital Mars D";
-        }
-        else version (IN_GCC)
-        {
-            compileEnv.vendor = "GNU D";
-        }
-        else version (IN_LLVM)
-        {
-            compileEnv.vendor = "LDC";
-
-            // Initialize the default `-color` value here; upstream does it in
-            // `dmd.mars.parseCommandLine()`, which for LDC is implemented in C++
-            // (and the `dmd.console` helpers are all `extern(D)`).
-            import dmd.console : detectTerminal, detectColorPreference;
-            params.v.color = detectTerminal() && detectColorPreference();
-        }
-        else
-            static assert(0, "unknown vendor");
+        mixin UseAnsiColors;
+        params.v.color = useAnsiColors();
 
         compileEnv.versionNumber = parseVersionNumber(versionString());
 

@@ -5,8 +5,8 @@
 // LDC: compiles
 test_output:
 ---
-fail_compilation/iasm1.d(103): Error: bad type/size of operands `and`
-fail_compilation/iasm1.d(104): Error: bad type/size of operands `and`
+fail_compilation/iasm1.d(103): Error: `and` instruction requires operands of matching type/size
+fail_compilation/iasm1.d(104): Error: `and` instruction requires operands of matching type/size
 ---
 */
 

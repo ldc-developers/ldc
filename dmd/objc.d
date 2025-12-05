@@ -31,8 +31,6 @@ import dmd.errors;
 import dmd.expression;
 import dmd.expressionsem;
 import dmd.func;
-import dmd.globals;
-import dmd.gluelayer;
 import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
@@ -446,10 +444,6 @@ extern(C++) private final class Unsupported : Objc
 {
     extern(D) final this()
     {
-static if (!IN_LLVM)
-{
-        ObjcGlue.initialize();
-}
     }
 
     override void setObjc(ClassDeclaration cd)
@@ -567,10 +561,6 @@ extern(C++) private final class Supported : Objc
     {
         VersionCondition.addPredefinedGlobalIdent("D_ObjectiveC");
 
-version (IN_LLVM) {} else
-{
-        ObjcGlue.initialize();
-}
         ObjcSelector._init();
     }
 
