@@ -112,11 +112,11 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   // this is DMD-style asm
   sc->func->hasInlineAsm(true);
 
-  const auto caseSensitive = s->caseSensitive;
+  const auto caseSensitive = s->caseSensitive();
 
   auto ias = createInlineAsmStatement(s->loc, s->tokens);
   s = ias;
-  s->caseSensitive = caseSensitive;
+  s->caseSensitive(caseSensitive);
 
   bool err = false;
   llvm::Triple const &t = *global.params.targetTriple;

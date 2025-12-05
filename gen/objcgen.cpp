@@ -425,7 +425,7 @@ size_t objcGetInstanceSize(llvm::Module &module, ClassDeclaration *decl, bool me
   if (meta)
     return start;
   
-  return start+decl->size(decl->loc);
+  return start + dmd::size(decl, decl->loc);
 }
 
 // Gets the empty cache variable, and creates a reference to it
@@ -819,7 +819,7 @@ LLConstant *ObjCState::createIvarInfo(VarDeclaration *decl) {
   members.push_back(ivar->name);
   members.push_back(ivar->type);
   members.push_back(DtoConstUint(decl->alignment.isDefault() ? -1 : decl->alignment.get()));
-  members.push_back(DtoConstUint(decl->size(decl->loc)));
+  members.push_back(DtoConstUint(dmd::size(decl, decl->loc)));
 
   return LLConstantStruct::get(
     objcGetIvarType(module),

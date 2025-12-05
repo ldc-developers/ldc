@@ -45,6 +45,11 @@ public extern (C++) BUILTIN isBuiltin(FuncDeclaration fd)
  */
 public extern (C++) Expression eval_builtin(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
+    version (IN_LLVM)
+        enum IN_LLVM = true;
+    else
+        enum IN_LLVM = false;
+
     if (fd.builtin == BUILTIN.unimp)
         return null;
 
@@ -520,6 +525,7 @@ Expression eval_llvm(Loc, FuncDeclaration, Expression[])
 
 version (IN_LLVM)
 {
+import dmd.globals : uinteger_t;
 
 private Type getTypeOfOverloadedIntrinsic(FuncDeclaration fd)
 {

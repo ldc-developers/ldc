@@ -270,7 +270,7 @@ public:
     // just forward aliases
     if (decl->aliasTuple) {
       Logger::println("aliasTuple");
-      decl->toAlias()->accept(this);
+      toAlias(decl)->accept(this);
       return;
     }
 
@@ -339,9 +339,9 @@ public:
     // is sufficient. Speculative ones are lazily emitted if actually referenced
     // during codegen - per IR module.
     if ((global.params.linkonceTemplates == LinkonceTemplates::aggressive &&
-         decl->isDiscardable()) ||
+         isDiscardable(decl)) ||
         (global.params.linkonceTemplates != LinkonceTemplates::aggressive &&
-         !decl->needsCodegen())) {
+         !needsCodegen(decl))) {
       Logger::println("Does not need codegen, skipping.");
       return;
     }

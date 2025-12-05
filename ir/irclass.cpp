@@ -367,7 +367,7 @@ LLConstant *IrClass::getClassInfoInit() {
   if (isInterface) {
     b.push_null_void_array();
   } else {
-    b.push_void_array(cd->size(Loc()), getInitSymbol());
+    b.push_void_array(size(cd, Loc()), getInitSymbol());
   }
 
   // string name
@@ -525,7 +525,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
 
   FuncDeclarations vtbl_array;
   const bool new_instance = b->sym == cd;
-  b->fillVtbl(cd, &vtbl_array, new_instance);
+  fillVtbl(b, cd, &vtbl_array, new_instance);
 
   std::vector<llvm::Constant *> constants;
   constants.reserve(vtbl_array.length);

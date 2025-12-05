@@ -67,6 +67,12 @@ import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
 
+version (IN_LLVM)
+{
+    // in gen/asmstmt.cpp:
+    extern(C++) Statement asmSemantic(AsmStatement s, Scope* sc);
+}
+
 version (DMDLIB)
 {
     version = CallbackAPI;
@@ -3638,8 +3644,6 @@ version (IN_LLVM)
     {
         /* https://dlang.org/spec/statement.html#asm
          */
-
-        version (IN_LLVM) import dmd.gluelayer : asmSemantic;
 
         //printf("AsmStatement()::semantic()\n");
         result = asmSemantic(s, sc);

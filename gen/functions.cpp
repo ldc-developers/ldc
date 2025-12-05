@@ -534,7 +534,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
       const bool semaSuccess = functionSemantic3(fdecl);
       (void)semaSuccess;
       assert(semaSuccess);
-      Module::runDeferredSemantic3();
+      runDeferredSemantic3();
     }
     defineAtEnd = true;
   } else if (defineAsExternallyAvailable(*fdecl)) {

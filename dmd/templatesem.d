@@ -1260,12 +1260,12 @@ version (IN_LLVM)
 
         // Skip if the primary instance has already been assigned to a root
         // module.
-        if (inst.memberOf)
+        if (ti.inst.memberOf)
             return null;
 
         // Okay, this is the primary instance to be assigned to a root
         // module and getting semantic3.
-        assert(this is inst);
+        assert(ti is ti.inst);
     }
 }
 

@@ -2654,7 +2654,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    assert(e->sym->getType());
+    assert(getType(e->sym));
     result = toElem(e->e1);
   }
 

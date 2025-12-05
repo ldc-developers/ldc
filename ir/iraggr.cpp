@@ -217,7 +217,7 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
                        isPacked);
 
   // tail padding?
-  const size_t structsize = aggrdecl->size(Loc());
+  const size_t structsize = size(aggrdecl, Loc());
   if (offset < structsize) {
     add_zeros(constants, offset, structsize);
   } else if (offset > structsize) {

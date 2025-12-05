@@ -3743,7 +3743,7 @@ struct AsmProcessor {
         for (int i = 0; i < N_Regs; i++) {
           const auto reg = regInfo[i].ident;
           const auto matchesRegister =
-              stmt->caseSensitive
+              stmt->caseSensitive()
                   ? ident == reg
                   : reg && llvm::StringRef(ident->toChars())
                                .equals_insensitive(reg->toChars());

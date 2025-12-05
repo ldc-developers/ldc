@@ -135,7 +135,7 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
     // parent composite types have to get declared
     while (!parent->isModule()) {
       if (parent->isAggregateDeclaration())
-        CreateCompositeType(parent->getType());
+        CreateCompositeType(getType(parent));
       parent = parent->toParent();
     }
   }
@@ -145,7 +145,7 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
   } else if (auto m = parent->isModule()) {
     return EmitModule(m);
   } else if (parent->isAggregateDeclaration()) {
-    return CreateCompositeType(parent->getType());
+    return CreateCompositeType(getType(parent));
   } else if (auto fd = parent->isFuncDeclaration()) {
     DtoDeclareFunction(fd);
     return EmitSubProgram(fd);
@@ -154,7 +154,7 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
   } else if (auto fwd = parent->isForwardingScopeDsymbol()) {
     return GetSymbolScope(fwd);
   } else if (auto ed = parent->isEnumDeclaration()) {
-    auto et = CreateEnumType(ed->getType()->isTypeEnum());
+    auto et = CreateEnumType(getType(ed)->isTypeEnum());
     if (llvm::isa<llvm::DICompositeType>(et))
       return et;
     return EmitNamespace(ed, ed->toChars());
@@ -504,7 +504,7 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
   if (!members)
     return;
 
-  auto scope = CreateCompositeType(ad->getType());
+  auto scope = CreateCompositeType(getType(ad));
 
   std::function<void(Dsymbols *)> visitMembers = [&](Dsymbols *members) {
     for (auto s : *members) {
@@ -607,7 +607,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
   {
     ClassDeclaration *classDecl = ad->isClassDeclaration();
     if (classDecl && classDecl->baseClass) {
-      derivedFrom = CreateCompositeType(classDecl->baseClass->getType());
+      derivedFrom = CreateCompositeType(getType(classDecl->baseClass));
       auto dt = DBuilder.createInheritance(irAggr->diCompositeType,
                                            derivedFrom, // base class type
                                            0,           // offset of base class
