@@ -22,7 +22,6 @@
 #include "dmd/root/rmem.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
-#include "gen/aa.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/binops.h"
@@ -1205,8 +1204,7 @@ public:
       }
       arrptr = DtoGEP1(DtoMemType(l->type->nextOf()), DtoArrayPtr(l), DtoRVal(r));
     } else if (e1type->ty == TY::Taarray) {
-      result = DtoAAIndex(e->loc, e->type, l, r, e->modifiable);
-      return;
+      llvm_unreachable("IndexExp for associative array should have been lowered");
     } else {
       IF_LOG Logger::println("e1type: %s", e1type->toChars());
       llvm_unreachable("Unknown IndexExp target.");
@@ -1481,8 +1479,7 @@ public:
       Logger::println("static or dynamic array");
       eval = DtoArrayEquals(e->loc, e->op, l, r);
     } else if (t->ty == TY::Taarray) {
-      Logger::println("associative array");
-      eval = DtoAAEquals(e->loc, e->op, l, r);
+      llvm_unreachable("associative array equality should have been lowered");
     } else if (t->ty == TY::Tdelegate) {
       Logger::println("delegate");
       eval = DtoDelegateEquals(e->op, DtoRVal(l), DtoRVal(r));
@@ -1647,12 +1644,8 @@ public:
       result = new DImValue(e->type, mem);
     }
     // new AA
-    else if (auto taa = ntype->isTypeAArray()) {
-      assert(!e->placement);
-      LLFunction *func = getRuntimeFunction(e->loc, gIR->module, "_aaNew");
-      LLValue *aaTypeInfo = DtoTypeInfoOf(e->loc, stripModifiers(taa));
-      LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, "aa");
-      result = new DImValue(e->type, aa);
+    else if (ntype->isTypeAArray()) {
+      llvm_unreachable("_aaNew should have been lowered");
     }
     // new basic type
     else {
@@ -2468,24 +2461,11 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(InExp *e) override {
-    IF_LOG Logger::print("InExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    DValue *key = toElem(e->e1);
-    DValue *aa = toElem(e->e2);
-
-    result = DtoAAIn(e->loc, e->type, aa, key);
+    llvm_unreachable("InExp should have been lowered");
   }
 
   void visit(RemoveExp *e) override {
-    IF_LOG Logger::print("RemoveExp::toElem: %s\n", e->toChars());
-    LOG_SCOPE;
-
-    DValue *aa = toElem(e->e1);
-    DValue *key = toElem(e->e2);
-
-    result = DtoAARemove(e->loc, aa, key);
+    llvm_unreachable("RemoveExp should have been lowered");
   }
 
   //////////////////////////////////////////////////////////////////////////////
