@@ -74,7 +74,6 @@ static void checkForImplicitGCCall(Loc loc, const char *name) {
         "_d_arrayappendT",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
-        "_d_assocarrayliteralTX",
         "_d_callfinalizer",
         "_d_delarray_t",
         "_d_delclass",
@@ -731,11 +730,6 @@ static void buildRuntimeModule() {
   // int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
   createFwdDecl(LINK::c, intTy, {"_aaEqual"}, {typeInfoTy, aaTy, aaTy},
                 {STCin, STCin, STCin}, Attr_1_2_NoCapture);
-
-  // AA _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti,
-  //                           void[] keys, void[] values)
-  createFwdDecl(LINK::c, aaTy, {"_d_assocarrayliteralTX"},
-                {aaTypeInfoTy, voidArrayTy, voidArrayTy}, {STCconst, 0, 0});
 
   // AA _aaNew(const TypeInfo_AssociativeArray ti)
   createFwdDecl(LINK::c, aaTy, {"_aaNew"}, {aaTypeInfoTy}, {STCconst});
