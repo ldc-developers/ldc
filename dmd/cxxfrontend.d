@@ -439,6 +439,12 @@ PURE isPure(FuncDeclaration fd)
     return dmd.funcsem.isPure(fd);
 }
 
+bool needsClosure(FuncDeclaration fd)
+{
+    import dmd.funcsem;
+    return dmd.funcsem.needsClosure(fd);
+}
+
 /***********************************************************
  * hdrgen.d
  */
