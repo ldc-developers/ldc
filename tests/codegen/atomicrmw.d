@@ -34,7 +34,10 @@ void main() {
   assert(x == r);
   // CHECK: = atomicrmw xor ptr
 
-  r = atomicOp!"+="(x, 1.0f);
-  assert(x == r);
-  // CHECK: = cmpxchg weak ptr
+  {
+    shared float x2 = 2.5f;
+    const r2 = atomicOp!"+="(x2, 1.0f);
+    assert(x2 == r2);
+    // CHECK: = cmpxchg weak ptr
+  }
 }
