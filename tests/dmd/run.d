@@ -624,10 +624,12 @@ string[string] getEnvironment()
       }
 
         version(OSX)
+        {
             version (IN_LLVM)
                 env["D_OBJC"] = "1";
             else version(X86_64)
                 env["D_OBJC"] = "1";
+        }
     }
     return env;
 }
