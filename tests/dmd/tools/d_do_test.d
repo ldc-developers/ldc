@@ -740,9 +740,9 @@ bool gatherTestParameters(ref TestArgs testArgs, string input_dir, string input_
 
     version (LDC)
     {
-        // *.c tests: make sure not to pull in ldc_rt.dso.o for BUILD_SHARED_LIBS=ON builds
+        // *.{c,i} tests: make sure not to pull in ldc_rt.dso.o for BUILD_SHARED_LIBS=ON builds
         // (with implicit -link-defaultlib-shared)
-        if (input_file.extension() == ".c")
+        if (input_file.extension() == ".c" || input_file.extension() == ".i")
         {
             if (testArgs.requiredArgs.length)
                 testArgs.requiredArgs ~= " -defaultlib=";
