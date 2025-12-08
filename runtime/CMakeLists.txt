@@ -43,7 +43,8 @@ set(DRUNTIME_EXTRA_FLAGS          )
 set(DRUNTIME_EXTRA_UNITTEST_FLAGS -d-version=CoreUnittest -unittest -checkaction=context -linkonce-templates)
 set(PHOBOS2_EXTRA_FLAGS           )
 # FIXME: restore `-checkaction=context` after https://github.com/dlang/dmd/issues/21646 has been fixed
-set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest -linkonce-templates)
+# FIXME: remove `-dw` (so restoring `-de`) once the std.datetime deprecation has been fixed
+set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest -linkonce-templates -dw)
 
 # Shadow the D_FLAGS cache variable by a regular variable containing all base D flags
 set(D_FLAGS ${D_FLAGS} ${D_EXTRA_FLAGS})
