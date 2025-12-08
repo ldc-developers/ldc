@@ -676,8 +676,8 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(AssocArrayLiteralExp *e) override {
-    if (e->lowering) {
-      result = toConstElem(e->lowering, p);
+    if (e->loweringCtfe) {
+      result = toConstElem(e->loweringCtfe, p);
       return;
     }
 
