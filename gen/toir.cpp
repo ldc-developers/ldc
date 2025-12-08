@@ -1645,7 +1645,12 @@ public:
     }
     // new AA
     else if (ntype->isTypeAArray()) {
-      llvm_unreachable("_aaNew should have been lowered");
+      assert(!e->placement);
+      assert(!e->argprefix);
+      if (!e->lowering) {
+        llvm_unreachable("_aaNew should have been lowered");
+      }
+      result = toElem(e->lowering);
     }
     // new basic type
     else {
