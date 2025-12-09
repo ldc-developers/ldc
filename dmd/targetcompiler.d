@@ -163,8 +163,8 @@ mixin template UseAnsiColors()
         }
         else version (IN_LLVM)
         {
-            import dmd.console : detectTerminal;
-            return detectTerminal();
+            import dmd.console : detectTerminal, detectColorPreference;
+            return detectTerminal() && detectColorPreference();
         }
         else version (MARS)
         {
