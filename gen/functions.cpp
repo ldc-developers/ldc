@@ -216,6 +216,10 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
         attrs.addDereferenceableAttr(size(loweredDType));
       }
     } else {
+      // skip 0-sized value parameters (0-length static arrays, noreturn)
+      if (size(loweredDType) == 0)
+        continue;
+
       if (abi->passByVal(f, loweredDType)) {
         // LLVM ByVal parameters are pointers to a copy in the function
         // parameters stack. The caller needs to provide a pointer to the

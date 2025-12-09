@@ -234,16 +234,17 @@ struct X86TargetABI : TargetABI {
 
     size_t i = 0;
     while (i < fty.args.size()) {
-      Type *type = fty.args[i]->type->toBasetype();
-      if (type->ty == TY::Tstruct) {
-        // Do not pass empty structs at all for C++ ABI compatibility.
-        // Tests with clang reveal that more complex "empty" types, for
-        // example a struct containing an empty struct, are not
-        // optimized in the same way.
-        auto sd = static_cast<TypeStruct *>(type)->sym;
-        if (sd->fields.empty()) {
-          fty.args.erase(fty.args.begin() + i);
-          continue;
+      auto arg = fty.args[i];
+      if (!arg->byref) {
+        if (auto ts = arg->type->toBasetype()->isTypeStruct()) {
+          // Do not pass empty structs at all for C++ ABI compatibility.
+          // Tests with clang reveal that more complex "empty" types, for
+          // example a struct containing an empty struct, are not
+          // optimized in the same way.
+          if (ts->sym->fields.empty()) {
+            fty.args.erase(fty.args.begin() + i);
+            continue;
+          }
         }
       }
       ++i;
