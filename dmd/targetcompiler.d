@@ -30,9 +30,9 @@ else version (IN_LLVM)
 {
     enum TargetCompiler = "LDC";
     enum SwitchPrefix = "";
-    enum SwitchVariadic = "betterC";
-    enum const(char)* SwitchExceptions = null;
-    enum const(char)* SwitchScopeGuard = "betterC";
+    enum SwitchVariadic = "fno-rtti";
+    enum const(char)* SwitchExceptions = "fno-exceptions";
+    enum const(char)* SwitchScopeGuard = "fno-exceptions";
 }
 else version (MARS)
 {
