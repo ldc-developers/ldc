@@ -23,8 +23,6 @@ runs:
           # sporadically hanging since Ubuntu 22
           excludes+='|^core.thread-shared_32$'
         elif [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-aarch64 ]]; then
-          # FIXME: failing unittest(s)
-          excludes+='|^std.internal.math.gammafunction'
           # FIXME: failing unittest(s) with enabled optimizations
           excludes+='|^std.math.exponential(-shared)?$'
           # FIXME: sporadically hanging
