@@ -71,7 +71,7 @@ jobs:
             with_pgo: true
 
           - job_name: macOS x86_64
-            os: macos-13
+            os: macos-15-intel
             arch: x86_64
             # https://github.com/ldc-developers/ldc/issues/4462:
             # When using LTO, we need to explicitly export ~all symbols for plugin support via `ld64 -exported_symbol '__*'`.
