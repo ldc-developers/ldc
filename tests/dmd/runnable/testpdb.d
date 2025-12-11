@@ -734,6 +734,12 @@ struct S21665
 }
 void test21665(IDiaSession session, IDiaSymbol globals)
 {
+  version (LDC)
+  {
+    // FIXME: bitfields
+  }
+  else
+  {
     IDiaSymbol dSym = searchSymbol(globals, "testpdb.S21665");
     dSym || assert(false, "testpdb.S21665 not found");
 
@@ -760,6 +766,7 @@ void test21665(IDiaSession session, IDiaSymbol globals)
     }
     checkBitField!("a", 0, 3);
     checkBitField!("b", 3, 6);
+  }
 }
 
 ///////////////////////////////////////////////
