@@ -5,26 +5,22 @@
 
 export
 {
-    // non-TLS:
-    __gshared
-    {
-        // CHECK: @{{.*}}exportedGlobal{{.*}} = dllexport
-        void* exportedGlobal;
-
-        // CHECK: @{{.*}}importedGlobal{{.*}} = external dllimport
-        extern void* importedGlobal;
-    }
+    // CHECK: @{{.*}}exportedGlobal{{.*}} = dllexport
+    __gshared void* exportedGlobal;
 
     // TLS: unsupported => linker errors
-    version (all)
+    // CHECK: @{{.*}}exportedTlsGlobal{{.*}} = thread_local
+    // CHECK-NOT: dllexport
+    void* exportedTlsGlobal;
+
+    extern
     {
-        // CHECK: @{{.*}}exportedTlsGlobal{{.*}} = thread_local
-        // CHECK-NOT: dllexport
-        void* exportedTlsGlobal;
+        // CHECK: @{{.*}}importedGlobal{{.*}} = external dllimport
+        __gshared void* importedGlobal;
 
         // CHECK: @{{.*}}importedTlsGlobal{{.*}} = external thread_local
         // CHECK-NOT: dllimport
-        extern void* importedTlsGlobal;
+        void* importedTlsGlobal;
     }
 
     // CHECK: define dllexport {{.*}}_D6export11exportedFooFZv
@@ -38,6 +34,8 @@ export
 
 void bar()
 {
-    exportedFoo();
+    // make sure the imported symbols are IR-declared
+    importedGlobal = null;
+    importedTlsGlobal = null;
     importedFoo();
 }

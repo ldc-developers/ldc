@@ -133,7 +133,7 @@ runs:
       run: |
         set -euxo pipefail
         python3 --version
-        if [[ '${{ runner.os }}-${{ inputs.arch }}' == 'macOS-arm64' ]]; then
+        if [[ '${{ runner.os }}' == 'macOS' ]]; then
           brew install lit
         else
           python3 -m pip install --user lit psutil

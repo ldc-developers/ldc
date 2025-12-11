@@ -31,6 +31,10 @@ runs:
         if [[ '${{ runner.os }}' == macOS ]]; then
           # FIXME: https://github.com/dlang/phobos/issues/10730
           excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
+          if [[ '${{ inputs.arch }}' == x86_64 ]]; then
+            # FIXME: regressed with image bump from macos-13 to macos-15-intel, apparently wrt. getpwnam_r() setting unexpected errno
+            excludes+='|^std.path'
+          fi
         fi
 
         ctest -j$N --output-on-failure -E "$excludes" --timeout 120
