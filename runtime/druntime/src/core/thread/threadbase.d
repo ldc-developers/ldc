@@ -161,10 +161,6 @@ class ThreadBase
 
     package void destroyDataStorage() nothrow @nogc
     {
-        // allow the GC to clean up any resources it allocated for this thread.
-        import core.internal.gc.proxy : gc_getProxy;
-        gc_getProxy().cleanupThread(this);
-
         rt_tlsgc_destroy(m_tlsrtdata);
         m_tlsrtdata = null;
     }
