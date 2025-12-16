@@ -92,7 +92,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     if (c->var) {
       // This will alloca if we haven't already and take care of nested refs
       // if there are any.
-      DtoDeclarationExp(c->var);
+      DtoVarDeclaration(c->var);
 
       // Copy the exception reference over from the _d_eh_enter_catch return
       // value.
@@ -214,7 +214,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
     // catchpad
     const auto savedInsertPoint = irs.saveInsertPoint();
     irs.ir->SetInsertPoint(gIR->topallocapoint());
-    DtoDeclarationExp(var);
+    DtoVarDeclaration(var);
 
     // catch handler will be outlined, so always treat as a nested reference
     exnObj = getIrValue(var);
@@ -522,6 +522,17 @@ void TryCatchFinallyScopes::pushCleanup(llvm::BasicBlock *beginBlock,
   cleanupScopes.emplace_back(beginBlock, endBlock);
   unresolvedGotosPerCleanupScope.emplace_back();
   landingPadsPerCleanupScope.emplace_back();
+}
+
+void TryCatchFinallyScopes::pushVarDtorCleanup(VarDeclaration *vd) {
+  llvm::BasicBlock *beginBB = irs.insertBB(llvm::Twine("dtor.") + vd->toChars());
+
+  const auto savedInsertPoint = irs.saveInsertPoint();
+
+  irs.ir->SetInsertPoint(beginBB);
+  toElemDtor(vd->edtor);
+
+  pushCleanup(beginBB, irs.scopebb());
 }
 
 void TryCatchFinallyScopes::popCleanups(CleanupCursor targetScope) {
