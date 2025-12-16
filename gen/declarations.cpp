@@ -256,19 +256,12 @@ public:
     if (decl->ir->isDefined())
       return;
 
-    // skip external declarations (IR-declared lazily)
-    if (decl->storage_class & STCextern)
-      return;
-
     if (decl->type->ty == TY::Terror) {
       error(decl->loc, "%s `%s` had semantic errors when compiling",
             decl->kind(), decl->toPrettyChars());
       decl->ir->setDefined();
       return;
     }
-
-    DtoResolveVariable(decl);
-    decl->ir->setDefined();
 
     // just forward aliases
     if (decl->aliasTuple) {
@@ -277,13 +270,24 @@ public:
       return;
     }
 
+    if (!decl->canTakeAddressOf()) {
+      Logger::println("manifest constant, skipping");
+      return;
+    }
+
     // global variable
     if (decl->isDataseg()) {
-      Logger::println("data segment");
+      // skip external declarations (IR-declared lazily)
+      if (decl->storage_class & STCextern) {
+        Logger::println("external global, skipping");
+        return;
+      }
 
-      assert(!(decl->storage_class & STCmanifest) &&
-             "manifest constant being codegen'd!");
+      Logger::println("global variable");
       assert(!irs->dcomputetarget);
+
+      DtoResolveVariable(decl);
+      decl->ir->setDefined();
 
       getIrGlobal(decl)->getValue(/*define=*/true);
     }

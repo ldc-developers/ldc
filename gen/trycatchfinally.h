@@ -1,6 +1,6 @@
 //===-- gen/trycatchfinally.h - Try/catch/finally scopes --------*- C++ -*-===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -16,6 +16,7 @@
 class Identifier;
 struct IRState;
 class TryCatchStatement;
+class VarDeclaration;
 
 namespace llvm {
 class AllocaInst;
@@ -205,6 +206,8 @@ public:
   /// added as needed, based on what follow-up blocks code from within this
   /// scope will branch to.
   void pushCleanup(llvm::BasicBlock *beginBlock, llvm::BasicBlock *endBlock);
+
+  void pushVarDtorCleanup(VarDeclaration *vd);
 
   /// Terminates the current basic block with a branch to the cleanups needed
   /// for leaving the current scope and continuing execution at the target

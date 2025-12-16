@@ -935,66 +935,63 @@ void DtoVarDeclaration(VarDeclaration *vd) {
   }
 }
 
-DValue *DtoDeclarationExp(Dsymbol *declaration) {
+void DtoDeclarationExp(Dsymbol *declaration) {
   IF_LOG Logger::print("DtoDeclarationExp: %s\n", declaration->toChars());
   LOG_SCOPE;
 
-  if (VarDeclaration *vd = declaration->isVarDeclaration()) {
+  if (auto vd = declaration->isVarDeclaration()) {
     Logger::println("VarDeclaration");
 
-    // if aliasTuple is set, this VarDecl is redone as an alias to another symbol
-    // this seems to be done to rewrite Tuple!(...) v;
-    // as a TupleDecl that contains a bunch of individual VarDecls
     if (vd->aliasTuple) {
-      return DtoDeclarationExp(vd->aliasTuple);
+      Logger::println("aliasTuple");
+      DtoDeclarationExp(vd->toAlias());
+      return;
     }
 
-    if (vd->storage_class & STCmanifest) {
-      IF_LOG Logger::println("Manifest constant, nothing to do.");
-      return nullptr;
+    if (!vd->canTakeAddressOf()) {
+      Logger::println("Manifest constant, nothing to do.");
+      return;
     }
 
-    // static
-    if (vd->isDataseg()) {
+    if (vd->isDataseg()) { // global variable
       Declaration_codegen(vd);
-      if (vd->storage_class & STCextern) {
-        DtoResolveVariable(vd); // make sure there's an IR declaration
-      }
-    } else {
+    } else { // local variable
       DtoVarDeclaration(vd);
+      if (vd->needsScopeDtor()) {
+        gIR->funcGen().scopes.pushVarDtorCleanup(vd);
+      }
     }
-    return makeVarDValue(vd->type, vd);
-  }
-
-  if (StructDeclaration *s = declaration->isStructDeclaration()) {
-    Logger::println("StructDeclaration");
-    Declaration_codegen(s);
-  } else if (FuncDeclaration *f = declaration->isFuncDeclaration()) {
-    Logger::println("FuncDeclaration");
-    Declaration_codegen(f);
-  } else if (ClassDeclaration *e = declaration->isClassDeclaration()) {
+  } else if (auto cd = declaration->isClassDeclaration()) {
     Logger::println("ClassDeclaration");
-    Declaration_codegen(e);
-  } else if (AttribDeclaration *a = declaration->isAttribDeclaration()) {
+    Declaration_codegen(cd);
+  } else if (auto sd = declaration->isStructDeclaration()) {
+    Logger::println("StructDeclaration");
+    Declaration_codegen(sd);
+  } else if (auto fd = declaration->isFuncDeclaration()) {
+    Logger::println("FuncDeclaration");
+    Declaration_codegen(fd);
+  } else if (auto ad = declaration->isAttribDeclaration()) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
-    if (auto d = include(a, nullptr)) {
-      for (unsigned i = 0; i < d->length; ++i) {
-        DtoDeclarationExp((*d)[i]);
+    if (auto d = include(ad, nullptr)) {
+      for (auto sym : *d) {
+        DtoDeclarationExp(sym);
       }
     }
-  } else if (TemplateMixin *m = declaration->isTemplateMixin()) {
+  } else if (auto tm = declaration->isTemplateMixin()) {
     Logger::println("TemplateMixin");
-    for (Dsymbol *mdsym : *m->members) {
-      DtoDeclarationExp(mdsym);
+    for (auto sym : *tm->members) {
+      DtoDeclarationExp(sym);
     }
-  } else if (TupleDeclaration *tupled = declaration->isTupleDeclaration()) {
+  } else if (auto td = declaration->isTupleDeclaration()) {
     Logger::println("TupleDeclaration");
-    assert(tupled->isexp && "Non-expression tuple decls not handled yet.");
-    assert(tupled->objects);
-    for (unsigned i = 0; i < tupled->objects->length; ++i) {
-      auto exp = static_cast<DsymbolExp *>((*tupled->objects)[i]);
-      DtoDeclarationExp(exp->s);
+    // mimicking `foreachVar()`
+    for (auto o : *td->objects) {
+      if (auto e = isExpression(o)) {
+        if (auto ve = e->isVarExp()) {
+          DtoDeclarationExp(ve->var);
+        }
+      }
     }
   } else {
     // Do nothing for template/alias/enum declarations and static
@@ -1002,8 +999,6 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     // even bother to check.
     IF_LOG Logger::println("Ignoring Symbol: %s", declaration->kind());
   }
-
-  return nullptr;
 }
 
 // does pretty much the same as DtoDeclarationExp, except it doesn't initialize,
