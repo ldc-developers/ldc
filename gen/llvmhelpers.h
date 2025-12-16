@@ -113,7 +113,7 @@ void DtoResolveVariable(VarDeclaration *var);
 
 // declaration inside a declarationexp
 void DtoVarDeclaration(VarDeclaration *var);
-DValue *DtoDeclarationExp(Dsymbol *declaration);
+void DtoDeclarationExp(Dsymbol *declaration);
 LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr = nullptr);
 
 // initializer helpers
