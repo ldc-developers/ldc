@@ -21,7 +21,7 @@ void main()
     {
         import core.stdc.stdio;
         auto s = e.toString();
-        printf("%.*s\n", s.length, s.ptr);
+        printf("%.*s\n", cast(int) s.length, s.ptr);
     }
 }
 
