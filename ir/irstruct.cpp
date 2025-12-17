@@ -139,7 +139,7 @@ LLConstant *IrStruct::getTypeInfoInit() {
     } else {
       initPtr = getInitSymbol();
     }
-    b.push_void_array(sd->size(Loc()), initPtr);
+    b.push_void_array(size(sd, Loc()), initPtr);
   }
 
   // function xtoHash

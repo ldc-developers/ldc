@@ -944,7 +944,7 @@ void DtoDeclarationExp(Dsymbol *declaration) {
 
     if (vd->aliasTuple) {
       Logger::println("aliasTuple");
-      DtoDeclarationExp(vd->toAlias());
+      DtoDeclarationExp(toAlias(vd));
       return;
     }
 

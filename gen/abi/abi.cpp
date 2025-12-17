@@ -121,7 +121,7 @@ bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
   if (t->ty != TY::Tstruct)
     return true;
   StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
-  return sd->isPOD() && !(excludeStructsWithCtor && sd->ctor);
+  return dmd::isPOD(sd) && !(excludeStructsWithCtor && sd->ctor);
 }
 
 bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {

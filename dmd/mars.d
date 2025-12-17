@@ -1906,6 +1906,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, out Param 
                     FileName.equals(ext, mars_ext) == 0 &&
                     FileName.equals(ext, hdr_ext) == 0 &&
                     FileName.equals(ext, i_ext) == 0 &&
+                    FileName.equals(ext, h_ext) == 0 &&
                     FileName.equals(ext, c_ext) == 0)
                 {
                     error("-run must be followed by a source file, not '%s'", arguments[i + 1]);
@@ -2071,6 +2072,7 @@ version (IN_LLVM) {} else
         FileName.equals(ext, hdr_ext ) ||
         FileName.equals(ext, dd_ext  ) ||
         FileName.equals(ext, c_ext   ) ||
+        FileName.equals(ext, h_ext   ) ||
         FileName.equals(ext, i_ext   ))
     {
         // strip off .ext

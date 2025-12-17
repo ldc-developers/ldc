@@ -5,6 +5,6 @@
 
 extern(C) void main()
 {
-    // CHECK: betterC_typeinfo_diag.d([[@LINE+1]]): Error: `TypeInfo` cannot be used with -betterC
+    // CHECK: betterC_typeinfo_diag.d([[@LINE+1]]): Error: this array literal requires the GC and cannot be used with `-betterC`
     int[] foo = [1];
 }

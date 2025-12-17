@@ -91,31 +91,22 @@ public:
   void rewriteFunctionType(IrFuncTy &fty) override {
     TargetABI::rewriteFunctionType(fty);
 
-    // remove 0-sized args (static arrays with 0 elements) and, for Darwin,
-    // empty POD structs too
-    size_t i = 0;
-    while (i < fty.args.size()) {
-      auto arg = fty.args[i];
-      if (!arg->byref) {
-        auto tb = arg->type->toBasetype();
-
-        if (size(tb) == 0) {
-          fty.args.erase(fty.args.begin() + i);
-          continue;
-        }
-
-        // https://developer.apple.com/library/archive/documentation/Xcode/Conceptual/iPhoneOSABIReference/Articles/ARM64FunctionCallingConventions.html#//apple_ref/doc/uid/TP40013702-SW1
-        if (isDarwin()) {
-          if (auto ts = tb->isTypeStruct()) {
-            if (ts->sym->fields.empty() && ts->sym->isPOD()) {
+    // Darwin: remove empty POD structs
+    // https://developer.apple.com/library/archive/documentation/Xcode/Conceptual/iPhoneOSABIReference/Articles/ARM64FunctionCallingConventions.html#//apple_ref/doc/uid/TP40013702-SW1
+    if (isDarwin()) {
+      size_t i = 0;
+      while (i < fty.args.size()) {
+        auto arg = fty.args[i];
+        if (!arg->byref) {
+          if (auto ts = arg->type->toBasetype()->isTypeStruct()) {
+            if (ts->sym->fields.empty() && dmd::isPOD(ts->sym)) {
               fty.args.erase(fty.args.begin() + i);
               continue;
             }
           }
         }
+        ++i;
       }
-
-      ++i;
     }
   }
 

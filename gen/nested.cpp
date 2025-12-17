@@ -32,7 +32,7 @@ unsigned getVthisIdx(AggregateDeclaration *ad) {
 
 bool isNRVOVar(VarDeclaration *vd) {
   if (auto fd = vd->toParent2()->isFuncDeclaration())
-    return fd->isNRVO() && vd == fd->nrvo_var && !fd->needsClosure();
+    return fd->isNRVO() && vd == fd->nrvo_var && !dmd::needsClosure(fd);
   return false;
 }
 
@@ -487,7 +487,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
 
     // Create frame for current function and append to frames list
     LLValue *frame = nullptr;
-    bool needsClosure = fd->needsClosure();
+    bool needsClosure = dmd::needsClosure(fd);
     IF_LOG Logger::println("Needs closure (GC) flag: %d", (int)needsClosure);
     if (needsClosure) {
       LLFunction *fn =

@@ -234,6 +234,12 @@ public:
     // entry typeinfo (key-value pair)
     b.push_typeinfo(decl->entry);
 
+    // xopEquals function pointer
+    b.push_funcptr(decl->xopEqual->isFuncDeclaration());
+
+    // xtoHash function pointer
+    b.push_funcptr(decl->xtoHash->isFuncDeclaration());
+
     // finish
     b.finalize(gvar);
   }

@@ -169,7 +169,7 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
 
     bool semantic_error = false;
     if (functionSemantic3(&fdecl)) {
-      Module::runDeferredSemantic3();
+      runDeferredSemantic3();
     } else {
       IF_LOG Logger::println("Failed functionSemantic3.");
       semantic_error = true;

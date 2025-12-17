@@ -161,10 +161,6 @@ class ThreadBase
 
     package void destroyDataStorage() nothrow @nogc
     {
-        // allow the GC to clean up any resources it allocated for this thread.
-        import core.internal.gc.proxy : gc_getProxy;
-        gc_getProxy().cleanupThread(this);
-
         rt_tlsgc_destroy(m_tlsrtdata);
         m_tlsrtdata = null;
     }
@@ -538,6 +534,13 @@ package(core.thread):
         return m_curr;
     }
 
+    /**
+     * Get an array of the current saved registers for this thread.
+     *
+     * Returns:
+     *  A slice of the array representing all saved registers or null.
+     */
+    public abstract void[] savedRegisters() nothrow @nogc;
 
 package(core.thread):
     ///////////////////////////////////////////////////////////////////////////
@@ -1153,12 +1156,8 @@ private void scanAllTypeImpl(scope ScanAllThreadsTypeFn scan, void* curStackTop)
 
     for (ThreadBase t = ThreadBase.sm_tbeg; t; t = t.next)
     {
-        version (Windows)
-        {
-            // Ideally, we'd pass ScanType.regs or something like that, but this
-            // would make portability annoying because it only makes sense on Windows.
-            scanWindowsOnly(scan, t);
-        }
+        if (auto regs = t.savedRegisters())
+            scan(ScanType.stack, regs.ptr, regs.ptr + regs.length);
 
         if (t.m_tlsrtdata !is null)
             rt_tlsgc_scan(t.m_tlsrtdata, (p1, p2) => scan(ScanType.tls, p1, p2));
@@ -1215,14 +1214,6 @@ private void scanStackForASanFakeStack(scope ScanAllThreadsTypeFn scan, void* fa
     }
 }
 } // version (SupportSanitizers)
-
-version (Windows)
-{
-    // Currently scanWindowsOnly can't be handled properly by externDFunc
-    // https://github.com/dlang/druntime/pull/3135#issuecomment-643673218
-    pragma(mangle, "_D4core6thread8osthread15scanWindowsOnlyFNbMDFNbEQBvQBt10threadbase8ScanTypePvQcZvCQDdQDbQBi10ThreadBaseZv")
-    private extern (D) void scanWindowsOnly(scope ScanAllThreadsTypeFn scan, ThreadBase) nothrow;
-}
 
 /**
  * The main entry point for garbage collection.  The supplied delegate

@@ -24,9 +24,9 @@ import dmd.dmodule;
 import dmd.dscope;
 import dmd.dstruct;
 import dmd.dsymbol;
+import dmd.dsymbolsem : toAlias;
 import dmd.expression;
 import dmd.func;
-import dmd.globals;
 import dmd.id;
 import dmd.identifier;
 import dmd.init;
@@ -506,7 +506,7 @@ public:
     {
         //printf("CallExp.inlineCost3() %s\n", toChars());
         // in LDC, we only use the inliner for default arguments
-        static if (IN_LLVM)
+        version (IN_LLVM)
             cost++;
         // https://issues.dlang.org/show_bug.cgi?id=3500
         // super.func() calls must be devirtualized, and the inliner

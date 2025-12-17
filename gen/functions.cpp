@@ -216,6 +216,10 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
         attrs.addDereferenceableAttr(size(loweredDType));
       }
     } else {
+      // skip 0-sized value parameters (0-length static arrays, noreturn)
+      if (size(loweredDType) == 0)
+        continue;
+
       if (abi->passByVal(f, loweredDType)) {
         // LLVM ByVal parameters are pointers to a copy in the function
         // parameters stack. The caller needs to provide a pointer to the
@@ -534,7 +538,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
       const bool semaSuccess = functionSemantic3(fdecl);
       (void)semaSuccess;
       assert(semaSuccess);
-      Module::runDeferredSemantic3();
+      runDeferredSemantic3();
     }
     defineAtEnd = true;
   } else if (defineAsExternallyAvailable(*fdecl)) {
@@ -1064,7 +1068,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
 
-  if (fd->needsClosure())
+  if (fd->requiresClosure)
     verifyScopedDestructionInClosure(fd);
 
   assert(fd->ident != Id::empty);

@@ -62,10 +62,7 @@ static void buildRuntimeModule();
 static void checkForImplicitGCCall(Loc loc, const char *name) {
   if (nogc) {
     static const std::string GCNAMES[] = {
-        "_aaDelX",
-        "_aaGetY",
         "_aaKeys",
-        "_aaNew",
         "_aaRehash",
         "_aaValues",
         "_d_allocmemory",
@@ -74,7 +71,6 @@ static void checkForImplicitGCCall(Loc loc, const char *name) {
         "_d_arrayappendT",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
-        "_d_assocarrayliteralTX",
         "_d_callfinalizer",
         "_d_delarray_t",
         "_d_delclass",
@@ -490,9 +486,6 @@ static void buildRuntimeModule() {
   Type *wstringTy = arrayOf(Type::twchar);
   Type *dstringTy = arrayOf(Type::tdchar);
 
-  // LDC's AA type is rt.aaA.Impl*; use void* for the prototypes
-  Type *aaTy = voidPtrTy;
-
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
@@ -708,37 +701,6 @@ static void buildRuntimeModule() {
   // void* _d_arraysetassign(void* p, void* value, int count, TypeInfo ti)
   createFwdDecl(LINK::c, voidPtrTy, {"_d_arraysetassign"},
                 {voidPtrTy, voidPtrTy, intTy, typeInfoTy});
-
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-
-  // void* _aaGetY(AA* aa, const TypeInfo aati, in size_t valuesize,
-  //               in void* pkey)
-  createFwdDecl(LINK::c, voidPtrTy, {"_aaGetY"},
-                {pointerTo(aaTy), aaTypeInfoTy, sizeTy, voidPtrTy},
-                {0, STCconst, STCin, STCin}, Attr_1_4_NoCapture);
-
-  // inout(void)* _aaInX(inout AA aa, in TypeInfo keyti, in void* pkey)
-  // FIXME: "inout" storageclass is not applied to return type
-  createFwdDecl(LINK::c, voidPtrTy, {"_aaInX"}, {aaTy, typeInfoTy, voidPtrTy},
-                {STCin | STCout, STCin, STCin}, Attr_ReadOnly_1_3_NoCapture);
-
-  // bool _aaDelX(AA aa, in TypeInfo keyti, in void* pkey)
-  createFwdDecl(LINK::c, boolTy, {"_aaDelX"}, {aaTy, typeInfoTy, voidPtrTy},
-                {0, STCin, STCin}, Attr_1_3_NoCapture);
-
-  // int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
-  createFwdDecl(LINK::c, intTy, {"_aaEqual"}, {typeInfoTy, aaTy, aaTy},
-                {STCin, STCin, STCin}, Attr_1_2_NoCapture);
-
-  // AA _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti,
-  //                           void[] keys, void[] values)
-  createFwdDecl(LINK::c, aaTy, {"_d_assocarrayliteralTX"},
-                {aaTypeInfoTy, voidArrayTy, voidArrayTy}, {STCconst, 0, 0});
-
-  // AA _aaNew(const TypeInfo_AssociativeArray ti)
-  createFwdDecl(LINK::c, aaTy, {"_aaNew"}, {aaTypeInfoTy}, {STCconst});
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////

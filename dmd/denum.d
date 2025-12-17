@@ -84,11 +84,6 @@ version (IN_LLVM) {} else
         return ed;
     }
 
-    override Type getType()
-    {
-        return type;
-    }
-
     override const(char)* kind() const
     {
         return "enum";

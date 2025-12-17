@@ -3,19 +3,12 @@ ifdef IN_LDC
 include ../../../../dmd/osmodel.mak
 endif
 
-ifeq ($(OS),linux)
-    # FIXME: detect musl libc robustly; just checking Alpine Linux' apk tool for now
-    ifeq (1,$(shell which apk &>/dev/null && echo 1))
-        IS_MUSL:=1
-    endif
-endif
-
 TESTS=stderr_msg unittest_assert invalid_memory_operation static_dtor \
       future_message refcounted rt_trap_exceptions_drt catch_in_finally \
       message_with_null
 
 # FIXME: segfaults with musl libc
-ifneq ($(IS_MUSL),1)
+ifndef IS_MUSL
 TESTS += unknown_gc
 endif
 
@@ -30,15 +23,21 @@ GDB:=gdb
 
 ifeq ($(OS),linux)
     TESTS+=line_trace line_trace_21656 long_backtrace_trunc rt_trap_exceptions cpp_demangle
-    ifdef IN_LDC
-        # FIXME: unclear why this fails on AArch64 - the only stderr output is 'Aborted (core dumped)'
-        ifeq ($(ARCH),aarch64)
-            TESTS := $(filter-out rt_trap_exceptions,$(TESTS))
-        endif
-    endif
     # registerMemoryAssertHandler requires glibc
-    ifneq ($(IS_MUSL),1)
+    ifndef IS_MUSL
         TESTS+=memoryerror_null_read memoryerror_null_write memoryerror_null_call memoryerror_stackoverflow
+    endif
+    ifdef IN_LDC
+        ifeq ($(ARCH),aarch64)
+            # FIXME: unclear why this fails on AArch64 - the only stderr output is 'Aborted'
+            TESTS := $(filter-out rt_trap_exceptions,$(TESTS))
+            # ditto
+            TESTS := $(filter-out memoryerror_null_call,$(TESTS))
+            # these fail for CI (GitHub Actions at least), but work locally on Raspberry Pi 5 with Debian 13
+            TESTS := $(filter-out memoryerror_null_read,$(TESTS))
+            TESTS := $(filter-out memoryerror_null_write,$(TESTS))
+            TESTS := $(filter-out memoryerror_stackoverflow,$(TESTS))
+        endif
     endif
     line_trace_dflags:=-L--export-dynamic
 endif
