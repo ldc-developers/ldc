@@ -875,6 +875,7 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
     VersionCondition::addPredefinedGlobalIdent("OSX");
+    VersionCondition::addPredefinedGlobalIdent("Apple");
     VersionCondition::addPredefinedGlobalIdent(
         "darwin"); // For backwards compatibility.
     VersionCondition::addPredefinedGlobalIdent("Posix");
