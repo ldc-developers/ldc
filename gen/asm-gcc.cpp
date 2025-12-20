@@ -36,7 +36,10 @@ std::string translateTemplate(GccAsmStatement *stmt) {
       result += "$$"; // escape for LLVM: $ => $$
       break;
     case '%':
-      if (i < N - 1 && insn[i + 1] == '%') { // unescape for LLVM: %% => %
+      if (i < N - 1 && insn[i + 1] == '=') { // unique ID: %= => ${:uid}
+        result += "${:uid}";
+        ++i;
+      } else if (i < N - 1 && insn[i + 1] == '%') { // unescape for LLVM: %% => %
         result += '%';
         ++i;
       } else {
