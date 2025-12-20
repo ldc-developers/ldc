@@ -51,14 +51,14 @@ jobs:
 
           - job_name: Alpine musl x86_64
             os: ubuntu-latest
-            container_image: alpine:3.22
+            container_image: alpine:3.23
             arch: x86_64
             base_cmake_flags: >-
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=x86_64
               -DLLVM_IS_SHARED=OFF
               -DLDC_ENABLE_PLUGINS=OFF
               -DLDC_DYNAMIC_COMPILE=OFF
-              -DCMAKE_EXE_LINKER_FLAGS="-lcurl -lnghttp2"
+            #  -DCMAKE_EXE_LINKER_FLAGS=-lcurl
             # TSan and XRay do not work.
             extra_cmake_flags: >-
               -DTEST_COMPILER_RT_LIBRARIES="profile;lsan;asan;msan;fuzzer"
@@ -73,14 +73,14 @@ jobs:
 
           - job_name: Alpine musl aarch64
             os: ubuntu-24.04-arm
-            container_image: alpine:3.22
+            container_image: alpine:3.23
             arch: aarch64
             base_cmake_flags: >-
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64
               -DLLVM_IS_SHARED=OFF
               -DLDC_ENABLE_PLUGINS=OFF
               -DLDC_DYNAMIC_COMPILE=OFF
-              -DCMAKE_EXE_LINKER_FLAGS="-lcurl -lnghttp2"
+            #  -DCMAKE_EXE_LINKER_FLAGS=-lcurl
             extra_cmake_flags: >-
               -DTEST_COMPILER_RT_LIBRARIES="profile;lsan;asan;msan;fuzzer"
               -DLDC_INSTALL_LTOPLUGIN=OFF
@@ -166,7 +166,7 @@ jobs:
             # make lld the default linker (note: /usr/bin/ld seems unused)
             ln -sf /usr/bin/ld.lld /usr/${{ matrix.arch }}-alpine-linux-musl/bin/ld
             # create ../llvm symlink to distro LLVM (no prebuilt LDC-LLVM for musl)
-            ln -s /usr/lib/llvm20 $(dirname $(pwd))/llvm
+            ln -s /usr/lib/llvm21 $(dirname $(pwd))/llvm
             ../llvm/bin/llvm-config --version
 
             # see https://github.com/actions/runner/issues/801#issuecomment-2976165281
