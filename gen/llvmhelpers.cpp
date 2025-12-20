@@ -48,6 +48,7 @@
 #include <llvm/IR/Constant.h>
 #include <llvm/Analysis/ConstantFolding.h>
 #include <stack>
+#include <unordered_map>
 
 using namespace dmd;
 
@@ -1369,11 +1370,18 @@ bool isLLVMUnsigned(Type *t) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void printLabelName(std::ostream &target, const char *func_mangle,
-                    const char *label_name) {
+                    const char *label_name, unsigned asmLabelId) {
   // note: quotes needed for Unicode
   target << '"'
          << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix().str()
-         << func_mangle << "_" << label_name << '"';
+         << func_mangle << "_" << label_name;
+  // Append unique ID to prevent duplicate symbol errors when LTO merges
+  // multiple instantiations of template functions with inline asm.
+  // See: https://github.com/ldc-developers/ldc/issues/4294
+  if (asmLabelId > 0) {
+    target << "_" << asmLabelId;
+  }
+  target << '"';
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -8,9 +8,9 @@ void foo(int a)
 {
     asm
     {
-        // CHECK: jmp .L_D10asm_labels3fooFiZv_label
+        // CHECK: jmp .L_D10asm_labels3fooFiZv_label{{(_[0-9]+)?}}
         jmp label;
-        // CHECK-NEXT: .L_D10asm_labels3fooFiZv_label:
+        // CHECK-NEXT: .L_D10asm_labels3fooFiZv_label{{(_[0-9]+)?}}:
     label:
         ret;
     }
@@ -21,9 +21,9 @@ void foo(uint a)
 {
     asm
     {
-        // CHECK: jmp .L_D10asm_labels3fooFkZv_label
+        // CHECK: jmp .L_D10asm_labels3fooFkZv_label{{(_[0-9]+)?}}
         jmp label;
-        // CHECK-NEXT: .L_D10asm_labels3fooFkZv_label:
+        // CHECK-NEXT: .L_D10asm_labels3fooFkZv_label{{(_[0-9]+)?}}:
     label:
         ret;
     }

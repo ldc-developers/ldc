@@ -1548,7 +1548,7 @@ public:
       auto a = new IRAsmStmt;
       std::stringstream label;
       printLabelName(label, mangleExact(irs->func()->decl),
-                     stmt->ident->toChars());
+                     stmt->ident->toChars(), irs->func()->decl->asmLabelId);
       label << ":";
       a->code = label.str();
       irs->asmBlock->s.push_back(a);
