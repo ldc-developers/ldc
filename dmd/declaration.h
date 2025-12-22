@@ -565,6 +565,11 @@ public:
     // Whether to emit instrumentation code if -fprofile-instr-generate is specified,
     // the value is set with pragma(LDC_profile_instr, true|false)
     bool emitInstrumentation;
+
+    // Unique ID for asm labels in this function, used to prevent duplicate
+    // symbol errors when LTO merges multiple instantiations of template functions.
+    // See: https://github.com/ldc-developers/ldc/issues/4294
+    unsigned asmLabelId;
 #endif
 
     VarDeclaration *vresult;            // result variable for out contracts
