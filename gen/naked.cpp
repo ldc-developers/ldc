@@ -21,6 +21,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "llvm/IR/InlineAsm.h"
@@ -148,27 +149,32 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
   LOG_SCOPE;
 
-  const char *mangle = mangleExact(fd);
   const auto &triple = *global.params.targetTriple;
+
+  // Get the proper IR mangle name (includes Windows calling convention decoration)
+  TypeFunction *tf = fd->type->isTypeFunction();
+  const std::string irMangle = getIRMangledName(fd, tf ? tf->linkage : LINK::d);
 
   // Get or create the LLVM function first, before visiting the body.
   // The visitor may call Declaration_codegen which needs an IR insert point.
   llvm::Module &module = gIR->module;
-  llvm::Function *func = module.getFunction(mangle);
+  llvm::Function *func = module.getFunction(irMangle);
 
   if (!func) {
     // Create function type using the existing infrastructure
     llvm::FunctionType *funcType = DtoFunctionType(fd);
 
-    // Create function with appropriate linkage
-    llvm::GlobalValue::LinkageTypes linkage;
-    if (fd->isInstantiated()) {
-      linkage = llvm::GlobalValue::LinkOnceODRLinkage;
-    } else {
-      linkage = llvm::GlobalValue::ExternalLinkage;
-    }
+    // Get proper linkage using the standard infrastructure.
+    // This correctly handles lambdas (internal linkage), templates (weak_odr),
+    // and other cases.
+    const auto lwc = DtoLinkage(fd);
 
-    func = llvm::Function::Create(funcType, linkage, mangle, &module);
+    func = llvm::Function::Create(funcType, lwc.first, irMangle, &module);
+
+    // Set up COMDAT if needed (for template deduplication on ELF/Windows)
+    if (lwc.second) {
+      func->setComdat(module.getOrInsertComdat(irMangle));
+    }
   } else if (!func->empty()) {
     // Function already has a body - this can happen if the function was
     // already defined (e.g., template instantiation in another module).
@@ -177,6 +183,23 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   } else if (func->hasFnAttribute(llvm::Attribute::Naked)) {
     // Function already has naked attribute - it was already processed
     return;
+  } else {
+    // Function was declared but not yet defined (e.g., by DtoDeclareFunction).
+    // Fix the linkage - DtoDeclareFunction always uses ExternalLinkage,
+    // but naked functions need proper linkage based on their declaration type.
+    const auto lwc = DtoLinkage(fd);
+    // Clear DLL storage class before setting linkage - LLVM requires that
+    // functions with local linkage (internal/private) have DefaultStorageClass.
+    if (lwc.first == llvm::GlobalValue::InternalLinkage ||
+        lwc.first == llvm::GlobalValue::PrivateLinkage) {
+      func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
+    }
+    func->setLinkage(lwc.first);
+    if (lwc.second) {
+      func->setComdat(module.getOrInsertComdat(irMangle));
+    } else {
+      func->setComdat(nullptr);
+    }
   }
 
   // Set naked attribute - this tells LLVM not to generate prologue/epilogue
@@ -186,11 +209,6 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   // The inline asm contains labels that would conflict if duplicated.
   func->addFnAttr(llvm::Attribute::OptimizeNone);
   func->addFnAttr(llvm::Attribute::NoInline);
-
-  // For template instantiations, set up COMDAT for deduplication
-  if (fd->isInstantiated()) {
-    func->setComdat(module.getOrInsertComdat(mangle));
-  }
 
   // Set other common attributes
   func->addFnAttr(llvm::Attribute::NoUnwind);
