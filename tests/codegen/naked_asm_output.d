@@ -88,8 +88,9 @@ extern(C) int nakedWithMultipleLabels() {
 // ASM: movl $42, %eax
 // ASM: retq
 
-// IR-LABEL: define i32 @_D16naked_asm_output__T13nakedTemplateVii42ZQvFZi()
-// IR-SAME: comdat
+// Template function check - use IR-DAG to allow flexible ordering since
+// the template may be emitted after its caller (instantiate1)
+// IR-DAG: define weak_odr i32 @_D16naked_asm_output__T13nakedTemplateVii42ZQvFZi(){{.*}}comdat
 
 int nakedTemplate(int N)() {
     asm { naked; }
