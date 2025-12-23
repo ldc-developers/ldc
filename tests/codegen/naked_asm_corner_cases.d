@@ -7,11 +7,14 @@
 // 4. Naked function calling convention
 
 // REQUIRES: target_X86
+// REQUIRES: host_X86
 
+// FileCheck verification uses explicit triple for reproducible output
 // RUN: %ldc -mtriple=x86_64-linux-gnu -O0 -output-s -of=%t.s %s
 // RUN: FileCheck %s --check-prefix=ASM < %t.s
 
-// RUN: %ldc -mtriple=x86_64-linux-gnu -O0 -run %s
+// Runtime verification uses native platform
+// RUN: %ldc -O0 -run %s
 
 module naked_asm_corner_cases;
 
