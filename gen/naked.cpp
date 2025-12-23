@@ -149,8 +149,6 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
   LOG_SCOPE;
 
-  const auto &triple = *global.params.targetTriple;
-
   // Get the proper IR mangle name (includes Windows calling convention decoration)
   TypeFunction *tf = fd->type->isTypeFunction();
   const std::string irMangle = getIRMangledName(fd, tf ? tf->linkage : LINK::d);
@@ -164,17 +162,10 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     // Create function type using the existing infrastructure
     llvm::FunctionType *funcType = DtoFunctionType(fd);
 
-    // Get proper linkage using the standard infrastructure.
-    // This correctly handles lambdas (internal linkage), templates (weak_odr),
-    // and other cases.
-    const auto lwc = DtoLinkage(fd);
-
-    func = llvm::Function::Create(funcType, lwc.first, irMangle, &module);
-
-    // Set up COMDAT if needed (for template deduplication on ELF/Windows)
-    if (lwc.second) {
-      func->setComdat(module.getOrInsertComdat(irMangle));
-    }
+    // Create the function with ExternalLinkage initially.
+    // setLinkage() below will set the correct linkage.
+    func = llvm::Function::Create(funcType, llvm::GlobalValue::ExternalLinkage,
+                                  irMangle, &module);
   } else if (!func->empty()) {
     // Function already has a body - this can happen if the function was
     // already defined (e.g., template instantiation in another module).
@@ -183,24 +174,16 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   } else if (func->hasFnAttribute(llvm::Attribute::Naked)) {
     // Function already has naked attribute - it was already processed
     return;
-  } else {
-    // Function was declared but not yet defined (e.g., by DtoDeclareFunction).
-    // Fix the linkage - DtoDeclareFunction always uses ExternalLinkage,
-    // but naked functions need proper linkage based on their declaration type.
-    const auto lwc = DtoLinkage(fd);
-    // Clear DLL storage class before setting linkage - LLVM requires that
-    // functions with local linkage (internal/private) have DefaultStorageClass.
-    if (lwc.first == llvm::GlobalValue::InternalLinkage ||
-        lwc.first == llvm::GlobalValue::PrivateLinkage) {
-      func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
-    }
-    func->setLinkage(lwc.first);
-    if (lwc.second) {
-      func->setComdat(module.getOrInsertComdat(irMangle));
-    } else {
-      func->setComdat(nullptr);
-    }
   }
+
+  // Set linkage and visibility using the standard infrastructure.
+  // This correctly handles:
+  // - Lambdas (internal linkage, no dllexport)
+  // - Templates (weak_odr linkage with COMDAT)
+  // - Exported functions (dllexport on Windows)
+  // - Regular functions (external linkage)
+  setLinkage(DtoLinkage(fd), func);
+  setVisibility(fd, func);
 
   // Set naked attribute - this tells LLVM not to generate prologue/epilogue
   func->addFnAttr(llvm::Attribute::Naked);
@@ -276,12 +259,6 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
 
   // The savedInsertPoint RAII guard automatically restores the insert point
   // when it goes out of scope.
-
-  // Handle DLL export on Windows
-  if (global.params.dllexport ||
-      (triple.isOSWindows() && fd->isExport())) {
-    func->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
-  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
