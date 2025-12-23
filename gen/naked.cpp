@@ -201,9 +201,13 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   llvm::BasicBlock *entryBB =
       llvm::BasicBlock::Create(gIR->context(), "entry", func);
 
-  // Save current insert point and switch to new function
-  llvm::IRBuilderBase::InsertPoint savedIP = gIR->ir->saveIP();
-  gIR->ir->SetInsertPoint(entryBB);
+  // Save current insert point and switch to new function.
+  // Use gIR->setInsertPoint() instead of gIR->ir->SetInsertPoint() because
+  // the latter goes through IRBuilderHelper::operator->() which asserts that
+  // there's a valid insert block. At module scope, there may not be one yet.
+  // gIR->setInsertPoint() accesses the builder directly and also returns an
+  // RAII guard that restores the previous state when it goes out of scope.
+  const auto savedInsertPoint = gIR->setInsertPoint(entryBB);
 
   // Clear the nakedAsm stream and collect the function body
   std::ostringstream &asmstr = gIR->nakedAsm;
@@ -252,8 +256,8 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   // Naked functions don't return normally through LLVM IR
   gIR->ir->CreateUnreachable();
 
-  // Restore insert point
-  gIR->ir->restoreIP(savedIP);
+  // The savedInsertPoint RAII guard automatically restores the insert point
+  // when it goes out of scope.
 
   // Handle DLL export on Windows
   if (global.params.dllexport ||
