@@ -16,6 +16,7 @@
 #include "dmd/template.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -24,6 +25,7 @@
 #include "ir/irfunction.h"
 #include "llvm/IR/InlineAsm.h"
 #include <cassert>
+#include <sstream>
 
 using namespace dmd;
 
@@ -128,9 +130,11 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
+    // Use printLabelName to match how label references are generated in asm-x86.h.
+    // This ensures label definitions match the quoted format used in jump instructions.
     printLabelName(irs->nakedAsm, mangleExact(irs->func()->decl),
                    stmt->ident->toChars());
-    irs->nakedAsm << ":";
+    irs->nakedAsm << ":\n";
 
     if (stmt->statement) {
       stmt->statement->accept(this);
@@ -144,108 +148,117 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
   LOG_SCOPE;
 
-  // we need to do special processing on the body, since we only want
-  // to allow actual inline asm blocks to reach the final asm output
-
-  std::ostringstream &asmstr = gIR->nakedAsm;
-
-  // build function header
-
-  // FIXME: could we perhaps use llvm asmwriter to give us these details ?
-
   const char *mangle = mangleExact(fd);
-  std::string fullmangle; // buffer only
-
   const auto &triple = *global.params.targetTriple;
-  bool const isWin = triple.isOSWindows();
-  bool const isDarwin = triple.isOSDarwin();
 
-  // osx is different
-  // also mangling has an extra underscore prefixed
-  if (isDarwin) {
-    fullmangle += '_';
-    fullmangle += mangle;
-    mangle = fullmangle.c_str();
+  // Get or create the LLVM function first, before visiting the body.
+  // The visitor may call Declaration_codegen which needs an IR insert point.
+  llvm::Module &module = gIR->module;
+  llvm::Function *func = module.getFunction(mangle);
 
-    asmstr << "\t.section\t__TEXT,__text,regular,pure_instructions"
-           << std::endl;
-    asmstr << "\t.globl\t" << mangle << std::endl;
+  if (!func) {
+    // Create function type using the existing infrastructure
+    llvm::FunctionType *funcType = DtoFunctionType(fd);
+
+    // Create function with appropriate linkage
+    llvm::GlobalValue::LinkageTypes linkage;
     if (fd->isInstantiated()) {
-      asmstr << "\t.weak_definition\t" << mangle << std::endl;
-    }
-    asmstr << "\t.p2align\t4, 0x90" << std::endl;
-    asmstr << mangle << ":" << std::endl;
-  }
-  // Windows is different
-  else if (isWin) {
-    // mangled names starting with '?' (MSVC++ symbols) apparently need quoting
-    if (mangle[0] == '?') {
-      fullmangle += '"';
-      fullmangle += mangle;
-      fullmangle += '"';
-      mangle = fullmangle.c_str();
-    } else if (triple.isArch32Bit()) {
-      // prepend extra underscore for Windows x86
-      fullmangle += '_';
-      fullmangle += mangle;
-      mangle = fullmangle.c_str();
-    }
-
-    asmstr << "\t.def\t" << mangle << ";" << std::endl;
-    // hard code these two numbers for now since gas ignores .scl and llvm
-    // is defaulting to .type 32 for everything I have seen
-    asmstr << "\t.scl\t2;" << std::endl;
-    asmstr << "\t.type\t32;" << std::endl;
-    asmstr << "\t.endef" << std::endl;
-
-    if (fd->isInstantiated()) {
-      asmstr << "\t.section\t.text,\"xr\",discard," << mangle << std::endl;
+      linkage = llvm::GlobalValue::LinkOnceODRLinkage;
     } else {
-      asmstr << "\t.text" << std::endl;
+      linkage = llvm::GlobalValue::ExternalLinkage;
     }
-    asmstr << "\t.globl\t" << mangle << std::endl;
-    asmstr << "\t.p2align\t4, 0x90" << std::endl;
-    asmstr << mangle << ":" << std::endl;
-  } else {
-    if (fd->isInstantiated()) {
-      asmstr << "\t.section\t.text." << mangle << ",\"axG\",@progbits,"
-             << mangle << ",comdat" << std::endl;
-      asmstr << "\t.weak\t" << mangle << std::endl;
-    } else {
-      asmstr << "\t.text" << std::endl;
-      asmstr << "\t.globl\t" << mangle << std::endl;
-    }
-    asmstr << "\t.p2align\t4, 0x90" << std::endl;
-    asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
-    asmstr << mangle << ":" << std::endl;
+
+    func = llvm::Function::Create(funcType, linkage, mangle, &module);
+  } else if (!func->empty()) {
+    // Function already has a body - this can happen if the function was
+    // already defined (e.g., template instantiation in another module).
+    // Don't add another body.
+    return;
+  } else if (func->hasFnAttribute(llvm::Attribute::Naked)) {
+    // Function already has naked attribute - it was already processed
+    return;
   }
 
-  // emit body
-  ToNakedIRVisitor v(gIR);
-  fd->fbody->accept(&v);
+  // Set naked attribute - this tells LLVM not to generate prologue/epilogue
+  func->addFnAttr(llvm::Attribute::Naked);
 
-  // We could have generated new errors in toNakedIR(), but we are in codegen
-  // already so we have to abort here.
+  // Prevent optimizations that might clone or modify the function.
+  // The inline asm contains labels that would conflict if duplicated.
+  func->addFnAttr(llvm::Attribute::OptimizeNone);
+  func->addFnAttr(llvm::Attribute::NoInline);
+
+  // For template instantiations, set up COMDAT for deduplication
+  if (fd->isInstantiated()) {
+    func->setComdat(module.getOrInsertComdat(mangle));
+  }
+
+  // Set other common attributes
+  func->addFnAttr(llvm::Attribute::NoUnwind);
+
+  // Create entry basic block and set insert point before visiting body.
+  // The visitor's ExpStatement::visit may call Declaration_codegen for
+  // static symbols, which may need an active IR insert point.
+  llvm::BasicBlock *entryBB =
+      llvm::BasicBlock::Create(gIR->context(), "entry", func);
+
+  // Save current insert point and switch to new function
+  llvm::IRBuilderBase::InsertPoint savedIP = gIR->ir->saveIP();
+  gIR->ir->SetInsertPoint(entryBB);
+
+  // Clear the nakedAsm stream and collect the function body
+  std::ostringstream &asmstr = gIR->nakedAsm;
+  asmstr.str("");
+
+  // Use the visitor to collect asm statements into nakedAsm
+  ToNakedIRVisitor visitor(gIR);
+  fd->fbody->accept(&visitor);
+
   if (global.errors) {
     fatal();
   }
 
-  // emit size after body
-  // llvm does this on linux, but not on osx or Win
-  if (!(isWin || isDarwin)) {
-    asmstr << "\t.size\t" << mangle << ", .-" << mangle << std::endl
-           << std::endl;
+  // Get the collected asm string and escape $ characters for LLVM inline asm.
+  // In LLVM inline asm, $N refers to operand N, so literal $ must be escaped as $$.
+  std::string asmBody;
+  {
+    std::string raw = asmstr.str();
+    asmBody.reserve(raw.size() * 2);  // Worst case: all $ characters
+    for (char c : raw) {
+      if (c == '$') {
+        asmBody += "$$";
+      } else {
+        asmBody += c;
+      }
+    }
   }
+  asmstr.str("");  // Clear for potential reuse
 
-  gIR->module.appendModuleInlineAsm(asmstr.str());
-  asmstr.str("");
+  // Create inline asm - the entire function body is a single asm block
+  // No constraints needed since naked functions handle everything in asm
+  llvm::FunctionType *asmFuncType =
+      llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false);
 
+  llvm::InlineAsm *inlineAsm = llvm::InlineAsm::get(
+      asmFuncType,
+      asmBody,
+      "",      // No constraints
+      true,    // Has side effects
+      false,   // Not align stack
+      llvm::InlineAsm::AD_ATT  // AT&T syntax
+  );
+
+  gIR->ir->CreateCall(inlineAsm);
+
+  // Naked functions don't return normally through LLVM IR
+  gIR->ir->CreateUnreachable();
+
+  // Restore insert point
+  gIR->ir->restoreIP(savedIP);
+
+  // Handle DLL export on Windows
   if (global.params.dllexport ||
-      (global.params.targetTriple->isOSWindows() && fd->isExport())) {
-    // Embed a linker switch telling the MS linker to export the naked function.
-    // This mimics the effect of the dllexport attribute for regular functions.
-    const auto linkerSwitch = std::string("/EXPORT:") + mangle;
-    gIR->addLinkerOption(llvm::StringRef(linkerSwitch));
+      (triple.isOSWindows() && fd->isExport())) {
+    func->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
   }
 }
 
@@ -436,7 +449,7 @@ DValue *DtoInlineAsmExpr(Loc loc, FuncDeclaration *fd,
   LLSmallVector<LLValue *, 8> operands;
   LLSmallVector<LLType *, 8> indirectTypes;
   operands.reserve(n);
-    
+
   Type *returnType = fd->type->nextOf();
   const size_t cisize = constraintInfo.size();
   const size_t minRequired = n + (returnType->ty == TY::Tvoid ? 0 : 1);
