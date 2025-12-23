@@ -44,6 +44,8 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       return true;
     if (currentFunction == nullptr)
       return false;
+    if (f->isInstantiated())
+      return true;
     TemplateInstance *inst = currentFunction->isInstantiated();
     if (!inst)
       return false;
