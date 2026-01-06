@@ -218,6 +218,15 @@ void DIBuilder::SetValue(Loc loc, llvm::Value *value,
                                    IR->scopebb());
 }
 
+std::string DIBuilder::remapDIPath(llvm::StringRef path) {
+  for (const auto &[from, to] : opts::debugPrefixMap) {
+    if (path.starts_with(from)) {
+      return to + path.substr(from.size()).str();
+    }
+  }
+  return std::string(path);
+}
+
 DIFile DIBuilder::CreateFile(const char *filename) {
   if (!filename)
     filename = IR->dmodule->srcfile.toChars();
@@ -231,14 +240,14 @@ DIFile DIBuilder::CreateFile(const char *filename) {
   //   ...)
 
   if (llvm::sys::path::is_absolute(filename)) {
-    return DBuilder.createFile(llvm::sys::path::relative_path(filename),
-                               llvm::sys::path::root_path(filename));
+    return DBuilder.createFile(remapDIPath(llvm::sys::path::relative_path(filename)),
+                               remapDIPath(llvm::sys::path::root_path(filename)));
   }
 
   llvm::SmallString<128> cwd;
   llvm::sys::fs::current_path(cwd);
 
-  return DBuilder.createFile(filename, cwd);
+  return DBuilder.createFile(remapDIPath(filename), remapDIPath(cwd));
 }
 
 DIFile DIBuilder::CreateFile(Loc loc) {
