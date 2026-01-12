@@ -1472,6 +1472,10 @@ else
         if (ctor.semanticRun >= PASS.semantic3)
             return;
 
+        if (!ctor.fbody)
+            return visit(cast(FuncDeclaration)ctor);
+
+
         /* If any of the fields of the aggregate have a destructor, add
          *   scope (failure) { this.fieldDtor(); }
          * as the first statement of the constructor (unless the constructor
@@ -1482,7 +1486,7 @@ else
          * https://issues.dlang.org/show_bug.cgi?id=14246
          */
         AggregateDeclaration ad = ctor.isMemberDecl();
-        if (!ctor.fbody || !ad || !ad.fieldDtor ||
+        if (!ad || !ad.fieldDtor ||
             global.params.dtorFields == FeatureState.disabled || !global.params.useExceptions || ctor.type.toTypeFunction.isNothrow)
             return visit(cast(FuncDeclaration)ctor);
 
@@ -1554,7 +1558,6 @@ else
         }
         visit(cast(FuncDeclaration)ctor);
     }
-
 
     override void visit(Nspace ns)
     {
