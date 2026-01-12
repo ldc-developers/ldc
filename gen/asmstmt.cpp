@@ -784,21 +784,3 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     p->ir->SetInsertPoint(bb);
   }
 }
-
-//////////////////////////////////////////////////////////////////////////////
-
-void AsmStatement_toNakedIR(InlineAsmStatement *stmt, IRState *irs) {
-  IF_LOG Logger::println("InlineAsmStatement::toNakedIR(): %s",
-                         stmt->loc.toChars());
-  LOG_SCOPE;
-
-  // is there code?
-  if (!stmt->asmcode) {
-    return;
-  }
-  AsmCode *code = static_cast<AsmCode *>(stmt->asmcode);
-
-  // build asm stmt
-  replace_func_name(irs, code->insnTemplate);
-  irs->nakedAsm << "\t" << code->insnTemplate << std::endl;
-}

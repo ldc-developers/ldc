@@ -215,7 +215,6 @@ public:
 
   // for inline asm
   IRAsmBlock *asmBlock = nullptr;
-  std::ostringstream nakedAsm;
 
   // Globals to pin in the llvm.used array to make sure they are not
   // eliminated.

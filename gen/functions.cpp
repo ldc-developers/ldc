@@ -1127,12 +1127,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     gIR->funcGenStates.pop_back();
   };
 
-  // if this function is naked, we take over right away! no standard processing!
-  if (fd->isNaked()) {
-    DtoDefineNakedFunction(fd);
-    return;
-  }
-
   SCOPE_EXIT {
     if (irFunc->isDynamicCompiled()) {
       defineDynamicCompiledFunction(gIR, irFunc);
@@ -1210,17 +1204,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   gIR->ir->setFastMathFlags(irFunc->FMF);
   gIR->DBuilder.EmitFuncStart(fd);
 
-  // @naked: emit body and return, no prologue/epilogue
-  if (func->hasFnAttribute(llvm::Attribute::Naked)) {
-    Statement_toIR(fd->fbody, gIR);
-    const bool wasDummy = eraseDummyAfterReturnBB(gIR->scopebb());
-    if (!wasDummy && !gIR->scopereturned()) {
-      // this is what clang does to prevent LLVM complaining about
-      // non-terminated function
-      gIR->ir->CreateUnreachable();
-    }
-    return;
+  if (fd->isNaked()) { // DMD-style `asm { naked; }`
+    func->addFnAttr(llvm::Attribute::Naked);
   }
+
+  // @naked: emit body and return, no prologue/epilogue
+  const bool isNaked = func->hasFnAttribute(llvm::Attribute::Naked);
 
   // create alloca point
   // this gets erased when the function is complete, so alignment etc does not
@@ -1234,12 +1223,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   emitInstrumentationFnEnter(fd);
 
   if (global.params.trace && fd->emitInstrumentation && !fd->isCMain() &&
-      !fd->isNaked()) {
+      !isNaked) {
     emitDMDStyleFunctionTrace(*gIR, fd, funcGen);
   }
 
   // give the 'this' parameter (an lvalue) storage and debug info
-  if (irFty.arg_this) {
+  if (!isNaked && irFty.arg_this) {
     LLValue *thisvar = irFunc->thisArg;
     assert(thisvar);
 
@@ -1261,7 +1250,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // define all explicit parameters
-  if (fd->parameters)
+  if (!isNaked && fd->parameters)
     defineParameters(irFty, *fd->parameters);
 
   // Initialize PGO state for this function
@@ -1327,7 +1316,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
     // pass the previous block into this block
     gIR->DBuilder.EmitStopPoint(fd->endloc);
-    if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
+
+    if (isNaked) {
+      gIR->ir->CreateUnreachable();
+    } else if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
       gIR->ir->CreateRetVoid();
     } else if (isAnyMainFunction(fd)) {
       gIR->ir->CreateRet(LLConstant::getNullValue(func->getReturnType()));
