@@ -80,14 +80,14 @@ _kernel kernel(size_t[3] a = [1,1,1]) => _kernel(a);
  + DCompute has the notion of adress spaces, provide by the magic structs below.
  + The numbers are for the DCompute virtual addess space and are translated into
  + the correct address space for each DCompute backend (SPIRV, NVPTX).
- + The table below shows the equivalent annotation between DCompute OpenCL and CUDA
- +
- +   DCompute   OpenCL      Cuda
- +   Global     __global    __device__
- +   Shared     __local     __shared__
- *   Constant   __constant  __constant__
- +   Private    __private   __local__
- +   Generic    __generic   (no qualifier)
+ + The table below shows the equivalent annotation between DCompute OpenCL and CUDA.
+ + | DCompute   | OpenCL       | Cuda             |
+ + | :--------- | :----------- | :--------------- |
+ + | `Global`   | `__global`   | `__device__`     |
+ + | `Shared`   | `__local`    | `__shared__`     |
+ + | `Constant` | `__constant` | `__constant__`   |
+ + | `Private`  | `__private`  | `__local__`      |
+ + | `Generic`  | `__generic`  | `(no qualifier)` |
  +/
 struct Pointer(AddrSpace as, T)
 {
