@@ -214,6 +214,10 @@ if (platform.system() == 'Windows') and os.path.isfile( cdb ):
 if (platform.system() != 'Windows') and lit.util.which('gdb', config.environment['PATH']):
     config.available_features.add('gdb')
 
+# Check whether ld.lld is present (for cross-platform COFF linking tests)
+if lit.util.which('ld.lld', config.environment['PATH']):
+    config.available_features.add('ld.lld')
+
 if 'LD_LIBRARY_PATH' in os.environ:
     libs = []
     for lib_path in [s for s in os.environ['LD_LIBRARY_PATH'].split(':') if s]:
