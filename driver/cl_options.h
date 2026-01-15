@@ -21,6 +21,7 @@
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
 #include <deque>
+#include <map>
 #include <vector>
 
 namespace llvm {
@@ -46,6 +47,7 @@ extern cl::list<std::string> runargs;
 extern cl::opt<bool> invokedByLDMD;
 extern cl::opt<bool> compileOnly;
 extern cl::opt<bool> emitDwarfDebugInfo;
+extern std::map<std::string, std::string> debugPrefixMap; // Prefix map for filenames in DWARF debuginfo
 extern cl::opt<bool> noAsm;
 extern cl::opt<bool> dontWriteObj;
 extern cl::opt<std::string> objectFile;
