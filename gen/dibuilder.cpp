@@ -34,6 +34,7 @@
 #include "ir/irfuncty.h"
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -242,6 +243,16 @@ DIFile DIBuilder::CreateFile(const char *filename) {
   // Mimic clang's behavior as much as possible, including fdebug-prefix-map
   // remap behavior. See LLVM source clang/lib/CodeGen/CGDebugInfo.cpp
 
+  // First check cache
+  auto iter = filenameToDIFileCache.find(filename);
+  if (iter != filenameToDIFileCache.end()) {
+    // Verify that the information still exists.
+    if (llvm::Metadata *value = iter->second)
+      return cast<llvm::DIFile>(value);
+  }
+
+  // Cache miss, create a new DIFile
+
   auto remappedFile = remapDIPath(filename);
 
   llvm::SmallString<128> cwd;
@@ -279,9 +290,9 @@ DIFile DIBuilder::CreateFile(const char *filename) {
     debuginfoFile = remappedFile;
   }
 
-  // TODO: If debug file creation turns out to cost a lot of time, implement a
-  // caching mechanism like clang does.
-  return DBuilder.createFile(debuginfoFile, debuginfoDir);
+  auto difile = DBuilder.createFile(debuginfoFile, debuginfoDir);
+  filenameToDIFileCache[filename].reset(difile);
+  return difile;
 }
 
 DIFile DIBuilder::CreateFile(Loc loc) {
