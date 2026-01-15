@@ -67,6 +67,7 @@ class DIBuilder {
   const bool emitColumnInfo;
 
   llvm::DenseMap<Declaration*, llvm::TypedTrackingMDRef<llvm::MDNode>> StaticDataMemberCache;
+  llvm::DenseMap<const char *, llvm::TrackingMDRef> filenameToDIFileCache;
 
   DICompileUnit GetCU() {
     return CUNode;
