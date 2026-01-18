@@ -248,7 +248,7 @@ DIFile DIBuilder::CreateFile(const char *filename) {
   if (iter != filenameToDIFileCache.end()) {
     // Verify that the information still exists.
     if (llvm::Metadata *value = iter->second)
-      return cast<llvm::DIFile>(value);
+      return llvm::cast<llvm::DIFile>(value);
   }
 
   // Cache miss, create a new DIFile
