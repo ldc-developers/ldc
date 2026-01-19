@@ -8,10 +8,7 @@
 module ldc.attributes;
 
 /// Helper template
-private template AliasSeq(TList...)
-{
-    alias AliasSeq = TList;
-}
+private alias AliasSeq(TList...) = TList;
 
 /**
  * Specifies that the function returns `null` or a pointer to at least a
@@ -70,7 +67,7 @@ struct allocSize
  + @assumeUsed int dont_remove;
  + ---
  +/
-immutable assumeUsed = _assumeUsed();
+enum assumeUsed = _assumeUsed();
 private struct _assumeUsed
 {
 }
@@ -122,7 +119,7 @@ struct callingConvention
  + @dynamicCompile int foo() { return 42; }
  + ---
  +/
-immutable dynamicCompile = _dynamicCompile();
+enum dynamicCompile = _dynamicCompile();
 private struct _dynamicCompile
 {
 }
@@ -145,7 +142,7 @@ private struct _dynamicCompile
  + @dynamicCompile int foo() { return value * 42; }
  + ---
  +/
-immutable dynamicCompileConst = _dynamicCompileConst();
+enum dynamicCompileConst = _dynamicCompileConst();
 private struct _dynamicCompileConst
 {
 }
@@ -170,7 +167,7 @@ private struct _dynamicCompileConst
  + @dynamicCompileEmit int foo() { return 42; }
  + ---
  +/
-immutable dynamicCompileEmit = _dynamicCompileEmit();
+enum dynamicCompileEmit = _dynamicCompileEmit();
 private struct _dynamicCompileEmit
 {
 }
@@ -206,7 +203,7 @@ alias fastmath = AliasSeq!(llvmAttr("unsafe-fp-math", "true"), llvmFastMathFlag(
  * strip a hidden symbol.
  * An `export` visibility overrides this attribute.
  */
-immutable hidden = _hidden();
+enum hidden = _hidden();
 private struct _hidden {}
 
 /**
@@ -303,7 +300,7 @@ struct noSanitize {
  + @noSplitStack int user_function() { return 1; }
  + ---
  +/
-immutable noSplitStack = _noSplitStack();
+enum noSplitStack = _noSplitStack();
 private struct _noSplitStack
 {
 }
@@ -345,7 +342,7 @@ struct optStrategy {
  + Only effective when LDC was built with Polly included.
  +/
 
- immutable polly = _polly();
+ enum polly = _polly();
  private struct _polly
  {
  }
@@ -421,7 +418,7 @@ struct target
  + @weak int user_hook() { return 1; }
  + ---
  +/
-immutable weak = _weak();
+enum weak = _weak();
 private struct _weak
 {
 }
