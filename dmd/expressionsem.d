@@ -7634,7 +7634,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             {
                 exp.type = tf.next;
                 auto casted_exp = exp.castTo(sc, t);
-                if (auto cex = casted_exp.isCastExp())
+                if (auto cex = lastComma(casted_exp).isCastExp())
                 {
                     lowerCastExp(cex, sc);
                 }
@@ -10060,7 +10060,7 @@ version (IN_LLVM)
             }
         }
 
-        if (auto cex = ex.isCastExp())
+        if (auto cex = lastComma(ex).isCastExp())
         {
             lowerCastExp(cex, sc);
         }
