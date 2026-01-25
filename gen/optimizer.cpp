@@ -434,6 +434,44 @@ static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsi
 
   return pto;
 }
+
+// Imitate behavior of clang
+static bool shouldEmitRegularLTOSummary(llvm::Module const &M) {
+    return opts::isUsingLTO() &&
+           llvm::Triple(M.getTargetTriple()).getVendor() != llvm::Triple::Apple;
+}
+
+/// Check whether we should emit a flag for UnifiedLTO.
+/// The UnifiedLTO module flag should be set when UnifiedLTO is enabled for
+/// ThinLTO or Full LTO with module summaries.
+static bool shouldEmitUnifiedLTOModuleFlag(llvm::Module const &M) {
+  return opts::ltoUnified &&
+         (opts::prepareForThinLTO() || shouldEmitRegularLTOSummary(M));
+}
+
+static void addLTOModuleFlags(llvm::Module *M) {
+  if (opts::ltoFatObjects) {
+    if (opts::prepareForThinLTO()) {
+// TODO: implement support for EnableSplitLTOUnit
+//      if (!M->getModuleFlag("EnableSplitLTOUnit"))
+//        M->addModuleFlag(llvm::Module::Error, "EnableSplitLTOUnit",
+//                                 CodeGenOpts.EnableSplitLTOUnit);
+    } else {
+      if (shouldEmitRegularLTOSummary(*M)) {
+        if (!M->getModuleFlag("ThinLTO") && !opts::ltoUnified)
+          M->addModuleFlag(llvm::Module::Error, "ThinLTO", uint32_t(0));
+        if (!M->getModuleFlag("EnableSplitLTOUnit"))
+          M->addModuleFlag(llvm::Module::Error, "EnableSplitLTOUnit",
+                                   uint32_t(1));
+      }
+    }
+
+    if (shouldEmitUnifiedLTOModuleFlag(*M) &&
+        !M->getModuleFlag("UnifiedLTO"))
+      M->addModuleFlag(llvm::Module::Error, "UnifiedLTO", uint32_t(1));
+  }
+}
+
 /**
  * Adds a set of optimization passes to the given module/function pass
  * managers based on the given optimization and size reduction levels.
@@ -585,12 +623,11 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
     mpm = pb.buildO0DefaultPipeline(level, ltoPrelink);
 #if LDC_LLVM_VER >= 1700
   } else if (opts::ltoFatObjects && opts::isUsingLTO()) {
-    mpm = pb.buildFatLTODefaultPipeline(level,
-                                        opts::isUsingThinLTO(),
-                                        opts::isUsingThinLTO()
-    );
+    mpm = pb.buildFatLTODefaultPipeline(level, opts::prepareForThinLTO(),
+                                        opts::prepareForThinLTO() ||
+                                            shouldEmitRegularLTOSummary(*M));
 #endif
-  } else if (opts::isUsingThinLTO()) {
+  } else if (opts::prepareForThinLTO()) {
     mpm = pb.buildThinLTOPreLinkDefaultPipeline(level);
   } else if (opts::isUsingLTO()) {
     mpm = pb.buildLTOPreLinkDefaultPipeline(level);
@@ -599,6 +636,7 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
     mpm = pb.buildPerModuleDefaultPipeline(level);
   }
 
+  addLTOModuleFlags(M);
 
   mpm.run(*M,mam);
 }

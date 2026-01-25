@@ -130,9 +130,11 @@ enum LTOKind {
   LTO_Thin,
 };
 extern cl::opt<LTOKind> ltoMode;
+extern cl::opt<bool> ltoFatObjects;
+extern cl::opt<bool> ltoUnified;
 inline bool isUsingLTO() { return ltoMode != LTO_None; }
 inline bool isUsingThinLTO() { return ltoMode == LTO_Thin; }
-extern cl::opt<bool> ltoFatObjects;
+inline bool prepareForThinLTO() { return isUsingThinLTO() || opts::ltoUnified; }
 
 extern cl::opt<std::string> saveOptimizationRecord;
 

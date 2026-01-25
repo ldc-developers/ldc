@@ -710,6 +710,8 @@ cl::opt<bool> ltoFatObjects(
     "ffat-lto-objects", cl::ZeroOrMore,
     cl::desc("Include both IR and object code in object file output; only "
              "effective when compiling with -flto."));
+cl::opt<bool> ltoUnified("funified-lto", cl::ZeroOrMore,
+                         cl::desc("Use unified LTO pipeline."));
 
 cl::opt<std::string>
     saveOptimizationRecord("fsave-optimization-record",
