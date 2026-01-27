@@ -10,30 +10,26 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "gen/optimizer.h"
+#include "gen/passes/GarbageCollect2Stack.h"
+#include "gen/passes/StripExternals.h"
+#include "gen/passes/SimplifyDRuntimeCalls.h"
+#include "gen/passes/Passes.h"
+#include "driver/cl_options.h"
+
 #ifdef IN_JITRT
 #include "runtime/jit-rt/cpp-so/optimizer.h"
 #include "runtime/jit-rt/cpp-so/valueparser.h"
 #include "runtime/jit-rt/cpp-so/utils.h"
 #endif
 
-#include "gen/optimizer.h"
-
 #ifndef IN_JITRT
 #include "dmd/errors.h"
-#include "gen/logger.h"
-#endif
-
-#include "gen/passes/GarbageCollect2Stack.h"
-#include "gen/passes/StripExternals.h"
-#include "gen/passes/SimplifyDRuntimeCalls.h"
-#include "gen/passes/Passes.h"
-
-#ifndef IN_JITRT
-#include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
+#include "gen/logger.h"
 #endif
 
 #if LDC_LLVM_VER < 1700
