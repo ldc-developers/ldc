@@ -210,7 +210,7 @@ DValue *DtoCallFunction(Loc loc, Type *resulttype, DValue *fnval,
 Type *stripModifiers(Type *type, bool transitive = false);
 
 void printLabelName(std::ostream &target, const char *func_mangle,
-                    const char *label_name);
+                    const char *label_name, unsigned asmLabelId = 0);
 
 void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function *func,
                                           const uint32_t priority,
