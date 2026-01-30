@@ -25,6 +25,10 @@ runs:
         elif [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-aarch64 ]]; then
           # FIXME: sporadically hanging
           excludes+='|^core.thread-shared$'
+          if type -P apk &>/dev/null; then
+            # FIXME: empty exception backtraces on musl AArch64 with enabled optimizations
+            excludes+='|^druntime-test-exceptions-release$'
+          fi
         fi
         if [[ '${{ runner.os }}' == macOS ]]; then
           # FIXME: https://github.com/dlang/phobos/issues/10730

@@ -564,7 +564,7 @@ extern (C) _Unwind_Reason_Code _d_eh_personality_common(_Unwind_Action actions,
         {
             auto eh = ExceptionHeader.toExceptionHeader(exceptionObject);
             for (auto ehx = eh; ehx; ehx = ehx.next)
-                writeln(" eh: %p next=%014p lsda=%p '%.*s'", ehx, ehx.next, ehx.languageSpecificData, ehx.object.msg.length, ehx.object.msg.ptr);
+                writeln(" eh: %p next=%014p lsda=%p '%.*s'", ehx, ehx.next, ehx.languageSpecificData, cast(int) ehx.object.msg.length, ehx.object.msg.ptr);
         }
     }
 
@@ -657,7 +657,7 @@ extern (C) _Unwind_Reason_Code _d_eh_personality_common(_Unwind_Action actions,
     if (exceptionClass == dmdExceptionClass)
     {
         auto eh = ExceptionHeader.toExceptionHeader(exceptionObject);
-        debug (EH_personality) writeln(" '%.*s' next = %p", eh.object.msg.length, eh.object.msg.ptr, eh.next);
+        debug (EH_personality) writeln(" '%.*s' next = %p", cast(int) eh.object.msg.length, eh.object.msg.ptr, eh.next);
         auto currentLsd = language_specific_data;
         bool bypassed = false;
         while (eh.next)

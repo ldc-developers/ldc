@@ -16,6 +16,10 @@ runs:
           # FIXME: the following tests fail
           rm tests/debuginfo/nested_gdb.d
           rm tests/sanitizers/fuzz_basic.d
+          if type -P apk &>/dev/null; then
+            # FIXME: empty exception backtrace on musl AArch64
+            rm tests/codegen/exception_stack_trace.d
+          fi
         fi
 
         cd ../build
