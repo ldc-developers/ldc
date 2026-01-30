@@ -2,7 +2,7 @@
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.112.1+](https://dlang.org/changelog/2.112.0.html), incl. new command-line options `-extI`, `-dllimport=externalOnly` and `-edition`. (#4949, #4962, #4988, #5029, #5042, #5046)
-- Support for [LLVM 21](https://releases.llvm.org/21.1.0/docs/ReleaseNotes.html). Beware that patch versions before v21.1.8 seem to misoptimize `std.json`. (#4950, #5033)
+- Support for [LLVM 21](https://releases.llvm.org/21.1.0/docs/ReleaseNotes.html). The prebuilt packages use v21.1.8. (#4950, #5033)
 - New prebuilt package for Alpine Linux aarch64 with musl libc, analogous to the existing x86_64 package. (#4943)
 - **Breaking change for dcompute**: The special `@kernel` UDA is now a function and _**requires**_ parentheses as in `@kernel() void foo(){}`. Optionally you can provide launch dimensions, `@kernel([2,4,8])`, to specify to the compute runtime how the kernel is intended to be launched.
 - ldc2.conf can now be a directory. All the files inside it, ordered naturally, will be concatenated and treated like a big config. (#4954)
