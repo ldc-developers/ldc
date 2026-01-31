@@ -15,6 +15,7 @@
   - `aarch64-linux-gnu-clang`
   - `clang --target=aarch64-linux-gnu`
 - The prebuilt arm64/universal macOS packages additionally bundle the arm64 iOS-*simulator* libraries, for out-of-the-box cross-compilation support via e.g. `-mtriple=arm64-apple-ios12.0-simulator`. (#4974)
+- New `--fdebug-prefix-map` command-line option and changed debuginfo file/directory name splitting logic (both now similar to clang), to aid reproducible builds. (#5039)
 
 #### Platform support
 - Supports LLVM 15 - 21.

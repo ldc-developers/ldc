@@ -67,6 +67,7 @@ class DIBuilder {
   const bool emitColumnInfo;
 
   llvm::DenseMap<Declaration*, llvm::TypedTrackingMDRef<llvm::MDNode>> StaticDataMemberCache;
+  llvm::DenseMap<const char *, llvm::TrackingMDRef> filenameToDIFileCache;
 
   DICompileUnit GetCU() {
     return CUNode;
@@ -163,6 +164,7 @@ private:
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   void AddStaticMembers(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
+  std::string remapDIPath(llvm::StringRef path);
   DIFile CreateFile(const char *filename = nullptr);
   DIFile CreateFile(Loc loc);
   DIFile CreateFile(Dsymbol *decl);
