@@ -240,7 +240,7 @@ LLGlobalValue::LinkageTypes DtoLinkageOnly(Dsymbol *sym) {
     if (vd->isDataseg())
       potentialLambda = vd->toParent2();
   if (potentialLambda->isFuncLiteralDeclaration())
-    return LLGlobalValue::InternalLinkage;
+    return LLGlobalValue::LinkOnceODRLinkage;
 
   if (sym->isInstantiated())
     return templateLinkage;
