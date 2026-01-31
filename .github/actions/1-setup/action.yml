@@ -77,6 +77,7 @@ runs:
         ./clang.exe //S # double-slash for bash
         rm clang.exe
         # C:\Program Files\LLVM\bin should already be in PATH
+        where clang-cl
         clang-cl --version
 
     - name: Download & extract LDC-flavoured LLVM # into ../llvm
