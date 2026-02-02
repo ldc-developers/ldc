@@ -220,20 +220,11 @@ void DIBuilder::SetValue(Loc loc, llvm::Value *value,
 }
 
 std::string DIBuilder::remapDIPath(llvm::StringRef path) {
-#if LDC_LLVM_VER >= 1800
-#define startswith starts_with
-#endif
-
-  for (const auto &[from, to] : opts::debugPrefixMap) {
-    if (path.startswith(from)) {
-      return to + path.substr(from.size()).str();
-    }
-  }
-  return std::string(path);
-
-#if LDC_LLVM_VER >= 1800
-#undef startswith
-#endif
+  llvm::SmallString<256> P = path;
+  for (auto &[from, to] : llvm::reverse(opts::debugPrefixMap))
+    if (llvm::sys::path::replace_path_prefix(P, from, to))
+      break;
+  return P.str().str();
 }
 
 DIFile DIBuilder::CreateFile(const char *filename) {
