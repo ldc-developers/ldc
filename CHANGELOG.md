@@ -18,6 +18,7 @@
 
 #### Platform support
 - Supports LLVM 15 - 21.
+- PowerPC64: `real` now matches the C++ host compiler's `long double` when compiling for the native target, not just on Linux hosts. (#5054)
 
 #### Bug fixes
 
