@@ -229,18 +229,15 @@ LLGlobalValue::LinkageTypes DtoLinkageOnly(Dsymbol *sym) {
       return LLGlobalValue::InternalLinkage;
 
   /* Function (incl. delegate) literals are emitted into each referencing
-   * compilation unit, so use internal linkage for all lambdas and all global
+   * compilation unit, so use linkonce_odr for all lambdas and all global
    * variables they define.
-   * This makes sure these symbols don't accidentally collide when linking
-   * object files compiled by different compiler invocations (lambda mangles
-   * aren't stable - see https://issues.dlang.org/show_bug.cgi?id=23722).
    */
   auto potentialLambda = sym;
   if (auto vd = sym->isVarDeclaration())
     if (vd->isDataseg())
       potentialLambda = vd->toParent2();
   if (potentialLambda->isFuncLiteralDeclaration())
-    return LLGlobalValue::InternalLinkage;
+    return LLGlobalValue::LinkOnceODRLinkage;
 
   if (sym->isInstantiated())
     return templateLinkage;
