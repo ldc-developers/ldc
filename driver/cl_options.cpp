@@ -224,7 +224,7 @@ cl::opt<bool> emitDwarfDebugInfo(
     cl::desc("Emit DWARF debuginfo (instead of CodeView) for MSVC targets"));
 
 // Prefix map for filenames in DWARF debuginfo
-std::map<std::string, std::string> debugPrefixMap;
+llvm::SmallVector<std::pair<std::string, std::string>, 0> debugPrefixMap;
 
 struct DwarfPrefixParser : public cl::parser<std::string> {
   explicit DwarfPrefixParser(cl::Option &O) : cl::parser<std::string>(O) {}
@@ -235,11 +235,7 @@ struct DwarfPrefixParser : public cl::parser<std::string> {
     if (from.empty() || to.empty()) {
       return O.error("invalid debug prefix map: " + Arg);
     }
-    auto fromStr = std::string(from);
-    if (debugPrefixMap.find(fromStr) != debugPrefixMap.end()) {
-      return O.error("debug prefix map already contains: " + fromStr);
-    }
-    debugPrefixMap[fromStr] = std::string(to);
+    debugPrefixMap.emplace_back(from.str(), to.str());
     return false;
   }
 };
