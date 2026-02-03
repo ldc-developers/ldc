@@ -228,6 +228,10 @@ LLGlobalValue::LinkageTypes DtoLinkageOnly(Dsymbol *sym) {
     if ((decl->storage_class & STCstatic) && decl->isCsymbol())
       return LLGlobalValue::InternalLinkage;
 
+  /* Function (incl. delegate) literals are emitted into each referencing
+   * compilation unit, so use linkonce_odr for all lambdas and all global
+   * variables they define.
+   */
   auto potentialLambda = sym;
   if (auto vd = sym->isVarDeclaration())
     if (vd->isDataseg())
