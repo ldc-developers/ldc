@@ -645,10 +645,40 @@ package extern(C) void _d_dso_registry(void* arg)
             if (doFinalize)
                 doFinalize = !gc_isProxied();
         }
+
+        bool runTlsDtors = true;
+        version (Shared)
+        {
+            size_t loadedDSOIndex = size_t.max;
+
+            if (_rtLoading)
+            {
+                // This DSO is being unloaded via rt_unloadLibrary; the TLS
+                // module dtors already ran, and it was removed from _loadedDSOs.
+                runTlsDtors = false;
+            }
+            else // dlclose
+            {
+                foreach (i, ref tdso; _loadedDSOs)
+                {
+                    if (tdso._pdso == pdso)
+                    {
+                        loadedDSOIndex = i;
+                        break;
+                    }
+                }
+
+                if (loadedDSOIndex == size_t.max)
+                {
+                    import core.stdc.stdio : fprintf, stderr;
+                    fprintf(stderr, "druntime warning: DSO being unloaded isn't in thread-local DSO list. Terminating/unloading in a thread not attached to druntime?\n");
+                    runTlsDtors = false;
+                }
+            }
+        }
+
         if (doFinalize)
         {
-            // rt_unloadLibrary already ran tls dtors, so do this only for dlclose
-            immutable runTlsDtors = !_rtLoading;
             runModuleDestructors(pdso, runTlsDtors);
             unregisterGCRanges(pdso);
             // run finalizers after module dtors (same order as in rt_term)
@@ -657,42 +687,31 @@ package extern(C) void _d_dso_registry(void* arg)
 
         version (Shared)
         {
-            if (!_rtLoading)
+            if (loadedDSOIndex != size_t.max)
             {
-                /* This DSO was not unloaded by rt_unloadLibrary so we
-                 * have to remove it from _loadedDSOs here.
-                 */
-                foreach (i, ref tdso; _loadedDSOs)
-                {
-                    if (tdso._pdso == pdso)
-                    {
-                        _loadedDSOs.remove(i);
-                        break;
-                    }
-                }
+                safeAssert(_loadedDSOs[loadedDSOIndex]._pdso == pdso, "Stale loadedDSOIndex.");
+                _loadedDSOs.remove(loadedDSOIndex);
             }
 
-            unsetDSOForHandle(pdso, pdso._handle);
+            const numGlobalDSOs = unsetDSOForHandle(pdso, pdso._handle);
+            safeAssert(_loadedDSOs.length <= numGlobalDSOs, "Thread-local DSO list with more entries than thread-global one.");
+            const isLastDSO = numGlobalDSOs == 0;
+            if (isLastDSO)
+                _handleToDSO.reset();
         }
         else
         {
             // static DSOs are unloaded in reverse order
             safeAssert(pdso == _loadedDSOs.back, "DSO being unregistered isn't current last one.");
             _loadedDSOs.popBack();
+            const isLastDSO = _loadedDSOs.empty;
         }
 
         freeDSO(pdso);
 
         // last DSO being unloaded => shutdown registry
-        if (_loadedDSOs.empty)
-        {
-            version (Shared)
-            {
-                safeAssert(_handleToDSO.empty, "_handleToDSO not in sync with _loadedDSOs.");
-                _handleToDSO.reset();
-            }
+        if (isLastDSO)
             finiLocks();
-        }
     }
 }
 
@@ -898,12 +917,14 @@ version (Shared)
         _handleToDSOMutex.unlock_nothrow();
     }
 
-    void unsetDSOForHandle(DSO* pdso, void* handle)
+    size_t unsetDSOForHandle(DSO* pdso, void* handle)
     {
         _handleToDSOMutex.lock_nothrow();
         safeAssert(_handleToDSO[handle] == pdso, "Handle doesn't match registered DSO.");
         _handleToDSO.remove(handle);
+        const numDSOs = _handleToDSO.length;
         _handleToDSOMutex.unlock_nothrow();
+        return numDSOs;
     }
 
     static if (SharedELF) void getDependencies(const scope ref SharedObject object, ref Array!(DSO*) deps)
