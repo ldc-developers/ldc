@@ -538,6 +538,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
         continue;
       }
 
+      /*
       // if we already set things up for this branch target, skip
       if (gotoToVal.find(targetLabel) != gotoToVal.end()) {
         continue;
@@ -561,6 +562,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       code << asmGotoEnd;
 
       ++n_goto;
+      */
     }
     if (code.str() != asmGotoEnd) {
       // finalize code

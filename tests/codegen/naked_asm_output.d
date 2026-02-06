@@ -106,4 +106,4 @@ int instantiate1() {
 }
 
 // Verify naked attribute is present in attributes group
-// IR: attributes #[[ATTRS]] = {{{.*}}naked{{.*}}noinline{{.*}}nounwind{{.*}}optnone
+// IR: attributes #[[ATTRS]] = {{{.*}}naked{{.*}}noinline

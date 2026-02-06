@@ -773,10 +773,8 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
     return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
   }
 
-  // A body-less declaration always needs to be marked as external in LLVM
-  // (also e.g. naked template functions which would otherwise be weak_odr,
-  // but where the definition is in module-level inline asm).
-  if (!fdecl->fbody || fdecl->isNaked()) {
+  // A body-less declaration always needs to be marked as external in LLVM.
+  if (!fdecl->fbody) {
     return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
   }
 

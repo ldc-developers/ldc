@@ -2340,7 +2340,7 @@ struct AsmProcessor {
                   AsmCode *asmcode, AsmArgMode mode = Mode_Input) {
     using namespace dmd;
 
-    if (sc->func->isNaked()) {
+    if (false && sc->func->isNaked()) {
       switch (type) {
       case Arg_Integer:
         if (e->type->isUnsigned()) {
@@ -2392,16 +2392,28 @@ struct AsmProcessor {
         llvm_unreachable("Unsupported argument in asm.");
         break;
       }
-    } else {
-      insnTemplate << fmt << "<<" << (mode == Mode_Input ? "in" : "out")
-                   << asmcode->args.size() << ">>";
-      asmcode->args.push_back(AsmArg(type, e, mode));
+    } else { // non-naked
+      if (type == Arg_Integer) {
+        if (e->type->isUnsigned()) {
+          insnTemplate << "$$" << e->toUInteger();
+        } else {
+#ifndef ASM_X86_64
+          insnTemplate << "$$" << static_cast<sinteger_t>(e->toInteger());
+#else
+          insnTemplate << "$$" << e->toInteger();
+#endif
+        }
+      } else {
+        insnTemplate << fmt << "<<" << (mode == Mode_Input ? "in" : "out")
+                    << asmcode->args.size() << ">>";
+        asmcode->args.push_back(AsmArg(type, e, mode));
+      }
     }
   }
   void addOperand2(const char *fmtpre, const char *fmtpost, AsmArgType type,
                    Expression *e, AsmCode *asmcode,
                    AsmArgMode mode = Mode_Input) {
-    if (sc->func->isNaked()) {
+    if (false && sc->func->isNaked()) {
       // taken from above
       error(stmt->loc, "only global variables can be referenced by identifier in "
                   "naked asm");
@@ -3081,7 +3093,7 @@ struct AsmProcessor {
               // (Only for non-naked asm, as this isn't an issue for naked asm.)
               //
               // See also: https://lists.llvm.org/pipermail/llvm-dev/2017-August/116244.html
-              const auto forceLeadingDisplacement = hasConstDisplacement && !sc->func->isNaked();
+              const auto forceLeadingDisplacement = hasConstDisplacement;// && !sc->func->isNaked();
               if (forceLeadingDisplacement) {
                 // Subtract 8 from our const-displacement, and prepare to add the 8 from the `H` modifier.
                 insnTemplate << "-8+";
@@ -3092,7 +3104,7 @@ struct AsmProcessor {
                 use_star = false;
               }
 
-              if (!sc->func->isNaked()) // no addrexp in naked asm please :)
+              if (true || !sc->func->isNaked()) // no addrexp in naked asm please :)
               {
                 Type *tt = pointerTo(e->type);
                 e = createAddrExp(Loc(), e);
