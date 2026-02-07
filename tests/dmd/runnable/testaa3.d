@@ -384,6 +384,49 @@ void test21066()
     aa2[[getValue()]] = "a"; // no problem because key type is automatically const(int)[]
 }
 
+void test22354()
+{
+    int[][][string] aa;  // AA with nested array value type
+    int[] elem;
+    aa["x"] = null;
+    aa["x"] ~= null;     // This append is silently lost!
+    assert(aa["x"].length == 1);  // FAILS: length is still 0
+}
+
+// https://github.com/dlang/dmd/issues/22406
+void testShared()
+{
+    shared int[int] processes = [1: 1, 2:4, 3:9];
+
+    cast(void)processes.sizeof;
+    cast(void)processes.length;
+    cast(void)processes.dup;
+    cast(void)processes.rehash;
+    //cast(void)processes.clear;
+    //cast(void)processes.keys;
+    //cast(void)processes.values;
+    //cast(void)processes.byKey;
+    //cast(void)processes.byValue;
+    //cast(void)processes.byKeyValue;
+    processes.remove(3);
+    assert(2 in processes);
+
+    immutable int[int] iprocesses = [1: 1, 2:4, 3:9];
+
+    cast(void)iprocesses.sizeof;
+    cast(void)iprocesses.length;
+    cast(void)iprocesses.dup;
+    //cast(void)iprocesses.rehash;
+    //cast(void)iprocesses.clear;
+    cast(void)iprocesses.keys;
+    cast(void)iprocesses.values;
+    cast(void)iprocesses.byKey;
+    cast(void)iprocesses.byValue;
+    cast(void)iprocesses.byKeyValue;
+    //iprocesses.remove(3);
+    assert(2 in iprocesses);
+}
+
 /***************************************************/
 
 void main()
@@ -411,4 +454,6 @@ void main()
     test12220();
     test12403();
     test21066();
+    test22354();
+    testShared();
 }

@@ -98,11 +98,12 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
     if (triple.isMusl()) { // Musl uses double
       return LLType::getDoubleTy(ctx);
     }
-#if defined(__linux__) && defined(__powerpc64__)
-    // for a PowerPC64 Linux build:
-    // default to the C++ host compiler's `long double` ABI when targeting
-    // PowerPC64 (non-musl) Linux
-    if (triple.isOSLinux()) {
+#if defined(__powerpc64__)
+    // for a PowerPC64 LDC build:
+    // for native builds (targeting some PowerPC64 with native OS), default to
+    // the C++ host compiler's `long double` ABI
+    auto nativeTriple = llvm::Triple(llvm::sys::getProcessTriple());
+    if (triple.getOS() == nativeTriple.getOS()) {
 #if __LDBL_MANT_DIG__ == 113
       return LLType::getFP128Ty(ctx);
 #elif __LDBL_MANT_DIG__ == 106

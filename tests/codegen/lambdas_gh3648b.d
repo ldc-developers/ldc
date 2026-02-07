@@ -1,4 +1,4 @@
-// Tests that *imported* lambdas and contained globals are emitted with internal linkage.
+// Tests that *imported* lambdas and contained globals are emitted as linkonce_odr.
 
 // RUN: %ldc -output-ll -of=%t.ll %s -I%S && FileCheck %s < %t.ll
 
@@ -10,17 +10,17 @@ void foo()
     bar_inlined();
 }
 
-// the global variables should be defined as internal:
-// CHECK: _D14lambdas_gh364815__lambda_L5_C12FZ10global_bari{{.*}} = internal thread_local global
-// CHECK: _D14lambdas_gh364816__lambda_L10_C20FZ18global_bar_inlinedOi{{.*}} = internal global
+// the global variables should be defined as linkonce_odr:
+// CHECK: _D14lambdas_gh364815__lambda_L5_C12FZ10global_bari{{.*}} = linkonce_odr {{(hidden )?}}thread_local global
+// CHECK: _D14lambdas_gh364816__lambda_L10_C20FZ18global_bar_inlinedOi{{.*}} = linkonce_odr {{(hidden )?}}global
 
 // foo() should only call one lambda:
 // CHECK: define {{.*}}_D15lambdas_gh3648b3fooFZv
 // CHECK-NEXT: call {{.*}}__lambda_L5_C12
 // CHECK-NEXT: ret void
 
-// bar() should be defined as internal:
-// CHECK: define internal {{.*}}__lambda_L5_C12
+// bar() should be defined as linkonce_odr:
+// CHECK: define linkonce_odr {{.*}}__lambda_L5_C12
 
 // bar_inlined() should NOT have made it to the .ll:
 // CHECK-NOT: define {{.*}}__lambda_L10_C20
