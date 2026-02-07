@@ -73,8 +73,8 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK-GC-x86-DAG: struct args_cdb::Large large =
 // CHECK-G-x64-DAG:  struct args_cdb.Large * large =
 // CHECK-GC-x64-DAG: struct args_cdb::Large * large =
-// CHECK-G-DAG:  struct object.TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
-// CHECK-GC-DAG: struct object::TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
+// CHECK-G-DAG:  {{class|struct}} object.TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
+// CHECK-GC-DAG: {{class|struct}} object::TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
 // CHECK-DAG: void * np = {{0x[0`]*}}
 
 // check arguments with indirections
@@ -219,8 +219,8 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK-NEXT: a : 0x13
 // CHECK-NEXT: b :
 // CDB: ?? *ti
-// CHECK-G:  struct object.TypeInfo_Class
-// CHECK-GC: struct object::TypeInfo_Class
+// CHECK-G:  {{class|struct}} object.TypeInfo_Class
+// CHECK-GC: {{class|struct}} object::TypeInfo_Class
 // CHECK-G-NEXT:  m_init : byte[]
 // CHECK-GC-NEXT: m_init : slice<byte>
 // CDB: ?? *np
@@ -295,8 +295,8 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CHECK-NEXT: a : 0x13
 // CHECK-NEXT: b :
 // CDB: ?? *ti
-// CHECK-G:  struct object.TypeInfo_Class * {{0x[0-9a-f`]*}}
-// CHECK-GC: struct object::TypeInfo_Class * {{0x[0-9a-f`]*}}
+// CHECK-G:  {{class|struct}} object.TypeInfo_Class * {{0x[0-9a-f`]*}}
+// CHECK-GC: {{class|struct}} object::TypeInfo_Class * {{0x[0-9a-f`]*}}
 // CHECK-G-NEXT:  m_init : byte[]
 // CHECK-GC-NEXT: m_init : slice<byte>
 // CDB: ?? *np
