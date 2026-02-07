@@ -2340,86 +2340,25 @@ struct AsmProcessor {
                   AsmCode *asmcode, AsmArgMode mode = Mode_Input) {
     using namespace dmd;
 
-    if (false && sc->func->isNaked()) {
-      switch (type) {
-      case Arg_Integer:
-        if (e->type->isUnsigned()) {
-          insnTemplate << "$" << e->toUInteger();
-        } else {
-#ifndef ASM_X86_64
-          insnTemplate << "$" << static_cast<sinteger_t>(e->toInteger());
-#else
-          insnTemplate << "$" << e->toInteger();
-#endif
-        }
-        break;
-
-      case Arg_Pointer:
-        error(stmt->loc, "unsupported pointer reference to `%s` in naked asm",
-                    e->toChars());
-        break;
-
-      case Arg_Memory:
-        // Peel off one layer of explicitly taking the address, if present.
-        if (auto ae = e->isAddrExp()) {
-          e = ae->e1;
-        }
-
-        if (auto v = e->isVarExp()) {
-          if (VarDeclaration *vd = v->var->isVarDeclaration()) {
-            if (!vd->isDataseg()) {
-              error(stmt->loc, "only global variables can be referenced by "
-                          "identifier in naked asm");
-              break;
-            }
-
-            // print out the mangle
-            if (prependExtraUnderscore(vd->resolvedLinkage())) {
-              insnTemplate << "_";
-            }
-            OutBuffer buf;
-            mangleToBuffer(vd, buf);
-            insnTemplate << buf.peekChars();
-            getIrGlobal(vd, true)->nakedUse = true;
-            break;
-          }
-        }
-        error(stmt->loc, "unsupported memory reference to `%s` in naked asm",
-                    e->toChars());
-        break;
-
-      default:
-        llvm_unreachable("Unsupported argument in asm.");
-        break;
-      }
-    } else { // non-naked
-      if (type == Arg_Integer) {
-        if (e->type->isUnsigned()) {
-          insnTemplate << "$$" << e->toUInteger();
-        } else {
-#ifndef ASM_X86_64
-          insnTemplate << "$$" << static_cast<sinteger_t>(e->toInteger());
-#else
-          insnTemplate << "$$" << e->toInteger();
-#endif
-        }
+    if (type == Arg_Integer) {
+      if (e->type->isUnsigned()) {
+        insnTemplate << "$$" << e->toUInteger();
       } else {
-        insnTemplate << fmt << "<<" << (mode == Mode_Input ? "in" : "out")
-                    << asmcode->args.size() << ">>";
-        asmcode->args.push_back(AsmArg(type, e, mode));
+#ifndef ASM_X86_64
+        insnTemplate << "$$" << static_cast<sinteger_t>(e->toInteger());
+#else
+        insnTemplate << "$$" << e->toInteger();
+#endif
       }
+    } else {
+      insnTemplate << fmt << "<<" << (mode == Mode_Input ? "in" : "out")
+                   << asmcode->args.size() << ">>";
+      asmcode->args.push_back(AsmArg(type, e, mode));
     }
   }
   void addOperand2(const char *fmtpre, const char *fmtpost, AsmArgType type,
                    Expression *e, AsmCode *asmcode,
                    AsmArgMode mode = Mode_Input) {
-    if (false && sc->func->isNaked()) {
-      // taken from above
-      error(stmt->loc, "only global variables can be referenced by identifier in "
-                  "naked asm");
-      return;
-    }
-
     insnTemplate << fmtpre << "<<" << (mode == Mode_Input ? "in" : "out")
                  << ">>" << fmtpost;
     asmcode->args.push_back(AsmArg(type, e, mode));
@@ -3090,11 +3029,9 @@ struct AsmProcessor {
               // If we subtract 8 from our const-displacement, then we can use the `H` modifier to ensure
               // that we always end up with a valid syntax for a memory operand with an offset.
               // So, we do just that when we have const-displacement in play.
-              // (Only for non-naked asm, as this isn't an issue for naked asm.)
               //
               // See also: https://lists.llvm.org/pipermail/llvm-dev/2017-August/116244.html
-              const auto forceLeadingDisplacement = hasConstDisplacement;// && !sc->func->isNaked();
-              if (forceLeadingDisplacement) {
+              if (hasConstDisplacement) {
                 // Subtract 8 from our const-displacement, and prepare to add the 8 from the `H` modifier.
                 insnTemplate << "-8+";
               }
@@ -3104,14 +3041,11 @@ struct AsmProcessor {
                 use_star = false;
               }
 
-              if (true || !sc->func->isNaked()) // no addrexp in naked asm please :)
-              {
-                Type *tt = pointerTo(e->type);
-                e = createAddrExp(Loc(), e);
-                e->type = tt;
-              }
+              Type *tt = pointerTo(e->type);
+              e = createAddrExp(Loc(), e);
+              e->type = tt;
 
-              if (forceLeadingDisplacement) {
+              if (hasConstDisplacement) {
                 // We have a const-displacement in play, so we add the `H` modifier, as described earlier.
                 insnTemplate << "${" << "<<" << (mode == Mode_Input ? "in" : "out")
                              << asmcode->args.size() << ">>" << ":H}";

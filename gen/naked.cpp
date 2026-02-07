@@ -16,17 +16,14 @@
 #include "dmd/template.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
-#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "llvm/IR/InlineAsm.h"
 #include <cassert>
-#include <sstream>
 
 using namespace dmd;
 
