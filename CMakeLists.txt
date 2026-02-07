@@ -31,7 +31,7 @@ include(BuildDExecutable)
 
 find_package(LLVM 15.0 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
-    debuginfodwarf debuginfomsf debuginfopdb demangle
+    debuginfodwarf debuginfomsf debuginfopdb demangle frontendhlsl
     instcombine ipo instrumentation irreader libdriver linker lto mc
     mcdisassembler mcparser objcarcopts object option profiledata scalaropts
     selectiondag support tablegen target transformutils vectorize
