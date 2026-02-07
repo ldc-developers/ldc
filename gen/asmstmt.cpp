@@ -532,13 +532,13 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       }
       Identifier *const ident = targetLabel->ident;
 
-      // if internal, no special handling is necessary, skip
-      if (llvm::any_of(asmblock->internalLabels,
-                       [ident](Identifier *i) { return i->equals(ident); })) {
+      // if the label is defined in inline asm, no special handling is necessary, skip
+      if (fd->asmLabels && llvm::any_of(*fd->asmLabels, [ident](Identifier *i) {
+            return i->equals(ident);
+          })) {
         continue;
       }
 
-      /*
       // if we already set things up for this branch target, skip
       if (gotoToVal.find(targetLabel) != gotoToVal.end()) {
         continue;
@@ -562,7 +562,6 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       code << asmGotoEnd;
 
       ++n_goto;
-      */
     }
     if (code.str() != asmGotoEnd) {
       // finalize code

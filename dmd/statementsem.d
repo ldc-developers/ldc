@@ -3667,6 +3667,13 @@ version (IN_LLVM)
                 if (auto ls = s.isLabelStatement())
                 {
                     sc.func.searchLabel(ls.ident, ls.loc);
+
+version (IN_LLVM)
+{
+                    if (!sc.func.asmLabels)
+                        sc.func.asmLabels = new Identifiers();
+                    sc.func.asmLabels.push(ls.ident);
+}
                 }
             }
         }

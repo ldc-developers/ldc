@@ -1552,7 +1552,6 @@ public:
       label << ":";
       a->code = label.str();
       irs->asmBlock->s.push_back(a);
-      irs->asmBlock->internalLabels.push_back(stmt->ident);
 
       // disable inlining
       irs->func()->setNeverInline();

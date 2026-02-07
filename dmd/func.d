@@ -256,6 +256,10 @@ version (IN_LLVM)
     VarDeclaration v_argptr;            /// '_argptr' variable
     VarDeclarations* parameters;        /// Array of VarDeclaration's for parameters
     DsymbolTable labtab;                /// statement label symbol table
+version (IN_LLVM)
+{
+    Identifiers* asmLabels;             /// identifiers of labels defined in DMD-style inline assembly
+}
     Dsymbol overnext;                   /// next in overload list
     FuncDeclaration overnext0;          /// next in overload list (only used during IFTI)
     Loc endloc;                         /// location of closing curly bracket

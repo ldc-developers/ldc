@@ -94,9 +94,6 @@ struct IRAsmBlock {
   std::set<std::string> clobs;
   size_t outputcount;
 
-  // stores the labels within the asm block
-  std::vector<Identifier *> internalLabels;
-
   CompoundAsmStatement *asmBlock;
   LLType *retty;
   unsigned retn;
