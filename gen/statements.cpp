@@ -1542,15 +1542,20 @@ public:
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
+    auto fd = irs->func()->decl;
+
+    const auto getFullAsmLabelString = [stmt, fd]() {
+      std::stringstream s;
+      printLabelName(s, mangleExact(fd), stmt->ident->toChars());
+      s << ":";
+      return s.str();
+    };
+
     // if it's an inline asm label, we don't create a basicblock, just emit it
     // in the asm
     if (irs->asmBlock) {
       auto a = new IRAsmStmt;
-      std::stringstream label;
-      printLabelName(label, mangleExact(irs->func()->decl),
-                     stmt->ident->toChars());
-      label << ":";
-      a->code = label.str();
+      a->code = getFullAsmLabelString();
       irs->asmBlock->s.push_back(a);
 
       // disable inlining
@@ -1565,6 +1570,13 @@ public:
       }
 
       irs->ir->SetInsertPoint(labelBB);
+
+      // in a naked DMD-style inline-asm function, create an assembly label too
+      // (so that inline-asm can jump to it directly)
+      if (fd->isNaked()) {
+        DtoInlineAsmExpr(stmt->loc, getFullAsmLabelString(), "", {}, {},
+                         irs->ir->getVoidTy());
+      }
     }
 
     PGO.emitCounterIncrement(stmt);
