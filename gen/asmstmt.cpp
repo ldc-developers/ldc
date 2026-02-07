@@ -544,6 +544,18 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
         continue;
       }
 
+      // the extra forwarding code needs an i32 alloca, so messes with the stack
+      if (fd->isNaked()) {
+        error(stmt->loc,
+              "branch to non-assembly D label `%s` not allowed in "
+              "naked inline assembly",
+              ident->toChars());
+        errorSupplemental(
+            stmt->loc,
+            "Either define the label inside an `asm` block, or drop `naked`.");
+        continue;
+      }
+
       // record that the jump needs to be handled in the post-asm dispatcher
       gotoToVal[targetLabel] = n_goto;
 
