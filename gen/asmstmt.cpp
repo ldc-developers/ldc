@@ -11,8 +11,10 @@
 #include "dmd/dsymbol.h"
 #include "dmd/errors.h"
 #include "dmd/ldcbindings.h"
+#include "dmd/module.h"
 #include "dmd/scope.h"
 #include "dmd/statement.h"
+#include "dmd/template.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -97,6 +99,12 @@ static void replace_func_name(IRState *p, std::string &insnt) {
   }
 }
 
+// Global counter for generating unique asm label IDs per function.
+// This prevents duplicate symbol errors when LTO merges multiple
+// instantiations of template functions with inline asm.
+// See: https://github.com/ldc-developers/ldc/issues/4294
+static unsigned nextAsmLabelId = 1;
+
 Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   if (!s->tokens) {
     return nullptr;
@@ -106,10 +114,50 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   if (s->tokens->value == TOK::string_ ||
       s->tokens->value == TOK::leftParenthesis) {
     auto gas = createGccAsmStatement(s->loc, s->tokens);
-    return gccAsmSemantic(gas, sc);
+    return dmd::gccAsmSemantic(gas, sc);
   }
 
   // this is DMD-style asm
+
+  // Assign a unique asm label ID to this function if it doesn't have one yet.
+  // This ID is used to make labels unique across different compilation units
+  // when LTO merges template instantiations.
+  //
+  // For template functions, we use the instantiation module's name to create
+  // a deterministic hash that differs across compilation units. This ensures:
+  // 1. Same compilation → same hash → reproducible builds
+  // 2. Different compilation units → different hash → no LTO conflicts
+  if (sc->func->asmLabelId == 0) {
+    unsigned moduleHash = 0;
+
+    // For template instantiations, use the instantiation module's name
+    // This is the module that caused this template to be instantiated,
+    // which differs between compilation units even for the same template.
+    if (auto ti = sc->func->isInstantiated()) {
+      if (ti->minst && ti->minst->ident) {
+        const char* modName = ti->minst->ident->toChars();
+        for (const char* p = modName; *p; ++p) {
+          moduleHash = moduleHash * 31 + static_cast<unsigned char>(*p);
+        }
+      }
+    }
+
+    // If not a template or no instantiation module, use the current module
+    if (moduleHash == 0 && sc->_module && sc->_module->ident) {
+      const char* modName = sc->_module->ident->toChars();
+      for (const char* p = modName; *p; ++p) {
+        moduleHash = moduleHash * 31 + static_cast<unsigned char>(*p);
+      }
+    }
+
+    // Combine module hash with counter for uniqueness within a compilation
+    // Use golden ratio constant for better bit mixing
+    sc->func->asmLabelId = (moduleHash * 2654435761u) ^ (nextAsmLabelId++ * 31);
+    // Ensure non-zero
+    if (sc->func->asmLabelId == 0) {
+      sc->func->asmLabelId = 1;
+    }
+  }
   sc->func->hasInlineAsm(true);
 
   const auto caseSensitive = s->caseSensitive();
@@ -513,7 +561,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       static size_t uniqueLabelsId = 0;
       std::string suffix = "_llvm_asm_end";
       suffix += std::to_string(uniqueLabelsId++);
-      printLabelName(asmGotoEndLabel, fdmangle, suffix.c_str());
+      printLabelName(asmGotoEndLabel, fdmangle, suffix.c_str(), fd->asmLabelId);
     }
 
     // initialize the setter statement we're going to build
@@ -550,7 +598,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       IF_LOG Logger::println(
           "statement '%s' references outer label '%s': creating forwarder",
           a->code.c_str(), ident->toChars());
-      printLabelName(code, fdmangle, ident->toChars());
+      printLabelName(code, fdmangle, ident->toChars(), fd->asmLabelId);
       code << ":\n\t";
       code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
       // FIXME: Store the value -> label mapping somewhere, so it can be
