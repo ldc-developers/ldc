@@ -140,11 +140,11 @@ void build() {
         "--d-version=IN_LLVM",
         "-J" ~ buildPath(config.ldcSourceDir, "dmd", "res"),
         "--shared",
-        "--link-defaultlib-shared=false",
         "--od=" ~ config.buildDir
     ];
 
     version (Darwin) {
+        args ~= "--link-defaultlib-shared=false";
         args ~= "-L-Wl,-undefined,dynamic_lookup";
     }
 
