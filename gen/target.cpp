@@ -94,7 +94,7 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
     return LLType::getFP128Ty(ctx);
 
   case Triple::ppc64:
-  case Triple::ppc64le:
+  case Triple::ppc64le: {
     if (triple.isMusl()) { // Musl uses double
       return LLType::getDoubleTy(ctx);
     }
@@ -118,6 +118,7 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
     }
 #endif
     return LLType::getPPC_FP128Ty(ctx);
+  }
 
   default:
     // 64-bit double precision for all other targets
