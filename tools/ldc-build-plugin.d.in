@@ -140,7 +140,7 @@ void build() {
         "--d-version=IN_LLVM",
         "-J" ~ buildPath(config.ldcSourceDir, "dmd", "res"),
         "--shared",
-        "--defaultlib=",
+        "--link-defaultlib-shared=false",
         "--od=" ~ config.buildDir
     ];
 
