@@ -144,7 +144,6 @@ void build() {
     ];
 
     version (Darwin) {
-        args ~= "--link-defaultlib-shared=false";
         args ~= "-L-Wl,-undefined,dynamic_lookup";
     }
 
