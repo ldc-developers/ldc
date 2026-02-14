@@ -1018,11 +1018,15 @@ enable_testing()
 set(LDC_UNITTEST_EXE ${LDC_EXE}-unittest)
 set(LDC_UNITTEST_EXE_NAME ${PROGRAM_PREFIX}${LDC_UNITTEST_EXE}${PROGRAM_SUFFIX})
 set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_UNITTEST_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
+# Remove a potential `-fprofile-use` in DFLAGS_LDC to disable PGO for the
+# unittest executable (profile gathered from normal ldc2 executable).
+set(DFLAGS_LDC_UT "${DFLAGS_LDC}")
+string(REGEX REPLACE "(^| )-fprofile-use=[^ ]+( |$)" " " DFLAGS_LDC_UT ${DFLAGS_LDC_UT})
 build_d_executable(
     "${LDC_UNITTEST_EXE}"
     "${LDC_UNITTEST_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
-    "-g -unittest ${DFLAGS_LDC}"
+    "-g -unittest ${DFLAGS_LDC_UT}"
     "${LDC_LINKERFLAG_LIST};${FULLY_STATIC_LDFLAG}"
     ""
     "${LDC_LIB}"
