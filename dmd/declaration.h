@@ -581,6 +581,9 @@ public:
     VarDeclaration *v_argptr;           // '_argptr' variable
     VarDeclarations *parameters;        // Array of VarDeclaration's for parameters
     DsymbolTable *labtab;               // statement label symbol table
+#if IN_LLVM
+    Identifiers *asmLabels;
+#endif
     Dsymbol *overnext;                  // next in overload list
     FuncDeclaration *overnext0;         // next in overload list (only used during IFTI)
     Loc endloc;                         // location of closing curly bracket
