@@ -9,6 +9,7 @@
 
 #include "dmd/errors.h"
 #include "dmd/mangle.h"
+#include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/template.h"
 #include "gen/irstate.h"
@@ -186,6 +187,24 @@ LLConstant *IrStruct::getTypeInfoInit() {
   // immutable(void)* m_RTInfo
   if (!isOpaque && sd->getRTInfo) {
     b.push(toConstElem(sd->getRTInfo, gIR));
+
+    // Make sure the pointed-to RTInfoImpl global is defined in a root module
+    // (e.g., not guaranteed for TypeInfos for structs defined in .di files,
+    // causing undefined RTInfoImpl symbols at link-time).
+    if (global.params.linkonceTemplates == LinkonceTemplates::no) {
+      if (auto soe = sd->getRTInfo->isSymOffExp()) {
+        assert(soe->offset == 0);
+        auto rtInfoImplVar = soe->var->isVarDeclaration();
+        auto rtInfoImplTemplInst = rtInfoImplVar->isInstantiated()->inst;
+        auto mod = rtInfoImplTemplInst->memberOf;
+        if (!mod || !mod->isRoot() || !needsCodegen(rtInfoImplTemplInst)) {
+          // The RTInfoImpl template instance won't be codegen'd in this
+          // compiler run - define the variable manually in the current object
+          // file.
+          getIrGlobal(rtInfoImplVar)->getValue(/*define=*/true);
+        }
+      }
+    }
   } else {
     b.push_size_as_vp(!isOpaque && hasPointers(ts) ? 1 : 0);
   }
