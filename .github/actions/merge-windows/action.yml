@@ -66,6 +66,7 @@ runs:
         set PATH=%CD%\ldc2-multilib\lib32;%PATH%
         ldc2-multilib\bin\ldc2 -link-defaultlib-shared -m32 -run hello.d || exit /b
 
+    # TODO
     # preliminary arm64 cross-compilation support
     - name: Set VSDIR env variable
       shell: bash

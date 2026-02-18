@@ -46,8 +46,11 @@ runs:
     - if: runner.os == 'Windows'
       shell: cmd
       run: |
+        where clang-cl
         call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }} || exit /b
         echo on
+        ${{ inputs.arch == 'arm64' && 'set PATH=C:\Program Files\LLVM\bin;%PATH%' || '' }}
+        where clang-cl
         cd .. || exit /b
         set installDir=%CD%\install
         mkdir "${{ inputs.build_dir }}" || exit /b
