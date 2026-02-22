@@ -1101,7 +1101,9 @@ int main(int argc, const char **originalArgv)
   // initialize `opts::allArguments` with the UTF-8 command-line args
   args::getCommandLineArguments(argc, originalArgv, allArguments);
 
+#ifndef __ANDROID__
   llvm::sys::PrintStackTraceOnErrorSignal(allArguments[0]);
+#endif
 
   // expand response files (`@<file>`, e.g., used by dub) in-place
   args::expandResponseFiles(allArguments);
