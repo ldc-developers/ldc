@@ -26,7 +26,7 @@ runs:
         packages=( \
           git-core cmake g++ \
           libcurl4 libzstd-dev \
-          curl gdb p7zip-full tzdata unzip zip python3-pip \
+          curl gdb p7zip-full zstd tzdata unzip zip python3-pip \
         )
         if [[ $arch == x86_64 ]]; then
           packages+=(g++-multilib libcurl4:i386)
@@ -115,11 +115,11 @@ runs:
           elif [[ '${{ runner.os }}' == macOS ]]; then
             os=osx
           fi
-          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz \
-            https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-$os-$arch$assertsSuffix.tar.xz
+          curl -fL --retry 3 --max-time 300 -o llvm.tar.zst \
+            https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-$os-$arch$assertsSuffix.tar.zst
           mkdir llvm
-          tar -xf llvm.tar.xz --strip 1 -C llvm
-          rm llvm.tar.xz
+          tar -xf llvm.tar.zst --zstd --strip 1 -C llvm
+          rm llvm.tar.zst
         fi
 
         llvm/bin/llvm-config --version
