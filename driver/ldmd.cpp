@@ -739,7 +739,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        * -main
        */
       else if (startsWith(p + 1, "man")) {
-        browse("http://wiki.dlang.org/LDC");
+        browse("https://wiki.dlang.org/LDC");
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "run") == 0) {
         ldcArgs.insert(ldcArgs.end(), args.begin() + i, args.end());

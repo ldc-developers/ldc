@@ -144,7 +144,7 @@ void printVersion(llvm::raw_ostream &OS) {
     CPU = "(unknown)";
   }
   OS << "  Host CPU: " << CPU << "\n";
-  OS << "  http://dlang.org - http://wiki.dlang.org/LDC\n";
+  OS << "  https://dlang.org - https://wiki.dlang.org/LDC\n";
   OS << "\n";
 
   // Without explicitly flushing here, only the target list is visible when
