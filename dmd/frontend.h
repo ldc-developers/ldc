@@ -613,9 +613,8 @@ public:
     virtual bool needThis();
     virtual Visibility visible();
     virtual Dsymbol* syntaxCopy(Dsymbol* s);
-    virtual void addComment(const char* comment);
     const char* comment();
-    void comment(const char* comment);
+    void addComment(const char* c);
     UnitTestDeclaration* ddocUnittest();
     void ddocUnittest(UnitTestDeclaration* utd);
     bool inNonRoot();
@@ -7283,18 +7282,6 @@ public:
     void visit(AttribDeclaration* ad) override;
     void visit(ConditionalDeclaration* cdc) override;
     void visit(StaticIfDeclaration* sif) override;
-    void visit(StaticForeachDeclaration* sfd) override;
-};
-
-class AddCommentVisitor : public Visitor
-{
-public:
-    using Visitor::visit;
-    const char* comment;
-    AddCommentVisitor(const char* comment);
-    void visit(Dsymbol* d) override;
-    void visit(AttribDeclaration* atd) override;
-    void visit(ConditionalDeclaration* cd) override;
     void visit(StaticForeachDeclaration* sfd) override;
 };
 
