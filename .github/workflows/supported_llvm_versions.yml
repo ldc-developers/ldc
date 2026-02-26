@@ -28,8 +28,7 @@ jobs:
             os: ubuntu-24.04
             host_dc: ldc-1.19.0
             llvm_version: 20
-            # work around libcurl dependency for ldc-profdata (LLVM apparently built with non-default LLVM_ENABLE_CURL=ON)
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DPHOBOS_SYSTEM_ZLIB=ON -DCMAKE_EXE_LINKER_FLAGS=-lcurl
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DPHOBOS_SYSTEM_ZLIB=ON
           - job_name: Ubuntu 24.04, LLVM 19, latest DMD beta
             os: ubuntu-24.04
             host_dc: dmd-beta
