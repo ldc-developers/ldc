@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LLVM_VERSION: d1f9056b
+  LLVM_VERSION: adcb3508
 
 jobs:
   build-native:
@@ -288,6 +288,7 @@ jobs:
             android_x86_arch: i686
             extra_cmake_flags: >-
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=arm-android
+              -DLDC_ENABLE_PLUGINS=OFF
 
           - job_name: Android aarch64
             host_os: ubuntu-22.04
@@ -296,6 +297,7 @@ jobs:
             android_x86_arch: x86_64
             extra_cmake_flags: >-
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64-android
+              -DLDC_ENABLE_PLUGINS=OFF
 
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.host_os }}
