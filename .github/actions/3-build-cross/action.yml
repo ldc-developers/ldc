@@ -35,7 +35,7 @@ runs:
         fi
 
         if [[ '${{ inputs.os }}' == android ]]; then
-          assertsSuffix=""
+          assertsSuffix="-withAsserts"
         else
           # Use assertions for untagged builds. Must be the same as for the host LLVM package, because
           # llvm-config of host package will be used for the cross build configuration.
@@ -96,6 +96,9 @@ runs:
         unzip android-ndk.zip >/dev/null
         mv "android-ndk-$version" android-ndk
         rm android-ndk.zip
+
+        # remove the implicit -fstack-protector-strong
+        sed -i 's|^  " -fstack-protector-strong"$||' android-ndk/build/cmake/flags.cmake
 
         arch='${{ inputs.arch }}'
         apiLevel='${{ inputs.android_api_level }}'
