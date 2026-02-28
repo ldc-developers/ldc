@@ -43,9 +43,9 @@ Typical components:
 version=@LLVM_VERSION@
 prefix=@LLVM_INSTALL_DIR@
 has_rtti=NO
-CPPFLAGS="-I${prefix}/include -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
+CPPFLAGS="-I${prefix}/include -DEXPERIMENTAL_KEY_INSTRUCTIONS -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
 CFLAGS="${CPPFLAGS} ${CFLAGS}"
-CXXFLAGS="${CFLAGS} -std=c++17 -fno-exceptions -funwind-tables"
+CXXFLAGS="${CFLAGS} -std=c++17 --stdlib=libc++ -fno-exceptions -funwind-tables"
 if [ "$has_rtti" != "YES" ]; then CXXFLAGS="$CXXFLAGS -fno-rtti"; fi
 LDFLAGS="-L${prefix}/lib"
 LIBFILE="${prefix}/lib/libLLVM-$version.so"
@@ -70,7 +70,7 @@ handle_args () {
 		cflags) echo "$CFLAGS";;
 		cxxflags) echo "$CXXFLAGS";;
 		ldflags) echo "$LDFLAGS";;
-		system-libs) echo "-lc -ldl -lz -lm";;
+		system-libs) echo "-ldl -lm -lz";;
 		libs) echo "$libs";;
 		libnames) echo "libLLVM-$version.so";;
 		libfiles) echo "$LIBFILE";;
