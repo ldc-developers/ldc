@@ -597,6 +597,36 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
 
         return isCopyable(t) ? True() : False();
     }
+    if (e.ident == Id.needsDestruction)
+    {
+        if (dim != 1)
+            return dimError(1);
+
+        auto o = (*e.args)[0];
+        auto t = isType(o);
+        if (!t)
+        {
+            error(e.loc, "type expected as second argument of __traits `%s` instead of `%s`",
+                    e.ident.toChars(), o.toChars());
+            return ErrorExp.get();
+        }
+        // FIXME should just check t.needsDestruction() but that doesn't run dsymbolSemantic
+
+        // T[0]
+        if (!t.size())
+            return False();
+
+        // get the base in case `t` is an `enum`
+        // handle static arrays
+        t = t.baseElemOf();
+        if (auto ts = t.isTypeStruct())
+        {
+            ts.sym.dsymbolSemantic(sc);
+            if (ts.sym.dtor)
+                return True();
+        }
+        return False();
+    }
 
     if (e.ident == Id.isNested)
     {
