@@ -35,7 +35,7 @@ runs:
         fi
 
         if [[ '${{ inputs.os }}' == android ]]; then
-          assertsSuffix="-withAsserts"
+          assertsSuffix=""
         else
           # Use assertions for untagged builds. Must be the same as for the host LLVM package, because
           # llvm-config of host package will be used for the cross build configuration.

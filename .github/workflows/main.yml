@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LLVM_VERSION: bdd275b6
+  LLVM_VERSION: f8faf15f
 
 jobs:
   build-native:
