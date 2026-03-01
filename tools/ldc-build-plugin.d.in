@@ -150,9 +150,10 @@ void build() {
         args ~= "-L-Wl,-undefined,dynamic_lookup";
     }
 
-    // When LDC is linked with shared runtime/phobos, don't link them into the plugin to avoid two runtimes being loaded.
+    // When LDC is linked with shared runtime, don't link it again into the plugin to avoid two runtimes being loaded.
+    // Only link with phobos.
     version (LDCLinkedWithSharedRuntime) {
-        args ~= "--defaultlib=";
+        args ~= "--defaultlib=phobos2-ldc";
     }
 
     args ~= config.ldcArgs;
