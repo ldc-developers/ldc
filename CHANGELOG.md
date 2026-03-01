@@ -1,6 +1,14 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.42.0 (2026-03-01)
+
+#### Big news
 - Frontend, druntime and Phobos are at version [2.112.1+](https://dlang.org/changelog/2.112.0.html), incl. new command-line options `-extI`, `-dllimport=externalOnly` and `-edition`. (#4949, #4962, #4988, #5029, #5042, #5046, #5051, #5061, #5067, #5069, #5076)
 - Support for [LLVM 21](https://releases.llvm.org/21.1.0/docs/ReleaseNotes.html). The prebuilt packages use v21.1.8. (#4950, #5033)
 - New prebuilt package for Alpine Linux aarch64 with musl libc, analogous to the existing x86_64 package. (#4943)
@@ -20,8 +28,6 @@
 #### Platform support
 - Supports LLVM 15 - 21.
 - PowerPC64: `real` now matches the C++ host compiler's `long double` when compiling for the native target, not just on Linux hosts. (#5054)
-
-#### Bug fixes
 
 # LDC 1.41.0 (2025-06-07)
 
