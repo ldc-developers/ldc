@@ -40,7 +40,7 @@ runs:
           ${{ inputs.specify_install_dir == 'true' && '-DINCLUDE_INSTALL_DIR="$installDir/import"' || '' }} \
           ${{ inputs.cmake_flags }}
 
-        ninja obj/ldc2.o ${{ inputs.build_targets }}
+        ninja -v obj/ldc2.o ${{ inputs.build_targets }}
 
     # Windows: invoke CMake & ninja in MSVC env
     - if: runner.os == 'Windows'
