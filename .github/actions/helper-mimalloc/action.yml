@@ -16,6 +16,11 @@ runs:
         mkdir mimalloc
         tar -xf mimalloc.tar.gz --strip 1 -C mimalloc
 
+        # https://github.com/ldc-developers/ldc/pull/4853#discussion_r2869484071
+        if [[ '${{ runner.os }}' == macOS ]]; then
+          sed -i '' 's|__attribute__((constructor(101)))|__attribute__((constructor(0)))|' mimalloc/src/prim/osx/alloc-override-zone.c
+        fi
+
         mkdir build-mimalloc
         cd build-mimalloc
         cmake -G Ninja ../mimalloc ${{ inputs.cmake_flags }}
