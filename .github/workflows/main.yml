@@ -297,6 +297,7 @@ jobs:
             extra_cmake_flags: >-
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64-android
               -DLDC_WITH_LLD=OFF
+              -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.host_os }}
