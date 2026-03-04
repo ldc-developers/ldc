@@ -1190,7 +1190,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (opts::isUsingSampleBasedPGOProfile()) {
     func->addFnAttr("use-sample-profile");
   }
-
+  if (opts::noBuiltIn) {
+    func->addFnAttr("no-built-in");
+  }
   if (fd->hasInlineAsm()) {
     // disable frame-pointer-elimination for functions with DMD-style inline asm
     func->addFnAttr("frame-pointer", "all");

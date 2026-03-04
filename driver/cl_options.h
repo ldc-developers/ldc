@@ -41,6 +41,7 @@ extern cl::OptionCategory linkingCategory;
    egrep -e '^(cl::|#if|#e)' gen/cl_options.cpp \
     | sed -re 's/^(cl::.*)\(.*$/    extern \1;/'
  */
+extern cl::opt<bool> noBuiltIn;
 extern cl::list<std::string> fileList;
 extern cl::list<std::string> runargs;
 extern cl::opt<bool> invokedByLDMD;

@@ -20,6 +20,12 @@ namespace opts {
 // This vector is filled by parseCommandLine in main.cpp.
 llvm::SmallVector<const char *, 32> allArguments;
 
+cl::opt<bool> noBuiltIn(
+    "fno-builtin",
+    cl::desc("Disable implicit builtin knowledge of functions"),
+    cl::ZeroOrMore
+);
+
 cl::OptionCategory linkingCategory("Linking options");
 
 // Positional options first, in order:
