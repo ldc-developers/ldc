@@ -3,4 +3,4 @@
 // CHECK: define {{.*}} @builtin{{.*}} [[ATTR:#[0-9]+]]
 extern(C) void builtin() {}
 
-// CHECK: attributes [[ATTR]] = { {{.*}}"no-builtins"{{.*}} }
+// CHECK: attributes [[ATTR]] = { {{.*}}"no-built-in"{{.*}} }
