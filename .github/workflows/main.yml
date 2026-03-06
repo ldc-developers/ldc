@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LLVM_VERSION: 21.1.8
+  LLVM_VERSION: f8faf15f
 
 jobs:
   build-native:
@@ -296,6 +296,8 @@ jobs:
             android_x86_arch: x86_64
             extra_cmake_flags: >-
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64-android
+              -DLDC_WITH_LLD=OFF
+              -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.host_os }}
