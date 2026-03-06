@@ -1,6 +1,11 @@
 // RUN: %ldc -c -output-ll -fno-builtin -of=%t.ll %s && FileCheck %s < %t.ll
 
-// CHECK: define {{.*}} @builtin{{.*}} [[ATTR:#[0-9]+]]
-extern(C) void builtin() {}
+// CHECK-LABEL: define {{.*}} @test_builtin(
+// CHECK: call {{.*}} @printf
+extern(C) int printf(const char*, ...);
 
-// CHECK: attributes [[ATTR]] = { {{.*}}"no-built-in"{{.*}} }
+extern(C) void test_builtin() {
+    printf("hi reviewer\n");
+}
+
+// CHECK: attributes #{{[0-9]+}} = { {{.*}}"no-builtins"{{.*}} }

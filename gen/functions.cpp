@@ -1191,7 +1191,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     func->addFnAttr("use-sample-profile");
   }
   if (opts::noBuiltIn) {
-    func->addFnAttr("no-built-in");
+    func->addFnAttr("no-builtins");
   }
   if (fd->hasInlineAsm()) {
     // disable frame-pointer-elimination for functions with DMD-style inline asm
