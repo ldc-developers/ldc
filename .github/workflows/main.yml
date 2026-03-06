@@ -93,7 +93,7 @@ jobs:
             with_pgo: true
 
           - job_name: macOS x86_64
-            os: macos-13
+            os: macos-15-intel
             arch: x86_64
             # * CMAKE_OSX_SYSROOT: Homebrew clang apparently requires the Command Line Tools instead of Xcode: https://github.com/actions/runner-images/issues/10035#issue-2344536514
             # * https://github.com/ldc-developers/ldc/issues/4462:
@@ -101,8 +101,8 @@ jobs:
             #   Additionally `-w` to suppress resulting linker warnings.
             extra_cmake_flags: >-
               -DCMAKE_OSX_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
-              -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang
-              -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm/bin/clang++
+              -DCMAKE_C_COMPILER=clang
+              -DCMAKE_CXX_COMPILER=clang++
               -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto -L-exported_symbol '-L__*' -L-w"
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
@@ -112,8 +112,8 @@ jobs:
             arch: arm64
             extra_cmake_flags: >-
               -DCMAKE_OSX_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
-              -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm/bin/clang
-              -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++
+              -DCMAKE_C_COMPILER=clang
+              -DCMAKE_CXX_COMPILER=clang++
               -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto -L-exported_symbol '-L__*' -L-w"
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
@@ -346,7 +346,7 @@ jobs:
 
   merge-macos:
     name: macOS universal
-    runs-on: macos-13
+    runs-on: macos-latest
     timeout-minutes: 30
     needs: build-native
     steps:
