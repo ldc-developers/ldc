@@ -93,7 +93,7 @@ jobs:
             with_pgo: true
 
           - job_name: macOS x86_64
-            os: macos-15-intel
+            os: macos-13
             arch: x86_64
             # * CMAKE_OSX_SYSROOT: Homebrew clang apparently requires the Command Line Tools instead of Xcode: https://github.com/actions/runner-images/issues/10035#issue-2344536514
             # * https://github.com/ldc-developers/ldc/issues/4462:
@@ -346,7 +346,7 @@ jobs:
 
   merge-macos:
     name: macOS universal
-    runs-on: macos-latest
+    runs-on: macos-13
     timeout-minutes: 30
     needs: build-native
     steps:
