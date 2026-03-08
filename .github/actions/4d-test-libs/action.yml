@@ -18,20 +18,18 @@ runs:
           N=$(nproc)
         fi
 
-        excludes="dmd-testsuite|lit-tests|ldc2-unittest"
+        excludes='dmd-testsuite|lit-tests|ldc2-unittest'
+        # FIXME: https://github.com/dlang/phobos/issues/10730
+        excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
         if [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-aarch64 ]]; then
           if type -P apk &>/dev/null; then
             # FIXME: empty exception backtraces on musl AArch64 with enabled optimizations
             excludes+='|^druntime-test-exceptions-release$'
           fi
         fi
-        if [[ '${{ runner.os }}' == macOS ]]; then
-          # FIXME: https://github.com/dlang/phobos/issues/10730
-          excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
-          if [[ '${{ inputs.arch }}' == x86_64 ]]; then
-            # FIXME: regressed with image bump from macos-13 to macos-15-intel, apparently wrt. getpwnam_r() setting unexpected errno
-            excludes+='|^std.path'
-          fi
+        if [[ '${{ runner.os }}-${{ inputs.arch }}' == macOS-x86_64 ]]; then
+          # FIXME: regressed with image bump from macos-13 to macos-15-intel, apparently wrt. getpwnam_r() setting unexpected errno
+          excludes+='|^std.path'
         fi
 
         ctest -j$N --output-on-failure -E "$excludes" --timeout 120
@@ -50,4 +48,5 @@ runs:
         call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ matrix.arch }} || exit /b
         echo on
         cd build || exit /b
-        ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest" --timeout 120 || exit /b
+        # FIXME: https://github.com/dlang/phobos/issues/10730
+        ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|^std.experimental.allocator.building_blocks.allocator_list" --timeout 120 || exit /b
