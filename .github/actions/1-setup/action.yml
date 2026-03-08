@@ -57,9 +57,9 @@ runs:
         brew install llvm@21 lld@21
         # https://github.com/llvm/llvm-project/issues/155531#issuecomment-3229499205
         if [[ '${{ inputs.arch }}' == arm64 ]]; then
-          prefix="/opt/homebrew/opt/llvm"
+          prefix="/opt/homebrew/opt/llvm@21"
         else
-          prefix="/usr/local/opt/llvm"
+          prefix="/usr/local/opt/llvm@21"
         fi
         rm -rf "$prefix/include/c++/v1"
     - name: 'Windows: Install clang 21 from GitHub'
