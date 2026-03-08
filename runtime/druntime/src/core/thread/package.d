@@ -34,8 +34,15 @@ unittest
 
     auto thr = new Thread(()
     {
-        while (!*f)
+        version (LDC) // don't optimize to a single load with -O
         {
+            while (!atomicLoad(*f)) {}
+        }
+        else
+        {
+            while (!*f)
+            {
+            }
         }
 
         atomicFence();

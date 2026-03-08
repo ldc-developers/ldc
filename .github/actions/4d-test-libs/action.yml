@@ -19,12 +19,7 @@ runs:
         fi
 
         excludes="dmd-testsuite|lit-tests|ldc2-unittest"
-        if [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-x86_64 ]]; then
-          # sporadically hanging since Ubuntu 22
-          excludes+='|^core.thread-shared_32$'
-        elif [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-aarch64 ]]; then
-          # FIXME: sporadically hanging
-          excludes+='|^core.thread-shared$'
+        if [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-aarch64 ]]; then
           if type -P apk &>/dev/null; then
             # FIXME: empty exception backtraces on musl AArch64 with enabled optimizations
             excludes+='|^druntime-test-exceptions-release$'
