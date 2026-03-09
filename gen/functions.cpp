@@ -1172,6 +1172,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       func->addFnAttr(LLAttribute::SanitizeAddress);
     }
 
+    if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
+      func->addFnAttr(LLAttribute::OptForFuzzing);
+    }
+    
     if (opts::isSanitizerEnabled(opts::MemorySanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeMemory);
     }
