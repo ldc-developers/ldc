@@ -788,11 +788,7 @@ static cl::extrahelp
 /// The clashing LLVM options are suffixed with "llvm-" and hidden from the
 /// -help output.
 void createClashingOptions() {
-#if LDC_LLVM_VER >= 2300
   auto &map = cl::getRegisteredOptions();
-#else
-  llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
-#endif
   auto renameAndHide = [&map](const char *from, const char *to) {
     auto i = map.find(from);
     if (i != map.end()) {
