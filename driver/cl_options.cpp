@@ -1026,11 +1026,7 @@ void hideLLVMOptions() {
     // between versions.
     auto it = map.find(name);
     if (it != map.end()) {
-#if LDC_LLVM_VER >= 2300
       it->second->setHiddenFlag(cl::Hidden);
-#else
-      it->getValue()->setHiddenFlag(cl::Hidden);
-#endif
     }
   }
 
