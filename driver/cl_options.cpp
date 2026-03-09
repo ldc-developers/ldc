@@ -788,12 +788,19 @@ static cl::extrahelp
 /// The clashing LLVM options are suffixed with "llvm-" and hidden from the
 /// -help output.
 void createClashingOptions() {
+#if LDC_LLVM_VER >= 2300
+  auto &map = cl::getRegisteredOptions();
+#else
   llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
-
+#endif
   auto renameAndHide = [&map](const char *from, const char *to) {
     auto i = map.find(from);
     if (i != map.end()) {
+#if LDC_LLVM_VER >= 2300
+      cl::Option *opt = i->second;
+#else
       cl::Option *opt = i->getValue();
+#endif      
       map.erase(i);
       if (to) {
         opt->setArgStr(to);
@@ -1016,13 +1023,18 @@ void hideLLVMOptions() {
                                                "trap-func",
                                                "W"};
 
-  llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
+  auto &map = cl::getRegisteredOptions();
+
   for (const auto name : hiddenOptions) {
     // Check if option exists first for resilience against LLVM changes
     // between versions.
     auto it = map.find(name);
     if (it != map.end()) {
+#if LDC_LLVM_VER >= 2300
       it->second->setHiddenFlag(cl::Hidden);
+#else
+      it->getValue()->setHiddenFlag(cl::Hidden);
+#endif
     }
   }
 
@@ -1032,6 +1044,5 @@ void hideLLVMOptions() {
       map.erase(it);
     }
   }
-}
-
-} // namespace opts
+ }
+}   
