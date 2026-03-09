@@ -1040,5 +1040,6 @@ void hideLLVMOptions() {
       map.erase(it);
     }
   }
- }
-}   
+}
+
+} // namespace opts 
