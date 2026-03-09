@@ -1042,4 +1042,4 @@ void hideLLVMOptions() {
   }
 }
 
-} // namespace opts 
+} // namespace opts
