@@ -91,7 +91,13 @@ commonSteps: &commonSteps
     - run:
         name: Run defaultlib unittests & druntime integration tests
         when: always
-        command: cd ../build && ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests" --timeout 120
+        command: |
+          set -ux
+          excludes='dmd-testsuite|lit-tests|ldc2-unittest'
+          # FIXME: https://github.com/dlang/phobos/issues/10730
+          excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
+          cd ../build
+          ctest -j$PARALLELISM --output-on-failure -E "$excludes" --timeout 120
 
 version: 2
 jobs:

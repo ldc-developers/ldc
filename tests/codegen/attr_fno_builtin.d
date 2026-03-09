@@ -1,11 +1,12 @@
-// RUN: %ldc -c -output-ll -fno-builtin -of=%t.ll %s && FileCheck %s < %t.ll
+// RUN: %ldc -c -output-ll -fno-builtin -O %s -of=%t.ll && FileCheck %s < %t.ll
 
-// CHECK-LABEL: define {{.*}} @test_builtin(
-// CHECK: call {{.*}} @printf
-extern(C) int printf(const char*, ...);
+extern(C) void* memcpy(void* s1, const(void)* s2, size_t n);
 
-extern(C) void test_builtin() {
-    printf("hi reviewer\n");
+// CHECK-LABEL: define {{.*}} @test_memcpy
+extern(C) void test_memcpy(void* dst, void* src)
+{
+    // CHECK: call {{.*}} @memcpy
+    memcpy(dst, src, 16);
 }
 
 // CHECK: attributes #{{[0-9]+}} = { {{.*}}"no-builtins"{{.*}} }
