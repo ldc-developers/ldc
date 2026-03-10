@@ -321,6 +321,22 @@ static std::string getTargetCPU(const llvm::Triple &triple) {
 static const char *getLLVMArchSuffixForARM(llvm::StringRef CPU) {
   return llvm::StringSwitch<const char *>(CPU)
       .Case("strongarm", "v4")
+#if LDC_LLVM_VER >= 2300
+      .Cases({"arm7tdmi", "arm7tdmi-s", "arm710t"}, "v4t")
+      .Cases({"arm720t", "arm9", "arm9tdmi"}, "v4t")
+      .Cases({"arm920", "arm920t", "arm922t"}, "v4t")
+      .Cases({"arm940t", "ep9312"}, "v4t")
+      .Cases({"arm10tdmi", "arm1020t"}, "v5")
+      .Cases({"arm9e", "arm926ej-s", "arm946e-s"}, "v5e")
+      .Cases({"arm966e-s", "arm968e-s", "arm10e"}, "v5e")
+      .Cases({"arm1020e", "arm1022e", "xscale", "iwmmxt"}, "v5e")
+      .Cases({"arm1136j-s", "arm1136jf-s", "arm1176jz-s"}, "v6")
+      .Cases({"arm1176jzf-s", "mpcorenovfp", "mpcore"}, "v6")
+      .Cases({"arm1156t2-s", "arm1156t2f-s"}, "v6t2")
+      .Cases({"cortex-a5", "cortex-a7", "cortex-a8"}, "v7")
+      .Cases({"cortex-a9", "cortex-a12", "cortex-a15"}, "v7")
+      .Cases({"cortex-r4", "cortex-r5"}, "v7r")
+#else
       .Cases("arm7tdmi", "arm7tdmi-s", "arm710t", "v4t")
       .Cases("arm720t", "arm9", "arm9tdmi", "v4t")
       .Cases("arm920", "arm920t", "arm922t", "v4t")
@@ -335,6 +351,7 @@ static const char *getLLVMArchSuffixForARM(llvm::StringRef CPU) {
       .Cases("cortex-a5", "cortex-a7", "cortex-a8", "v7")
       .Cases("cortex-a9", "cortex-a12", "cortex-a15", "v7")
       .Cases("cortex-r4", "cortex-r5", "v7r")
+#endif
       .Case("cortex-m0", "v6m")
       .Case("cortex-m3", "v7m")
       .Case("cortex-m4", "v7em")
