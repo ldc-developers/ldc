@@ -23,6 +23,9 @@ nothrow:
 // Type used by the front-end for compile-time reals
 public import dmd.root.longdouble : real_t = longdouble;
 
+extern(C) void ctfloat_parse_c(const(char)* literal, bool* isOutOfRange, void* result_ptr) @nogc;
+extern(C) int ctfloat_sprint_c(char* str, size_t size, char fmt, const void* x_ptr) @nogc;
+
 private
 {
     version(CRuntime_DigitalMars) __gshared extern (C) extern const(char)* __locale_decpoint;
@@ -208,11 +211,17 @@ extern (C++) struct CTFloat
 
   version (IN_LLVM)
   {
-    // implemented in gen/ctfloat.cpp
     @system
-    static real_t parse(const(char)* literal, out bool isOutOfRange);
+    static real_t parse(const(char)* literal, ref bool isOutOfRange) {
+        real_t res;
+        ctfloat_parse_c(literal, &isOutOfRange, &res);
+        return res;
+    }
+
     @system
-    static int sprint(char* str, size_t size, char fmt, real_t x);
+    static int sprint(char* str, size_t size, char fmt, real_t x) {
+        return ctfloat_sprint_c(str, size, fmt, &x);
+    }
   }
   else
   {
@@ -282,12 +291,6 @@ extern (C++) struct CTFloat
     __gshared real_t one;
     __gshared real_t minusone;
     __gshared real_t half;
-  version (IN_LLVM)
-  {
-    __gshared real_t nan;
-    __gshared real_t infinity;
-  }
-
   version (IN_LLVM)
   {
     // implemented in gen/ctfloat.cpp

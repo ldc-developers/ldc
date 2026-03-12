@@ -10,6 +10,7 @@
 #include "dmd/root/ctfloat.h"
 #include "gen/llvm.h"
 #include "llvm/Support/Error.h"
+#include <cmath>
 
 using llvm::APFloat;
 
@@ -37,7 +38,32 @@ APFloat parseLiteral(const llvm::fltSemantics &semantics, const char *literal,
 } // anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
+real_t CTFloat::zero;
+real_t CTFloat::one;
+real_t CTFloat::minusone;
+real_t CTFloat::half;
+real_t CTFloat::nan;
+real_t CTFloat::infinity;
 
+bool CTFloat::isNaN(real_t r) {
+    APFloat ap(0.0);
+    toAPFloat(r, ap);
+    return ap.isNaN();
+}
+
+bool CTFloat::isInfinity(real_t r) {
+    APFloat ap(0.0);
+    toAPFloat(r, ap);
+    return ap.isInfinity();
+}
+
+real_t CTFloat::copysign(real_t x, real_t s) {
+    APFloat apx(0.0), aps(0.0);
+    toAPFloat(x, apx);
+    toAPFloat(s, aps);
+    apx.copySign(aps);
+    return fromAPFloat(apx);
+}
 void CTFloat::initialize() {
   if (apSemantics)
     return;
@@ -62,10 +88,10 @@ void CTFloat::initialize() {
   }
 #endif
 
-  zero = 0;
-  one = 1;
-  minusone = -1;
-  half = 0.5;
+  zero     = fromAPFloat(APFloat::getZero(*apSemantics));
+  one      = fromAPFloat(APFloat(*apSemantics, "1"));
+  minusone = fromAPFloat(APFloat(*apSemantics, "-1"));
+  half     = fromAPFloat(APFloat(*apSemantics, "0.5"));
 
   nan = fromAPFloat(APFloat::getQNaN(*apSemantics));
   infinity = fromAPFloat(APFloat::getInf(*apSemantics));
@@ -221,4 +247,16 @@ int CTFloat::sprint(char *str, size_t str_buf_length, char fmt, real_t x) {
 
   str[length] = 0;
   return length;
+}
+extern "C" {
+    void ctfloat_parse_c(const char* literal, bool* isOutOfRange, void* result_ptr) {
+        real_t res = CTFloat::parse(literal, *isOutOfRange);
+        memcpy(result_ptr, &res, sizeof(real_t));
+    }
+
+    int ctfloat_sprint_c(char* str, size_t size, char fmt, const void* x_ptr) {
+        real_t x;
+        memcpy(&x, x_ptr, sizeof(real_t));
+        return CTFloat::sprint(str, size, fmt, x);
+    }
 }

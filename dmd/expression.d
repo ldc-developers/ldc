@@ -1007,8 +1007,8 @@ extern (C++) final class RealExp : Expression
         this.value = value;
         this.type = type;
     }
-
-    static RealExp create(Loc loc, real_t value, Type type) @safe
+    pragma(mangle, "?create@RealExp@@SAPEAV1@ULoc@@Ulongdouble_soft@@PEAVType@@@Z")
+    extern (C++) static RealExp create(Loc loc, real_t value, Type type)
     {
         return new RealExp(loc, value, type);
     }
