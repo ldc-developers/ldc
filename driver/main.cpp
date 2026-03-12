@@ -322,7 +322,11 @@ void parseCommandLine(Strings &sourceFiles) {
     if (auto target = lookupTarget("", triple, errMsg)) {
       llvm::errs() << "Targeting " << target->getName() << ". ";
       // this prints the available CPUs and features of the target to stderr...
+#if LDC_LLVM_VER >= 2300
+      target->createMCSubtargetInfo(triple, "help", "");
+#else
       target->createMCSubtargetInfo(cfg_triple, "help", "");
+#endif    
     } else {
       error(Loc(), "%s", errMsg.c_str());
       fatal();
