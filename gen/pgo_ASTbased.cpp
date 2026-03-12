@@ -40,10 +40,6 @@ llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
     llvm::cl::init(true));
 }
 
-namespace llvm::support {
-  const auto little = llvm::endianness::little;
-}
-
 /// \brief Stable hasher for PGO region counters.
 ///
 /// PGOHash produces a stable hash of a given function's control flow.
@@ -119,8 +115,9 @@ public:
 
     // Pass through MD5 if enough work has built up.
     if (Count && Count % NumTypesPerWord == 0) {
-      using namespace llvm::support;
-      uint64_t Swapped = endian::byte_swap<uint64_t, little>(Working);
+      uint64_t Swapped =
+          llvm::support::endian::byte_swap<uint64_t, llvm::endianness::little>(
+              Working);
       MD5.update(llvm::ArrayRef<uint8_t>((uint8_t *)&Swapped, sizeof(Swapped)));
       Working = 0;
     }
@@ -140,8 +137,9 @@ public:
 
     // Check for remaining work in Working.
     if (Working) {
-      using namespace llvm::support;
-      uint64_t Swapped = endian::byte_swap<uint64_t, little>(Working);
+      uint64_t Swapped =
+          llvm::support::endian::byte_swap<uint64_t, llvm::endianness::little>(
+              Working);
       MD5.update(llvm::ArrayRef<uint8_t>((uint8_t *)&Swapped, sizeof(Swapped)));
     }
 

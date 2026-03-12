@@ -40,17 +40,11 @@
 #include <cstddef>
 #include <fstream>
 
-using CodeGenFileType = llvm::CodeGenFileType;
-
-constexpr llvm::CodeGenFileType CGFT_AssemblyFile = CodeGenFileType::AssemblyFile;
-constexpr llvm::CodeGenFileType CGFT_ObjectFile = CodeGenFileType::ObjectFile;
-
 namespace llvm {
 namespace codegen {
 bool getDisableIntegratedAS();
 }
 }
-#define NoIntegratedAssembler llvm::codegen::getDisableIntegratedAS() // TODO
 
 namespace {
 
@@ -67,7 +61,7 @@ void runDLLImportRelocationPass(llvm::TargetMachine &Target, llvm::Module &m) {
 // based on llc code, University of Illinois Open Source License
 void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
                    const char *filename,
-                   CodeGenFileType fileType) {
+                   llvm::CodeGenFileType fileType) {
   using namespace llvm;
 
   const ComputeBackend::Type cb = getComputeTargetType(&m);
@@ -110,8 +104,8 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
           nullptr,  // DWO output file
           // Always generate assembly for ptx as it is an assembly format
           // The PTX backend fails if we pass anything else.
-          (cb == ComputeBackend::NVPTX) ? CGFT_AssemblyFile : fileType
-      )) {
+          (cb == ComputeBackend::NVPTX) ? CodeGenFileType::AssemblyFile
+                                        : fileType)) {
     llvm_unreachable("no support for asm output");
   }
 
@@ -275,14 +269,14 @@ public:
 void writeObjectFile(llvm::Module *m, const char *filename) {
   IF_LOG Logger::println("Writing object file to: %s", filename);
   codegenModule(*gTargetMachine, *m, filename,
-                CGFT_ObjectFile);
+                llvm::CodeGenFileType::ObjectFile);
 }
 
 bool shouldAssembleExternally() {
   // There is no integrated assembler on AIX because XCOFF is not supported.
   // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
   return global.params.output_o &&
-         (NoIntegratedAssembler ||
+         (llvm::codegen::getDisableIntegratedAS() ||
           global.params.targetTriple->getOS() == llvm::Triple::AIX);
 }
 
@@ -454,10 +448,10 @@ void writeModule(llvm::Module *m, const char *filename) {
       // to avoid running 'addPassesToEmitFile' passes twice on same module
       auto clonedModule = llvm::CloneModule(*m);
       codegenModule(*gTargetMachine, *clonedModule, spath.c_str(),
-                    CGFT_AssemblyFile);
+                    llvm::CodeGenFileType::AssemblyFile);
     } else {
       codegenModule(*gTargetMachine, *m, spath.c_str(),
-                    CGFT_AssemblyFile);
+                    llvm::CodeGenFileType::AssemblyFile);
     }
 
     if (assembleExternally) {
