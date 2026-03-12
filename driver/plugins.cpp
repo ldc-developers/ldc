@@ -25,7 +25,11 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/ADT/SmallVector.h"
+#if LDC_LLVM_VER >= 2300
+#include "llvm/Plugins/PassPlugin.h"
+#else
 #include "llvm/Passes/PassPlugin.h"
+#endif
 #include "llvm/Support/Error.h"
 
 #include "driver/cl_options.h"
