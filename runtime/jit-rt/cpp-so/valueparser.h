@@ -16,9 +16,6 @@
 #pragma once
 
 #include <optional>
-namespace llvm {
-template <typename T> using Optional = std::optional<T>; // TODO
-}
 #include "llvm/ADT/STLExtras.h"
 
 namespace llvm {
@@ -27,7 +24,7 @@ class Type;
 class DataLayout;
 }
 
-using ParseInitializerOverride = llvm::Optional<
+using ParseInitializerOverride = std::optional<
     llvm::function_ref<llvm::Constant *(llvm::Type &, const void *, size_t)>>;
 
 llvm::Constant *parseInitializer(

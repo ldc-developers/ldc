@@ -19,9 +19,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include <optional>
-namespace llvm {
-template <typename T> using Optional = std::optional<T>; // TODO
-}
 
 namespace llvm {
 class Constant;
@@ -30,7 +27,7 @@ class Module;
 class Function;
 }
 
-using BindOverride = llvm::Optional<
+using BindOverride = std::optional<
     llvm::function_ref<llvm::Constant *(llvm::Type &, const void *, size_t)>>;
 
 llvm::Function *

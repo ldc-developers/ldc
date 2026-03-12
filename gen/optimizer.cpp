@@ -329,7 +329,7 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm,
 }
 
 #ifndef IN_JITRT
-static llvm::Optional<PGOOptions> getPGOOptions() {
+static std::optional<PGOOptions> getPGOOptions() {
   // FIXME: Do we have these anywhere?
   bool debugInfoForProfiling = false;
   bool pseudoProbeForProfiling = false;

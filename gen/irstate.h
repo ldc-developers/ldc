@@ -24,10 +24,10 @@
 #include "llvm/ProfileData/InstrProfReader.h"
 #include <deque>
 #include <memory>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <vector>
-#include <optional>
 
 namespace llvm {
 class LLVMContext;

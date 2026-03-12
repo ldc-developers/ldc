@@ -33,9 +33,6 @@
 #endif
 
 #include <optional>
-namespace llvm {
-template <typename T> using Optional = std::optional<T>; // TODO
-}
 
 #include "context.h"
 #include "disassembler.h"

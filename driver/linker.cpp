@@ -192,7 +192,7 @@ static std::vector<std::string> getDefaultLibNames() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Optional<std::vector<std::string>> getExplicitPlatformLibs() {
+std::optional<std::vector<std::string>> getExplicitPlatformLibs() {
   if (platformLib.getNumOccurrences() > 0)
     return parseLibNames(platformLib);
   return std::nullopt;

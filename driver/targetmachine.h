@@ -14,13 +14,10 @@
 
 #pragma once
 
-#include <optional>
-namespace llvm {
-template <typename T> using Optional = std::optional<T>; // TODO
-}
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CodeGen.h"
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -60,8 +57,8 @@ llvm::TargetMachine *
 createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
                     std::string featuresString, ExplicitBitness::Type bitness,
                     FloatABI::Type &floatABI,
-                    llvm::Optional<llvm::Reloc::Model> relocModel,
-                    llvm::Optional<llvm::CodeModel::Model> codeModel,
+                    std::optional<llvm::Reloc::Model> relocModel,
+                    std::optional<llvm::CodeModel::Model> codeModel,
                     llvm::CodeGenOptLevel codeGenOptLevel,
                     bool noLinkerStripDead);
 

@@ -19,9 +19,6 @@
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
 #include <optional>
-namespace llvm {
-template <typename T> using Optional = std::optional<T>; // TODO
-}
 
 class Dsymbol;
 class Type;
@@ -41,4 +38,4 @@ struct DcomputePointer {
     return LLPointerType::get(getGlobalContext(), as);
   }
 };
-llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
+std::optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
