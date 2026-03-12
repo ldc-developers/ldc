@@ -37,34 +37,20 @@
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
-#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
-#if LDC_LLVM_VER < 1600
-#include "LLVMSPIRVLib/LLVMSPIRVLib.h"
-#endif
-#endif
 #include <cstddef>
 #include <fstream>
 
 using CodeGenFileType = llvm::CodeGenFileType;
 
-#if LDC_LLVM_VER >= 1800
 constexpr llvm::CodeGenFileType CGFT_AssemblyFile = CodeGenFileType::AssemblyFile;
 constexpr llvm::CodeGenFileType CGFT_ObjectFile = CodeGenFileType::ObjectFile;
-#endif
 
-#if LDC_LLVM_VER < 1700
-static llvm::cl::opt<bool>
-    NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
-                          llvm::cl::Hidden,
-                          llvm::cl::desc("Disable integrated assembler"));
-#else
 namespace llvm {
 namespace codegen {
 bool getDisableIntegratedAS();
 }
 }
-#define NoIntegratedAssembler llvm::codegen::getDisableIntegratedAS()
-#endif
+#define NoIntegratedAssembler llvm::codegen::getDisableIntegratedAS() // TODO
 
 namespace {
 
@@ -87,15 +73,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   const ComputeBackend::Type cb = getComputeTargetType(&m);
 
   if (cb == ComputeBackend::SPIRV) {
-#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
-#if LDC_LLVM_VER < 1600
-    IF_LOG Logger::println("running createSPIRVWriterPass()");
-    std::ofstream out(filename, std::ofstream::binary);
-    llvm::createSPIRVWriterPass(out)->runOnModule(m);
-    IF_LOG Logger::println("Success.");
-    return;
-#endif
-#else
+#ifndef LDC_LLVM_SUPPORTED_TARGET_SPIRV
     error(Loc(), "Trying to target SPIRV, but LDC is not built to do so!");
     return;
 #endif
@@ -133,9 +111,6 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
           // Always generate assembly for ptx as it is an assembly format
           // The PTX backend fails if we pass anything else.
           (cb == ComputeBackend::NVPTX) ? CGFT_AssemblyFile : fileType
-#if LDC_LLVM_VER < 1700
-          , codeGenOptLevel()
-#endif
       )) {
     llvm_unreachable("no support for asm output");
   }

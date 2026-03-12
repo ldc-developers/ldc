@@ -20,12 +20,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Target/TargetMachine.h"
-
-#if LDC_LLVM_VER >= 1600
 #include "llvm/TargetParser/Host.h"
-#else
-#include "llvm/Support/Host.h"
-#endif
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -214,12 +209,10 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
   case Triple::nvptx64:
     args.push_back(triple.isArch64Bit() ? "-m64" : "-m32");
     return;
-#if LDC_LLVM_VER >= 1600
   // LoongArch does not use -m32/-m64 and uses -mabi=.
   case Triple::loongarch64:
     args.emplace_back(triple.isArch64Bit() ? "-mabi=lp64d" : "-mabi=ilp32d");
     return;
-#endif // LDC_LLVM_VER >= 1600
   // MIPS does not have -m32/-m64 but requires -mabi=.
   case Triple::mips64:
   case Triple::mips64el:

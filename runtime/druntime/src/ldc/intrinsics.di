@@ -19,11 +19,7 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-     version (LDC_LLVM_1500) enum LLVM_version = 1500;
-else version (LDC_LLVM_1600) enum LLVM_version = 1600;
-else version (LDC_LLVM_1700) enum LLVM_version = 1700;
-else version (LDC_LLVM_1800) enum LLVM_version = 1800;
-else version (LDC_LLVM_1801) enum LLVM_version = 1801;
+     version (LDC_LLVM_1801) enum LLVM_version = 1801;
 else version (LDC_LLVM_1901) enum LLVM_version = 1901;
 else version (LDC_LLVM_2001) enum LLVM_version = 2001;
 else version (LDC_LLVM_2101) enum LLVM_version = 2101;

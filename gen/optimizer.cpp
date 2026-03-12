@@ -36,11 +36,7 @@
 #include "driver/targetmachine.h"
 #endif
 
-#if LDC_LLVM_VER < 1700
-#include "llvm/ADT/Triple.h"
-#else
 #include "llvm/TargetParser/Triple.h"
-#endif
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -58,9 +54,6 @@
 #include "llvm/Transforms/Instrumentation.h"
 #endif
 #include "llvm/Transforms/IPO.h"
-#if LDC_LLVM_VER < 1700
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#endif
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
@@ -223,11 +216,7 @@ static void addAddressSanitizerPasses(ModulePassManager &mpm,
   aso.UseAfterScope = true;
   aso.UseAfterReturn = opts::fSanitizeAddressUseAfterReturn;
 
-#if LDC_LLVM_VER >= 1600
   mpm.addPass(AddressSanitizerPass(aso));
-#else
-  mpm.addPass(ModuleAddressSanitizerPass(aso));
-#endif
 }
 
 static void addMemorySanitizerPass(ModulePassManager &mpm,
@@ -236,13 +225,8 @@ static void addMemorySanitizerPass(ModulePassManager &mpm,
   int trackOrigins = fSanitizeMemoryTrackOrigins;
   bool recover = opts::isSanitizerRecoveryEnabled(opts::MemorySanitizer);
   bool kernel = false;
-#if LDC_LLVM_VER >= 1600
   mpm.addPass(MemorySanitizerPass(
       MemorySanitizerOptions{trackOrigins, recover, kernel}));
-#else
-  fpm.addPass(MemorySanitizerPass(
-      MemorySanitizerOptions{trackOrigins, recover, kernel}));
-#endif
 
   // MemorySanitizer inserts complex instrumentation that mostly follows
   // the logic of the original code, but operates on "shadow" values.
@@ -276,13 +260,8 @@ static void addSanitizerCoveragePass(ModulePassManager &mpm,
                                      ThinOrFullLTOPhase
 #endif
 ) {
-#if LDC_LLVM_VER >= 1600
   mpm.addPass(SanitizerCoveragePass(
       opts::getSanitizerCoverageOptions()));
-#else
-  mpm.addPass(ModuleSanitizerCoveragePass(
-      opts::getSanitizerCoverageOptions()));
-#endif
 }
 // Adds PGO instrumentation generation and use passes.
 static void addPGOPasses(ModulePassManager &mpm, OptimizationLevel level) {
@@ -291,13 +270,7 @@ static void addPGOPasses(ModulePassManager &mpm, OptimizationLevel level) {
     options.NoRedZone = global.params.disableRedZone;
     if (global.params.datafileInstrProf)
       options.InstrProfileOutput = global.params.datafileInstrProf;
-    mpm.addPass(
-#if LDC_LLVM_VER < 1800
-      InstrProfiling(options)
-#else
-      InstrProfilingLoweringPass(options)
-#endif // LDC_LLVM_VER < 1800
-    );
+    mpm.addPass(InstrProfilingLoweringPass(options));
   } else if (opts::isUsingASTBasedPGOProfile()) {
     // We are generating code with PGO profile information available.
     // Do indirect call promotion from -O1
@@ -363,11 +336,9 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
   if (opts::isInstrumentingForIRBasedPGO()) {
     return PGOOptions(
         global.params.datafileInstrProf, "", "",
-#if LDC_LLVM_VER >= 1700
         "" /*MemoryProfileUsePath*/,
 #if LDC_LLVM_VER < 2200
         llvm::vfs::getRealFileSystem(),
-#endif
 #endif
         PGOOptions::PGOAction::IRInstr, PGOOptions::CSPGOAction::NoCSAction,
 #if LDC_LLVM_VER >= 1900
@@ -377,11 +348,9 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
   } else if (opts::isUsingIRBasedPGOProfile()) {
     return PGOOptions(
         global.params.datafileInstrProf, "", "",
-#if LDC_LLVM_VER >= 1700
         "" /*MemoryProfileUsePath*/,
 #if LDC_LLVM_VER < 2200
         llvm::vfs::getRealFileSystem(),
-#endif
 #endif
         PGOOptions::PGOAction::IRUse, PGOOptions::CSPGOAction::NoCSAction,
 #if LDC_LLVM_VER >= 1900
@@ -391,11 +360,9 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
   } else if (opts::isUsingSampleBasedPGOProfile()) {
     return PGOOptions(
         global.params.datafileInstrProf, "", "",
-#if LDC_LLVM_VER >= 1700
         "" /*MemoryProfileUsePath*/,
 #if LDC_LLVM_VER < 2200
         llvm::vfs::getRealFileSystem(),
-#endif
 #endif
         PGOOptions::PGOAction::SampleUse, PGOOptions::CSPGOAction::NoCSAction,
 #if LDC_LLVM_VER >= 1900
@@ -403,11 +370,7 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
 #endif
         debugInfoForProfiling, pseudoProbeForProfiling);
   }
-#if LDC_LLVM_VER < 1600
-  return None;
-#else
   return std::nullopt;
-#endif
 }
 #endif // !IN_JITRT
 
@@ -472,17 +435,9 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
   bool debugLogging = false;
   ppo.Indent = false;
   ppo.SkipAnalyses = false;
-#if LDC_LLVM_VER < 1600
-  StandardInstrumentations si(debugLogging, /*VerifyEach=*/false, ppo);
-#else
   StandardInstrumentations si(M->getContext(), debugLogging, /*VerifyEach=*/false, ppo);
-#endif
 
-#if LDC_LLVM_VER < 1700
-  si.registerCallbacks(pic, &fam);
-#else
   si.registerCallbacks(pic, &mam);
-#endif
 
   PassBuilder pb(TM, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
 #ifdef IN_JITRT
@@ -583,13 +538,11 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
     const bool ltoPrelink = opts::isUsingLTO();
 #endif // LDC_LLVM_VER >= 2000
     mpm = pb.buildO0DefaultPipeline(level, ltoPrelink);
-#if LDC_LLVM_VER >= 1700
   } else if (opts::ltoFatObjects && opts::isUsingLTO()) {
     mpm = pb.buildFatLTODefaultPipeline(level,
                                         opts::isUsingThinLTO(),
                                         opts::isUsingThinLTO()
     );
-#endif
   } else if (opts::isUsingThinLTO()) {
     mpm = pb.buildThinLTOPreLinkDefaultPipeline(level);
   } else if (opts::isUsingLTO()) {

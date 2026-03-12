@@ -14,13 +14,8 @@
 #include "driver/cl_options.h"
 #include "driver/tool.h"
 #include "gen/logger.h"
-#if LDC_LLVM_VER < 1700
-#include "llvm/ADT/Triple.h"
-#include "llvm/Support/Host.h"
-#else
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/Triple.h"
-#endif
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/MachO.h"
@@ -45,11 +40,7 @@ namespace llvm_ar {
 StringRef ArchiveName;
 std::vector<const char *> Members;
 
-#if LDC_LLVM_VER < 1800
-bool Symtab = true;
-#else
 llvm::SymtabWritingMode Symtab = llvm::SymtabWritingMode::NormalSymtab;
-#endif
 bool Deterministic = true;
 bool Thin = false;
 

@@ -29,7 +29,7 @@ include(BuildDExecutable)
 # Locate LLVM.
 #
 
-find_package(LLVM 15.0 REQUIRED
+find_package(LLVM 18.0 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
     debuginfodwarf debuginfomsf debuginfopdb demangle
     instcombine ipo instrumentation irreader libdriver linker lto mc
@@ -59,46 +59,6 @@ if(NOT LDC_WITH_MLIR STREQUAL "OFF" AND LDC_LLVM_VER LESS 1400)
     else()
         message(STATUS "-- Building LDC without MLIR support: not found")
     endif()
-endif()
-
-# Check and adapt for LLVMSPIRVLib (Khronos SPIRV-LLVM-Translator)
-set(LLVM_SPIRV_FOUND OFF)
-if (LDC_LLVM_VER LESS 1600)
-if(MSVC)
-    if(EXISTS "${LLVM_LIBRARY_DIRS}/LLVMSPIRVLib.lib")
-        set(LLVM_SPIRV_FOUND ON)
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/LLVMSPIRVLib.lib" ${LLVM_LIBRARIES})
-    endif()
-else()
-    if((EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.a") OR
-       (EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.so") OR
-       (EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.dylib"))
-        set(LLVM_SPIRV_FOUND ON)
-        set(LLVM_LIBRARIES -lLLVMSPIRVLib ${LLVM_LIBRARIES})
-    endif()
-endif()
-if(NOT LLVM_SPIRV_FOUND)
-    find_package(PkgConfig)
-    if(PkgConfig_FOUND)
-        if(MSVC)
-            # make pkg-config use -LC:\path\to\build\LLVMSPIRVLib.lib not -L-lLLVMSPIRVLib
-            set(PKG_CONFIG_EXECUTABLE "${PKG_CONFIG_EXECUTABLE} --msvc-syntax")
-        endif()
-        pkg_check_modules(LLVM_SPIRV LLVMSPIRVLib)
-        if(LLVM_SPIRV_FOUND)
-            set(LLVM_SPIRV_FOUND ON) # translate 1 to ON
-            include_directories(${LLVM_SPIRV_INCLUDE_DIRS})
-        else()
-            set(LLVM_SPIRV_FOUND OFF)
-        endif()
-    endif()
-endif()
-if(LLVM_SPIRV_FOUND)
-    message(STATUS "-- Building LDC with SPIR-V support")
-    add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_SPIRV=1")
-else()
-    message(STATUS "-- Building LDC without SPIR-V support: not found")
-endif()
 endif()
 
 #
@@ -435,10 +395,8 @@ include(HandleLTOPGOBuildOptions)
 set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF). Enabled by default; not supported for LLVM < 18.")
 option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
-    if(LDC_LLVM_VER LESS 1800)
-        set(LDC_DYNAMIC_COMPILE OFF)
     # FIXME: dynamic-compile regressions with LLVM 20
-    elseif(LDC_LLVM_VER LESS 2000)
+    if(LDC_LLVM_VER LESS 2000)
         set(LDC_DYNAMIC_COMPILE ON)
     else()
         set(LDC_DYNAMIC_COMPILE OFF)
@@ -579,9 +537,6 @@ if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(${LDC_LIB} dl)
-endif()
-if(LLVM_SPIRV_FOUND)
-    target_link_libraries(${LDC_LIB} ${LLVM_SPIRV_LIBRARIES} ${LLVM_SPIRV_LDFLAGS})
 endif()
 
 set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
@@ -799,11 +754,7 @@ endif()
 # another directory.
 set(COMPILER_RT_BASE_DIR "${LLVM_LIBRARY_DIRS}/clang" CACHE PATH "Base path of compiler-rt libraries. If they in are /usr/lib/clang/17/lib/linux/libclang_rt* you should set this value to /usr/lib/clang")
 set(COMPILER_RT_LIBDIR "${COMPILER_RT_BASE_DIR}")
-if(LDC_LLVM_VER LESS 1600)
-    set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/${LLVM_VERSION_BASE_STRING}")
-else()
-    set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/${LLVM_VERSION_MAJOR}")
-endif()
+set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/${LLVM_VERSION_MAJOR}")
 set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/lib")
 if(APPLE)
     set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/darwin")
@@ -955,12 +906,6 @@ add_subdirectory(tools)
 #
 
 set(switches)
-
-# LLVM 16: Disable function specializations by default.
-# They cause miscompiles of e.g. the frontend for some targets (macOS x86_64 and Windows x64).
-if(LDC_LLVM_VER GREATER 1599 AND LDC_LLVM_VER LESS 1700)
-    list(APPEND switches "-func-specialization-size-threshold=1000000000")
-endif()
 
 list(APPEND switches "-defaultlib=phobos2-ldc,druntime-ldc")
 

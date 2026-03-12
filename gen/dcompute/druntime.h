@@ -18,14 +18,10 @@
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
-#if LDC_LLVM_VER < 1700
-#include "llvm/ADT/Optional.h"
-#else
 #include <optional>
 namespace llvm {
-template <typename T> using Optional = std::optional<T>;
+template <typename T> using Optional = std::optional<T>; // TODO
 }
-#endif
 
 class Dsymbol;
 class Type;

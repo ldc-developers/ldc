@@ -21,21 +21,12 @@
 #include "gen/logger.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
-#if LDC_LLVM_VER < 1700
-#include "llvm/ADT/Triple.h"
-#include "llvm/MC/SubtargetFeature.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/TargetParser.h"
-#include "llvm/Support/AArch64TargetParser.h"
-#include "llvm/Support/ARMTargetParser.h"
-#else
 #include "llvm/TargetParser/AArch64TargetParser.h"
 #include "llvm/TargetParser/ARMTargetParser.h"
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/TargetParser/TargetParser.h"
 #include "llvm/TargetParser/Triple.h"
-#endif
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/Support/CommandLine.h"
@@ -45,10 +36,6 @@
 #include "llvm/Target/TargetOptions.h"
 
 #include "gen/optimizer.h"
-
-#if LDC_LLVM_VER >= 1800
-#define startswith starts_with
-#endif
 
 #ifdef LDC_LLVM_SUPPORTS_MACHO_DWARF_LINE_AS_REGULAR_SECTION
 // LDC-LLVM >= 20:
@@ -87,65 +74,63 @@ const char *getABI(const llvm::Triple &triple, const llvm::SmallVectorImpl<llvm:
     switch (triple.getArch()) {
     case llvm::Triple::arm:
     case llvm::Triple::armeb:
-      if (ABIName.startswith("aapcs"))
+      if (ABIName.starts_with("aapcs"))
         return "aapcs";
-      if (ABIName.startswith("eabi"))
+      if (ABIName.starts_with("eabi"))
         return "apcs";
       break;
     case llvm::Triple::mips:
     case llvm::Triple::mipsel:
     case llvm::Triple::mips64:
     case llvm::Triple::mips64el:
-      if (ABIName.startswith("o32"))
+      if (ABIName.starts_with("o32"))
         return "o32";
-      if (ABIName.startswith("n32"))
+      if (ABIName.starts_with("n32"))
         return "n32";
-      if (ABIName.startswith("n64"))
+      if (ABIName.starts_with("n64"))
         return "n64";
-      if (ABIName.startswith("eabi"))
+      if (ABIName.starts_with("eabi"))
         return "eabi";
       break;
     case llvm::Triple::ppc64:
     case llvm::Triple::ppc64le:
-      if (ABIName.startswith("elfv1"))
+      if (ABIName.starts_with("elfv1"))
         return "elfv1";
-      if (ABIName.startswith("elfv2"))
+      if (ABIName.starts_with("elfv2"))
         return "elfv2";
       break;
     case llvm::Triple::riscv64:
-      if (ABIName.startswith("lp64f"))
+      if (ABIName.starts_with("lp64f"))
         return "lp64f";
-      if (ABIName.startswith("lp64d"))
+      if (ABIName.starts_with("lp64d"))
         return "lp64d";
-      if (ABIName.startswith("lp64"))
+      if (ABIName.starts_with("lp64"))
         return "lp64";
       break;
     case llvm::Triple::riscv32:
-      if (ABIName.startswith("ilp32f"))
+      if (ABIName.starts_with("ilp32f"))
         return "ilp32f";
-      if (ABIName.startswith("ilp32d"))
+      if (ABIName.starts_with("ilp32d"))
         return "ilp32d";
-      if (ABIName.startswith("ilp32"))
+      if (ABIName.starts_with("ilp32"))
         return "ilp32";
       break;
-#if LDC_LLVM_VER >= 1600
     case llvm::Triple::loongarch32:
-      if (ABIName.startswith("ilp32s"))
+      if (ABIName.starts_with("ilp32s"))
         return "ilp32s";
-      if (ABIName.startswith("ilp32f"))
+      if (ABIName.starts_with("ilp32f"))
         return "ilp32f";
-      if (ABIName.startswith("ilp32d"))
+      if (ABIName.starts_with("ilp32d"))
         return "ilp32d";
       break;
     case llvm::Triple::loongarch64:
-      if (ABIName.startswith("lp64f"))
+      if (ABIName.starts_with("lp64f"))
         return "lp64f";
-      if (ABIName.startswith("lp64d"))
+      if (ABIName.starts_with("lp64d"))
         return "lp64d";
-      if (ABIName.startswith("lp64s"))
+      if (ABIName.starts_with("lp64s"))
         return "lp64s";
       break;
-#endif // LDC_LLVM_VER >= 1600
     default:
       break;
     }
@@ -169,7 +154,6 @@ const char *getABI(const llvm::Triple &triple, const llvm::SmallVectorImpl<llvm:
     return "lp64";
   case llvm::Triple::riscv32:
     return "ilp32";
-#if LDC_LLVM_VER >= 1600
   case llvm::Triple::loongarch32:
     if (isFeatureEnabled(features, "d"))
       return "ilp32d";
@@ -182,7 +166,6 @@ const char *getABI(const llvm::Triple &triple, const llvm::SmallVectorImpl<llvm:
     if (isFeatureEnabled(features, "f"))
       return "lp64f";
     return "lp64d";
-#endif // LDC_LLVM_VER >= 1600
   default:
     return "";
   }
@@ -222,22 +205,22 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   if (triple.isArch64Bit()) {
     return "x86-64";
   }
-  if (triple.getOSName().startswith("haiku")) {
+  if (triple.getOSName().starts_with("haiku")) {
     return "i586";
   }
-  if (triple.getOSName().startswith("openbsd")) {
+  if (triple.getOSName().starts_with("openbsd")) {
     return "i486";
   }
-  if (triple.getOSName().startswith("freebsd")) {
+  if (triple.getOSName().starts_with("freebsd")) {
     return "i486";
   }
-  if (triple.getOSName().startswith("netbsd")) {
+  if (triple.getOSName().starts_with("netbsd")) {
     return "i486";
   }
-  if (triple.getOSName().startswith("openbsd")) {
+  if (triple.getOSName().starts_with("openbsd")) {
     return "i486";
   }
-  if (triple.getOSName().startswith("dragonfly")) {
+  if (triple.getOSName().starts_with("dragonfly")) {
     return "i486";
   }
 
@@ -263,12 +246,6 @@ static std::string getARMTargetCPU(const llvm::Triple &triple) {
 }
 
 static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
-#if LDC_LLVM_VER < 1600
-  auto defaultCPU = llvm::AArch64::getDefaultCPU(triple.getArchName());
-  if (!defaultCPU.empty())
-    return std::string(defaultCPU);
-#endif
-
   return "generic";
 }
 
@@ -309,12 +286,10 @@ static std::string getTargetCPU(const llvm::Triple &triple) {
     return getRiscv32TargetCPU(triple);
   case llvm::Triple::riscv64:
     return getRiscv64TargetCPU(triple);
-#if LDC_LLVM_VER >= 1600
   case llvm::Triple::loongarch32:
     return getLoongArch32TargetCPU(triple);
   case llvm::Triple::loongarch64:
     return getLoongArch64TargetCPU(triple);
-#endif // LDC_LLVM_VER >= 1600
   }
 }
 
@@ -366,8 +341,8 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
                                      const char *llvmArchSuffix) {
   if (triple.isOSDarwin()) {
     // Darwin defaults to "softfp" for v6 and v7.
-    if (llvm::StringRef(llvmArchSuffix).startswith("v6") ||
-        llvm::StringRef(llvmArchSuffix).startswith("v7")) {
+    if (llvm::StringRef(llvmArchSuffix).starts_with("v6") ||
+        llvm::StringRef(llvmArchSuffix).starts_with("v7")) {
       return FloatABI::SoftFP;
     }
     return FloatABI::Soft;
@@ -378,9 +353,9 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
     return FloatABI::Soft;
   }
 
-  if (triple.getVendorName().startswith("hardfloat"))
+  if (triple.getVendorName().starts_with("hardfloat"))
     return FloatABI::Hard;
-  if (triple.getVendorName().startswith("softfloat"))
+  if (triple.getVendorName().starts_with("softfloat"))
     return FloatABI::SoftFP;
 
   switch (triple.getEnvironment()) {
@@ -392,7 +367,7 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
     // EABI is always AAPCS, and if it was not marked 'hard', it's softfp
     return FloatABI::SoftFP;
   case llvm::Triple::Android: {
-    if (llvm::StringRef(llvmArchSuffix).startswith("v7")) {
+    if (llvm::StringRef(llvmArchSuffix).starts_with("v7")) {
       return FloatABI::SoftFP;
     }
     return FloatABI::Soft;
@@ -560,19 +535,12 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
 
   // For LoongArch 64-bit target default to la64 if nothing has been selected
   // All current LoongArch targets have 64-bit floating point registers.
-#if LDC_LLVM_VER >= 1600
   if (triple.getArch() == llvm::Triple::loongarch64 && features.empty()) {
     features = {"+d"};
   }
-#endif
 
   // Handle cases where LLVM picks wrong default relocModel
-#if LDC_LLVM_VER >= 1600
-  if (relocModel.has_value()) {}
-#else
-  if (relocModel.hasValue()) {}
-#endif
-  else {
+  if (!relocModel.has_value()) {
     if (triple.isOSDarwin()) {
       // Darwin defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
       // to crashes for non-PIC code). LLVM doesn't handle this.
@@ -653,11 +621,6 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   // EmuTLS).
   if (triple.getEnvironment() == llvm::Triple::Android) {
     targetOptions.EmulatedTLS = false;
-#if LDC_LLVM_VER < 1700
-    // Removed in this commit:
-    // https://github.com/llvm/llvm-project/commit/0d333bf0e3aa37e2e6ae211e3aa80631c3e01b85
-    targetOptions.ExplicitEmulatedTLS = true;
-#endif
   }
 
   const std::string finalFeaturesString =

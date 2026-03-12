@@ -57,11 +57,7 @@
 #include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/FileSystem.h"
-#if LDC_LLVM_VER >= 1700
 #include "llvm/TargetParser/Host.h"
-#else
-#include "llvm/Support/Host.h"
-#endif
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/StringSaver.h"
@@ -189,17 +185,13 @@ void tryParse(const llvm::SmallVectorImpl<const char *> &args, size_t i,
 }
 
 bool tryParseLowmem(const llvm::SmallVectorImpl<const char *> &args) {
-#if LDC_LLVM_VER >= 1800
-  #define startswith starts_with
-#endif
-
   bool lowmem = false;
   for (size_t i = 1; i < args.size(); ++i) {
     if (args::isRunArg(args[i]))
       break;
 
     llvm::StringRef arg = args[i];
-    if (arg.startswith("-lowmem") || arg.startswith("--lowmem")) {
+    if (arg.starts_with("-lowmem") || arg.starts_with("--lowmem")) {
       auto remainder = arg.substr(arg[1] == '-' ? 8 : 7);
       if (remainder.empty()) {
         lowmem = true;
@@ -210,10 +202,6 @@ bool tryParseLowmem(const llvm::SmallVectorImpl<const char *> &args) {
     }
   }
   return lowmem;
-
-#if LDC_LLVM_VER >= 1800
-  #undef startswith
-#endif
 }
 
 const char *
@@ -578,13 +566,6 @@ void parseCommandLine(Strings &sourceFiles) {
 
   global.params.dihdr.fullOutput = opts::hdrKeepAllBodies;
   global.params.disableRedZone = opts::disableRedZone();
-
-  // enforce opaque IR pointers
-#if LDC_LLVM_VER >= 1700
-  // supports opaque IR pointers only
-#else
-  getGlobalContext().setOpaquePointers(true);
-#endif
 }
 
 void initializePasses() {
@@ -594,28 +575,13 @@ void initializePasses() {
   initializeCore(Registry);
   initializeTransformUtils(Registry);
   initializeScalarOpts(Registry);
-#if LDC_LLVM_VER < 1600
-  initializeObjCARCOpts(Registry);
-#endif
   initializeVectorization(Registry);
   initializeInstCombine(Registry);
-#if LDC_LLVM_VER < 1600
-  initializeAggressiveInstCombine(Registry);
-#endif
   initializeIPO(Registry);
-#if LDC_LLVM_VER < 1600
-  initializeInstrumentation(Registry);
-#endif
   initializeAnalysis(Registry);
   initializeCodeGen(Registry);
   initializeGlobalISel(Registry);
   initializeTarget(Registry);
-
-#if LDC_LLVM_VER < 1700
-// Initialize passes not included above
-  initializeRewriteSymbolsLegacyPassPass(Registry);
-  initializeSjLjEHPreparePass(Registry);
-#endif
 }
 
 /// Register the MIPS ABI.
@@ -778,7 +744,6 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::wasm64:
     VersionCondition::addPredefinedGlobalIdent("WebAssembly");
     break;
-#if LDC_LLVM_VER >= 1600
   case llvm::Triple::loongarch32:
     VersionCondition::addPredefinedGlobalIdent("LoongArch32");
     registerPredefinedFloatABI("LoongArch_SoftFloat", "LoongArch_HardFloat");
@@ -790,7 +755,6 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::xtensa:
     VersionCondition::addPredefinedGlobalIdent("Xtensa");
     break;
-#endif // LDC_LLVM_VER >= 1600
   default:
     warning(Loc(), "unknown target CPU architecture: %s",
             triple.getArchName().str().c_str());
@@ -1185,15 +1149,9 @@ int cppmain() {
   }
 
   auto relocModel = getRelocModel();
-#if LDC_LLVM_VER >= 1600
   if (global.params.dll && !relocModel.has_value()) {
     relocModel = llvm::Reloc::PIC_;
   }
-#else
-  if (global.params.dll && !relocModel.hasValue()) {
-    relocModel = llvm::Reloc::PIC_;
-  }
-#endif
 
   fixupTripleEnv(mTargetTriple);
 

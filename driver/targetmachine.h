@@ -14,24 +14,15 @@
 
 #pragma once
 
-#if LDC_LLVM_VER < 1700
-#include "llvm/ADT/Optional.h"
-#else
 #include <optional>
 namespace llvm {
-template <typename T> using Optional = std::optional<T>;
+template <typename T> using Optional = std::optional<T>; // TODO
 }
-#endif
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CodeGen.h"
 #include <string>
 #include <vector>
-namespace llvm {
-#if LDC_LLVM_VER < 1800
-using CodeGenOptLevel = llvm::CodeGenOpt::Level;
-#endif
-}
 
 namespace ExplicitBitness {
 enum Type { None, M32, M64 };

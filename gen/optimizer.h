@@ -20,12 +20,6 @@
 #include "llvm/Support/CommandLine.h"
 
 namespace llvm {
-#if LDC_LLVM_VER < 1800
-using CodeGenOptLevel = llvm::CodeGenOpt::Level;
-#endif
-}
-
-namespace llvm {
 class raw_ostream;
 }
 

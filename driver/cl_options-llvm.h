@@ -9,14 +9,10 @@
 
 #pragma once
 
-#if LDC_LLVM_VER < 1700
-#include "llvm/ADT/Optional.h"
-#else
 #include <optional>
 namespace llvm {
-template <typename T> using Optional = std::optional<T>;
+template <typename T> using Optional = std::optional<T>; // TODO
 }
-#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Target/TargetOptions.h"

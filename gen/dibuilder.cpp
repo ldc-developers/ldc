@@ -47,12 +47,10 @@ using namespace dmd;
 namespace cl = llvm::cl;
 using LLMetadata = llvm::Metadata;
 
-#if LDC_LLVM_VER >= 1600
-namespace llvm {
+namespace llvm { // TODO
   template <typename T> using Optional = std::optional<T>;
   inline constexpr std::nullopt_t None = std::nullopt;
 }
-#endif
 
 static cl::opt<cl::boolOrDefault> emitColumnInfo(
     "gcolumn-info", cl::ZeroOrMore, cl::Hidden,
@@ -672,10 +670,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
     ret = DBuilder.createClassType(
         scope, name, file, lineNum, sizeInBits, alignmentInBits,
         classOffsetInBits, DIFlags::FlagZero, derivedFrom, elemsArray,
-#if LDC_LLVM_VER >= 1800
-        runtimeLang,
-#endif
-        vtableHolder, templateParams, uniqueIdentifier);
+        runtimeLang, vtableHolder, templateParams, uniqueIdentifier);
   } else {
     ret = DBuilder.createStructType(scope, name, file, lineNum, sizeInBits,
                                     alignmentInBits, DIFlags::FlagZero,

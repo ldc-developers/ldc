@@ -40,11 +40,9 @@ llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
     llvm::cl::init(true));
 }
 
-#if LDC_LLVM_VER >= 1800
 namespace llvm::support {
   const auto little = llvm::endianness::little;
 }
-#endif
 
 /// \brief Stable hasher for PGO region counters.
 ///
@@ -924,11 +922,7 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
   auto EC = RecordExpected.takeError();
 
   if (EC) {
-#if LDC_LLVM_VER >= 1700
     auto IPE = std::get<0>(llvm::InstrProfError::take(std::move(EC)));
-#else
-    auto IPE = llvm::InstrProfError::take(std::move(EC));
-#endif
     if (IPE == llvm::instrprof_error::unknown_function) {
       IF_LOG Logger::println("No profile data for function: %s",
                              FuncName.c_str());
