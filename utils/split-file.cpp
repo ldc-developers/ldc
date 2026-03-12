@@ -191,7 +191,10 @@ int main(int argc, const char **argv) {
       argc, argv,
       "Split input into multiple parts separated by regex '^(.|//)--- ' and "
       "extract the part specified by '^(.|//)--- <part>'\n",
-      nullptr,
+#if LDC_LLVM_VER >= 2300
+      /*Errs*/nullptr,
+#endif
+      /*VFS*/nullptr,
       /*EnvVar=*/nullptr,
       /*LongOptionsUseDoubleDash=*/true);
 
