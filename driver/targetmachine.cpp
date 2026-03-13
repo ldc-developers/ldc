@@ -296,7 +296,7 @@ static std::string getTargetCPU(const llvm::Triple &triple) {
 static const char *getLLVMArchSuffixForARM(llvm::StringRef CPU) {
   return llvm::StringSwitch<const char *>(CPU)
       .Case("strongarm", "v4")
-#if LDC_LLVM_VER >= 2300
+#if LDC_LLVM_VER >= 2200
       .Cases({"arm7tdmi", "arm7tdmi-s", "arm710t"}, "v4t")
       .Cases({"arm720t", "arm9", "arm9tdmi"}, "v4t")
       .Cases({"arm920", "arm920t", "arm922t"}, "v4t")
@@ -417,7 +417,11 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
     }
   } else {
     std::string tempError;
+#if LDC_LLVM_VER >= 2200
+    target = llvm::TargetRegistry::lookupTarget(triple, tempError);
+#else
     target = llvm::TargetRegistry::lookupTarget(triple.getTriple(), tempError);
+#endif
     if (!target) {
       errorMsg = "unable to get target for '" + triple.getTriple() +
                  "', see -version and -mtriple.";
