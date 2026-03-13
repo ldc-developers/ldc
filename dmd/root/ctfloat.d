@@ -47,7 +47,8 @@ extern (C++) struct CTFloat
     version (GNU)
         enum yl2x_supported = false;
     else
-        enum yl2x_supported = __traits(compiles, core.math.yl2x(1.0L, 2.0L));
+        enum yl2x_supported = is(real_t == real) &&
+                              __traits(compiles, core.math.yl2x(1.0L, 2.0L));
     enum yl2xp1_supported = yl2x_supported;
 
     static void yl2x(const real_t* x, const real_t* y, real_t* res) // IN_LLVM: impure because of log2
