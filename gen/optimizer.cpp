@@ -10,30 +10,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef IN_JITRT
-#include "runtime/jit-rt/cpp-so/optimizer.h"
-#include "runtime/jit-rt/cpp-so/valueparser.h"
-#include "runtime/jit-rt/cpp-so/utils.h"
-#endif
-
 #include "gen/optimizer.h"
-
-#ifndef IN_JITRT
-#include "dmd/errors.h"
-#include "gen/logger.h"
-#endif
-
 #include "gen/passes/GarbageCollect2Stack.h"
 #include "gen/passes/StripExternals.h"
 #include "gen/passes/SimplifyDRuntimeCalls.h"
 #include "gen/passes/Passes.h"
 
-#ifndef IN_JITRT
+#ifdef IN_JITRT
+#include "runtime/jit-rt/cpp-so/optimizer.h"
+#include "runtime/jit-rt/cpp-so/valueparser.h"
+#include "runtime/jit-rt/cpp-so/utils.h"
+#else
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
+#include "gen/logger.h"
 #endif
 
 #if LDC_LLVM_VER < 1700
@@ -355,7 +349,9 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm,
   }
 }
 
+// Exclude these functions, that access cmdline options, from the JIT RT.
 #ifndef IN_JITRT
+
 static llvm::Optional<PGOOptions> getPGOOptions() {
   // FIXME: Do we have these anywhere?
   bool debugInfoForProfiling = false;
@@ -409,6 +405,44 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
   return std::nullopt;
 #endif
 }
+
+// Imitate behavior of clang
+static bool shouldEmitRegularLTOSummary(llvm::Module const &M) {
+    return opts::isUsingLTO() &&
+           llvm::Triple(M.getTargetTriple()).getVendor() != llvm::Triple::Apple;
+}
+
+/// Check whether we should emit a flag for UnifiedLTO.
+/// The UnifiedLTO module flag should be set when UnifiedLTO is enabled for
+/// ThinLTO or Full LTO with module summaries.
+static bool shouldEmitUnifiedLTOModuleFlag(llvm::Module const &M) {
+  return opts::ltoUnified &&
+         (opts::prepareForThinLTO() || shouldEmitRegularLTOSummary(M));
+}
+
+static void addLTOModuleFlags(llvm::Module *M) {
+  if (opts::ltoFatObjects) {
+    if (opts::prepareForThinLTO()) {
+// TODO: implement support for EnableSplitLTOUnit
+//      if (!M->getModuleFlag("EnableSplitLTOUnit"))
+//        M->addModuleFlag(llvm::Module::Error, "EnableSplitLTOUnit",
+//                                 CodeGenOpts.EnableSplitLTOUnit);
+    } else {
+      if (shouldEmitRegularLTOSummary(*M)) {
+        if (!M->getModuleFlag("ThinLTO") && !opts::ltoUnified)
+          M->addModuleFlag(llvm::Module::Error, "ThinLTO", uint32_t(0));
+        if (!M->getModuleFlag("EnableSplitLTOUnit"))
+          M->addModuleFlag(llvm::Module::Error, "EnableSplitLTOUnit",
+                                   uint32_t(1));
+      }
+    }
+
+    if (shouldEmitUnifiedLTOModuleFlag(*M) &&
+        !M->getModuleFlag("UnifiedLTO"))
+      M->addModuleFlag(llvm::Module::Error, "UnifiedLTO", uint32_t(1));
+  }
+}
+
 #endif // !IN_JITRT
 
 static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsigned sizeLevelVal) {
@@ -585,12 +619,11 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
     mpm = pb.buildO0DefaultPipeline(level, ltoPrelink);
 #if LDC_LLVM_VER >= 1700
   } else if (opts::ltoFatObjects && opts::isUsingLTO()) {
-    mpm = pb.buildFatLTODefaultPipeline(level,
-                                        opts::isUsingThinLTO(),
-                                        opts::isUsingThinLTO()
-    );
+    mpm = pb.buildFatLTODefaultPipeline(level, opts::prepareForThinLTO(),
+                                        opts::prepareForThinLTO() ||
+                                            shouldEmitRegularLTOSummary(*M));
 #endif
-  } else if (opts::isUsingThinLTO()) {
+  } else if (opts::prepareForThinLTO()) {
     mpm = pb.buildThinLTOPreLinkDefaultPipeline(level);
   } else if (opts::isUsingLTO()) {
     mpm = pb.buildLTOPreLinkDefaultPipeline(level);
@@ -599,6 +632,9 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
     mpm = pb.buildPerModuleDefaultPipeline(level);
   }
 
+#ifndef IN_JITRT
+  addLTOModuleFlags(M);
+#endif
 
   mpm.run(*M,mam);
 }
