@@ -38,7 +38,17 @@ llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
     "pgo-indirect-calls", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
     llvm::cl::desc("(*) Enable PGO of indirect calls"),
     llvm::cl::init(true));
+
+uint64_t inLittleEndian(uint64_t x) {
+#if LDC_LLVM_VER >= 2200
+  return llvm::support::endian::byte_swap<uint64_t>(x,
+                                                    llvm::endianness::little);
+#else
+  return llvm::support::endian::byte_swap<uint64_t, llvm::endianness::little>(
+      x);
+#endif
 }
+} // anonymous namespace
 
 /// \brief Stable hasher for PGO region counters.
 ///
@@ -115,9 +125,7 @@ public:
 
     // Pass through MD5 if enough work has built up.
     if (Count && Count % NumTypesPerWord == 0) {
-      uint64_t Swapped =
-          llvm::support::endian::byte_swap<uint64_t, llvm::endianness::little>(
-              Working);
+      uint64_t Swapped = inLittleEndian(Working);
       MD5.update(llvm::ArrayRef<uint8_t>((uint8_t *)&Swapped, sizeof(Swapped)));
       Working = 0;
     }
@@ -137,9 +145,7 @@ public:
 
     // Check for remaining work in Working.
     if (Working) {
-      uint64_t Swapped =
-          llvm::support::endian::byte_swap<uint64_t, llvm::endianness::little>(
-              Working);
+      uint64_t Swapped = inLittleEndian(Working);
       MD5.update(llvm::ArrayRef<uint8_t>((uint8_t *)&Swapped, sizeof(Swapped)));
     }
 
