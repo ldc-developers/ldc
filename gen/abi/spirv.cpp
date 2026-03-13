@@ -44,7 +44,7 @@ struct SPIRVTargetABI : TargetABI {
       return;
 
     Type *ty = arg.type->toBasetype();
-    llvm::Optional<DcomputePointer> ptr;
+    std::optional<DcomputePointer> ptr;
     if (ty->ty == TY::Tstruct &&
         (ptr = toDcomputePointer(static_cast<TypeStruct *>(ty)->sym))) {
       pointerRewite.applyTo(arg);

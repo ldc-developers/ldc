@@ -36,9 +36,6 @@ set(llvm_config_names llvm-config-21.1 llvm-config211 llvm-config-21
                       llvm-config-20.1 llvm-config201 llvm-config-20
                       llvm-config-19.1 llvm-config191 llvm-config-19
                       llvm-config-18.1 llvm-config181 llvm-config-18
-                      llvm-config-17.0 llvm-config170 llvm-config-17
-                      llvm-config-16.0 llvm-config160 llvm-config-16
-                      llvm-config-15.0 llvm-config150 llvm-config-15
                       llvm-config)
 find_program(LLVM_CONFIG
     NAMES ${llvm_config_names}
@@ -51,14 +48,10 @@ if(APPLE)
         NAMES ${llvm_config_names}
         PATHS /opt/local/libexec/llvm-21/bin
               /opt/local/libexec/llvm-20/bin /opt/local/libexec/llvm-19/bin
-              /opt/local/libexec/llvm-18/bin /opt/local/libexec/llvm-17/bin
-              /opt/local/libexec/llvm-16/bin /opt/local/libexec/llvm-15/bin
-              /opt/local/libexec/llvm/bin
+              /opt/local/libexec/llvm-18/bin /opt/local/libexec/llvm/bin
               /usr/local/opt/llvm@21/bin
               /usr/local/opt/llvm@20/bin /usr/local/opt/llvm@19/bin
-              /usr/local/opt/llvm@18/bin /usr/local/opt/llvm@17/bin
-              /usr/local/opt/llvm@16/bin /usr/local/opt/llvm@15/bin
-              /usr/local/opt/llvm/bin
+              /usr/local/opt/llvm@18/bin /usr/local/opt/llvm/bin
         NO_DEFAULT_PATH)
 endif()
 

@@ -19,36 +19,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 24.04, LLVM 20, latest LDC beta
-            os: ubuntu-24.04
-            host_dc: ldc-beta
-            llvm_version: 20
-            cmake_flags: -DCMAKE_EXE_LINKER_FLAGS=-lcurl # work around libcurl dependency for ldc-profdata (LLVM apparently built with non-default LLVM_ENABLE_CURL=ON)
-          - job_name: Ubuntu 24.04, LLVM 19, latest LDC beta
-            os: ubuntu-24.04
-            host_dc: ldc-beta
-            llvm_version: 19
-            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
-          - job_name: Ubuntu 24.04, LLVM 18, bootstrap LDC
+          - job_name: Ubuntu 24.04, LLVM 20, bootstrap LDC
             os: ubuntu-24.04
             host_dc: ldc-1.19.0
-            llvm_version: 18
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DPHOBOS_SYSTEM_ZLIB=ON
-          - job_name: macOS 14, LLVM 17, latest LDC beta
-            os: macos-14
-            host_dc: ldc-beta
-            llvm_version: 17.0.5
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
-          - job_name: macOS 14, LLVM 16, latest LDC beta
-            os: macos-14
-            host_dc: ldc-beta
-            llvm_version: 16.0.5
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
-          - job_name: Ubuntu 24.04, LLVM 15, latest DMD beta
+            llvm_version: 20
+            # work around libcurl dependency for ldc-profdata (LLVM apparently built with non-default LLVM_ENABLE_CURL=ON)
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DPHOBOS_SYSTEM_ZLIB=ON -DCMAKE_EXE_LINKER_FLAGS=-lcurl
+          - job_name: Ubuntu 24.04, LLVM 19, latest DMD beta
             os: ubuntu-24.04
             host_dc: dmd-beta
-            llvm_version: 15
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLIB_SUFFIX=64
+            llvm_version: 19
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DPHOBOS_SYSTEM_ZLIB=ON -DLIB_SUFFIX=64
+          - job_name: macOS 14, LLVM 18, latest LDC beta
+            os: macos-14
+            host_dc: ldc-beta
+            llvm_version: 18.1.8
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib -DJITRT_EXTRA_LDFLAGS=-L/opt/homebrew/opt/zstd/lib
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     env:
@@ -107,7 +93,7 @@ jobs:
           if [[ "$version" =~ ^https:// ]]; then
             url="$version"
           else
-            url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-arm64-apple-darwin22.0.tar.xz"
+            url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-arm64-apple-macos11.tar.xz"
           fi
 
           curl -fL --retry 3 --max-time 300 -o llvm.tar.xz "$url"

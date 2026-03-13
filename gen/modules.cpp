@@ -50,9 +50,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#if LDC_LLVM_VER >= 1700
 #include "llvm/Support/VirtualFileSystem.h"
-#endif
 
 #if _AIX || __sun
 #include <alloca.h>
@@ -340,13 +338,8 @@ void loadInstrProfileData(IRState *irs) {
     IF_LOG Logger::println("Read profile data from %s",
                            global.params.datafileInstrProf);
 
-    auto readerOrErr =
-        llvm::IndexedInstrProfReader::create(global.params.datafileInstrProf
-#if LDC_LLVM_VER >= 1700
-                                             ,
-                                             *llvm::vfs::getRealFileSystem()
-#endif
-        );
+    auto readerOrErr = llvm::IndexedInstrProfReader::create(
+        global.params.datafileInstrProf, *llvm::vfs::getRealFileSystem());
     if (auto E = readerOrErr.takeError()) {
       handleAllErrors(std::move(E), [&](const llvm::ErrorInfoBase &EI) {
         error(irs->dmodule->loc, "Could not read profile file '%s': %s",

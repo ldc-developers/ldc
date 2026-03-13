@@ -63,10 +63,6 @@ bool IrAggr::useDLLImport() const {
 //////////////////////////////////////////////////////////////////////////////
 
 LLGlobalVariable *IrAggr::getInitSymbol(bool define) {
-#if LDC_LLVM_VER >= 1800
-  #define startswith starts_with
-#endif
-
   if (!init) {
     const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
 
@@ -74,7 +70,7 @@ LLGlobalVariable *IrAggr::getInitSymbol(bool define) {
     // special.
     auto cd = aggrdecl->isClassDeclaration();
     const bool isBuiltinTypeInfo =
-        cd && llvm::StringRef(cd->ident->toChars()).startswith("TypeInfo_");
+        cd && llvm::StringRef(cd->ident->toChars()).starts_with("TypeInfo_");
 
     // Only declare the symbol if it isn't yet, otherwise the init symbol of
     // built-in TypeInfos may clash with an existing base-typed forward
@@ -108,10 +104,6 @@ LLGlobalVariable *IrAggr::getInitSymbol(bool define) {
   }
 
   return init;
-
-#if LDC_LLVM_VER >= 1800
-  #undef startswith
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////

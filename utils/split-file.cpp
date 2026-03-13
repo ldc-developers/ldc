@@ -104,19 +104,15 @@ inline bool isSpace_ldc(char C) {
 } // namespace
 
 static int handle(MemoryBuffer &inputBuf, StringRef input) {
-#if LDC_LLVM_VER >= 1800
-  #define startswith starts_with
-#endif
-
   DenseMap<StringRef, Part> partToBegin;
   StringRef lastPart, separator;
   StringRef EOL = detectEOL(inputBuf.getBuffer());
   for (line_iterator i(inputBuf, /*SkipBlanks=*/false, '\0'); !i.is_at_eof();) {
     const int64_t lineNo = i.line_number();
     const StringRef line = *i++;
-    const size_t markerLen = line.startswith("//") ? 6 : 5;
+    const size_t markerLen = line.starts_with("//") ? 6 : 5;
     if (!(line.size() >= markerLen &&
-          line.substr(markerLen - 4).startswith("--- ")))
+          line.substr(markerLen - 4).starts_with("--- ")))
       continue;
     separator = line.substr(0, markerLen);
     const StringRef partName = line.substr(markerLen);
@@ -178,10 +174,6 @@ static int handle(MemoryBuffer &inputBuf, StringRef input) {
   for (std::unique_ptr<ToolOutputFile> &outputFile : outputFiles)
     outputFile->keep();
   return 0;
-
-#if LDC_LLVM_VER >= 1800
-  #undef startswith
-#endif
 }
 
 int main(int argc, const char **argv) {

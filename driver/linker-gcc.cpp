@@ -27,13 +27,11 @@
 
 #if LDC_WITH_LLD
 #include "lld/Common/Driver.h"
-#if LDC_LLVM_VER >= 1700
 LLD_HAS_DRIVER(coff)
 LLD_HAS_DRIVER(elf)
 LLD_HAS_DRIVER(mingw)
 LLD_HAS_DRIVER(macho)
 LLD_HAS_DRIVER(wasm)
-#endif
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -161,11 +159,6 @@ void ArgsBuilder::addLTOGoldPluginFlags(bool requirePlugin) {
     addLdFlag("-plugin-opt=-function-sections");
   if (TO.DataSections)
     addLdFlag("-plugin-opt=-data-sections");
-
-#if LDC_LLVM_VER >= 1600 && LDC_LLVM_VER < 1700
-  // LLVM 16: disable function specializations by default
-  addLdFlag("-plugin-opt=-func-specialization-size-threshold=1000000000");
-#endif
 }
 
 // Returns an empty string when libLTO.dylib was not specified nor found.
@@ -196,11 +189,6 @@ void ArgsBuilder::addDarwinLTOFlags() {
   std::string dylibPath = getLTOdylibPath();
   if (!dylibPath.empty()) {
     addLdFlag("-lto_library", dylibPath);
-
-#if LDC_LLVM_VER >= 1600 && LDC_LLVM_VER < 1700
-    // LLVM 16: disable function specializations by default
-    addLdFlag("-mllvm", "-func-specialization-size-threshold=1000000000");
-#endif
   }
 }
 
@@ -624,20 +612,11 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   const auto explicitPlatformLibs = getExplicitPlatformLibs();
-#if LDC_LLVM_VER >= 1600
   if (explicitPlatformLibs.has_value()) {
     for (const auto &name : explicitPlatformLibs.value()) {
       args.push_back("-l" + name);
     }
-  }
-#else
-  if (explicitPlatformLibs.hasValue()) {
-    for (const auto &name : explicitPlatformLibs.getValue()) {
-      args.push_back("-l" + name);
-    }
-  }
-#endif
-  else {
+  } else {
     addDefaultPlatformLibs();
   }
 
@@ -656,10 +635,6 @@ void ArgsBuilder::addLinker() {
 //////////////////////////////////////////////////////////////////////////////
 
 void ArgsBuilder::addUserSwitches() {
-#if LDC_LLVM_VER >= 1800
-  #define startswith starts_with
-#endif
-
   // additional linker and cc switches (preserve order across both lists)
   for (unsigned ilink = 0, icc = 0;;) {
     unsigned linkpos = ilink < opts::linkerSwitches.size()
@@ -676,9 +651,9 @@ void ArgsBuilder::addUserSwitches() {
       // Options starting with `-Wl,`, -shared or -static are not handled by
       // the linker and must be passed to the driver.
       auto str = llvm::StringRef(p);
-      if (!(str.startswith("-l") || str.startswith("-L") ||
-            str.startswith("-Wl,") || str.startswith("-shared") ||
-            str.startswith("-static"))) {
+      if (!(str.starts_with("-l") || str.starts_with("-L") ||
+            str.starts_with("-Wl,") || str.starts_with("-shared") ||
+            str.starts_with("-static"))) {
         args.push_back("-Xlinker");
       }
       args.push_back(p);
@@ -688,10 +663,6 @@ void ArgsBuilder::addUserSwitches() {
       break;
     }
   }
-
-#if LDC_LLVM_VER >= 1800
-  #undef startswith
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////

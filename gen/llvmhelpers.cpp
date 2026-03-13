@@ -1132,11 +1132,7 @@ LLConstant *DtoConstExpInit(Loc loc, Type *targetType, Expression *exp) {
   // extend i1 to i8
   if (llType->isIntegerTy(1)) {
     llType = LLType::getInt8Ty(gIR->context());
-#if LDC_LLVM_VER < 1800
-    val = llvm::ConstantExpr::getZExt(val, llType);
-#else
     val = llvm::ConstantFoldCastOperand(llvm::Instruction::ZExt, val, llType, *gDataLayout);
-#endif
   }
 
   if (llType == targetLLType)
@@ -1196,11 +1192,7 @@ LLConstant *DtoConstExpInit(Loc loc, Type *targetType, Expression *exp) {
            "On initializer integer type mismatch, the target should be wider "
            "than the source.");
 
-#if LDC_LLVM_VER < 1800
-    return llvm::ConstantExpr::getZExtOrBitCast(val, target);
-#else
     return llvm::ConstantFoldCastOperand(llvm::Instruction::ZExt, val, target, *gDataLayout);
-#endif
   }
 
   Logger::println("Unhandled type mismatch, giving up.");

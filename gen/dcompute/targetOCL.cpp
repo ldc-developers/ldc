@@ -82,7 +82,6 @@ public:
 #endif
     _ir->module.setTargetTriple(targTriple);
 
-#if LDC_LLVM_VER >= 1600
     auto floatABI = ::FloatABI::Hard;
     targetMachine = createTargetMachine(
             targTripleStr,
@@ -90,7 +89,6 @@ public:
             "", {},
             is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, floatABI,
             llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false);
-#endif
     _ir->module.setDataLayout(is64 ? SPIR_DATALAYOUT64 : SPIR_DATALAYOUT32);
     _ir->dcomputetarget = this;
   }
@@ -200,7 +198,7 @@ public:
   void decodeTypes(std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD>& attrs,
                    VarDeclaration *v)
   {
-    llvm::Optional<DcomputePointer> ptr;
+    std::optional<DcomputePointer> ptr;
     std::string typeQuals;
     std::string baseTyName;
     std::string tyName;

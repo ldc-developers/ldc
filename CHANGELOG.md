@@ -1,8 +1,10 @@
 # LDC master
 
 #### Big news
+- Minimum LLVM version raised to 18. (#5094)
 
 #### Platform support
+- Supports LLVM 18 - 21.
 
 #### Bug fixes
 

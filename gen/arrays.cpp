@@ -533,11 +533,7 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
     // extend i1 to i8
     if (val->getType()->isIntegerTy(1)) {
       LLType *I8PtrTy = LLType::getInt8Ty(p->context());
-#if LDC_LLVM_VER < 1800
-      val = llvm::ConstantExpr::getZExt(val, I8PtrTy);
-#else
       val = llvm::ConstantFoldCastOperand(llvm::Instruction::ZExt, val, I8PtrTy, *gDataLayout);
-#endif
     }
     if (!elementType) {
       elementType = val->getType();
