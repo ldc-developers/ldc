@@ -92,6 +92,9 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       return;
     }
 
+    if (!decl->type)
+      return;
+
     if (decl->type->ty == TY::Taarray) {
       error(decl->loc, "associative arrays not allowed in `@compute` code");
       stop = true;
