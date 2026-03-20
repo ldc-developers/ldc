@@ -97,6 +97,9 @@ set(ALTERNATIVE_MALLOC_O   ""     CACHE STRING "If specified, adds ALTERNATIVE_M
 # Most linux distributions have a policy of not bundling dependencies like zlib
 set(PHOBOS_SYSTEM_ZLIB OFF CACHE BOOL "Use system zlib instead of Phobos' vendored version")
 
+# Force use of softfloat for compiler
+option(LDC_FORCE_SOFTFLOAT_REAL "Force LDC to be built with 80-bit real in software" OFF)
+
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
@@ -135,6 +138,7 @@ if(NOT MSVC_IDE)
 endif()
 
 if(MSVC)
+    set(LDC_FORCE_SOFTFLOAT_REAL ON)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
         message(STATUS "Let D host compiler output 64-bit object files")
         append("-m64" DFLAGS_BASE)
@@ -164,6 +168,11 @@ if(MSVC)
             string(REGEX REPLACE "/Ob[0-2]" "${llvm_ob_flag}" ${flag_var} "${${flag_var}}")
         endif()
     endforeach()
+endif()
+
+if (LDC_FORCE_SOFTFLOAT_REAL)
+    append("-version=LDC_real_softfloat" DFLAGS_LDC)
+    append("-DLDC_real_softfloat" LDC_CXXFLAGS)
 endif()
 
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
