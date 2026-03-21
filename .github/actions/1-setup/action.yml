@@ -71,7 +71,7 @@ runs:
       run: |
         set -eux
         cd ..
-        version='${{ inputs.clang_major }}.1.8'
+        version='${{ inputs.clang_major }}.1.2'
         curl -fL --retry 3 --max-time 300 -o clang.exe \
           https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/LLVM-$version-win64.exe
         ./clang.exe //S # double-slash for bash
