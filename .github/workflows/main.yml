@@ -146,13 +146,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     container:
       image: ${{ matrix.container_image }}
-      volumes: # needed for Alpine aarch64 job: https://github.com/actions/runner/issues/801#issuecomment-2976165281
-        - /opt:/opt:rw,rshared
-        - /opt:/__e/node20:ro,rshared
     timeout-minutes: 90
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '11.0' || '10.12' }}
     steps:
+      - name: 'Fix GitHub actions in Alpine aarch64 container'
+        if: startsWith(matrix.container_image, 'alpine') && matrix.arch == 'aarch64'
+        uses: laverdet/alpine-arm64@v1
       - name: 'Set up Linux container'
         if: matrix.container_image
         run: |
