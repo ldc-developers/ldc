@@ -186,7 +186,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
-          fetch-depth: 50
       - name: Install prerequisites
         if: |
           !startsWith(matrix.container_image, 'alpine')
@@ -306,7 +305,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
-          fetch-depth: 50
       - name: Install prerequisites
         uses: ./.github/actions/1-setup
         with:
@@ -365,8 +363,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: true
-          fetch-depth: 50
+          submodules: true # Phobos needed for building arm64 libs
       - name: Merge x64 & x86 packages to multilib one & build installer
         uses: ./.github/actions/merge-windows
 
