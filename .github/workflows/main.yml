@@ -183,7 +183,7 @@ jobs:
               ln -s /usr/bin/node /opt/bin/node
             fi
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
           fetch-depth: 50
@@ -303,7 +303,7 @@ jobs:
     runs-on: ${{ matrix.host_os }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
           fetch-depth: 50
@@ -353,7 +353,7 @@ jobs:
     timeout-minutes: 30
     needs: build-native
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Merge x86_64 & arm64 packages to universal one
         uses: ./.github/actions/merge-macos
 
@@ -363,7 +363,7 @@ jobs:
     timeout-minutes: 30
     needs: build-native
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
           fetch-depth: 50
@@ -384,6 +384,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Upload all artifacts to GitHub release
         uses: ./.github/actions/upload-to-github

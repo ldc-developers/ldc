@@ -4,7 +4,7 @@ runs:
   steps:
 
     - name: Download x86_64 and arm64 artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         pattern: osx-*
         path: artifacts/
@@ -92,7 +92,7 @@ runs:
         tar -cf - $artifactName | 7za a newArtifacts/$artifactName.tar.xz -si -txz -mx9
 
     - name: Upload universal package
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: osx-universal
         path: newArtifacts/
