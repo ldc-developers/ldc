@@ -4,7 +4,7 @@ runs:
   steps:
 
     - name: Download x64 and x86 artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         pattern: windows-*
         path: artifacts/
@@ -146,7 +146,7 @@ runs:
           packaging\windows_installer.iss
 
     - name: Upload multilib package & installer
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: windows-multilib
         path: newArtifacts/

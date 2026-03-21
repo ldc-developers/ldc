@@ -41,12 +41,11 @@ jobs:
       # silence `ld: warning: object file (…) was built for newer macOS version (…) than being linked (…)`
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '13.6' || '11.6' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
-          fetch-depth: 50
       - name: Install D host compiler
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
         with:
           compiler: ${{ matrix.host_dc }}
       - name: Clear LD_LIBRARY_PATH to prevent loading host compiler libs
@@ -75,7 +74,7 @@ jobs:
 
       - name: 'macOS: Try to restore cached LLVM'
         if: runner.os == 'macOS'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: llvm
           key: llvm-${{ matrix.llvm_version }}-${{ runner.os }}
