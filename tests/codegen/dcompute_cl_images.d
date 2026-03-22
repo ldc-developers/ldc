@@ -1,8 +1,5 @@
 // REQUIRES: target_SPIRV
 
-// FIXME: hits an assertion with SPIRV-LLVM-Translator for LLVM 15, see https://github.com/ldc-developers/ldc/pull/4010#issuecomment-1191820165
-// XFAIL: atleast_llvm1500 && atmost_llvm1509
-
 // FIXME: another assertion for LLVM 18: https://github.com/llvm/llvm-project/issues/87315
 // UNSUPPORTED: atleast_llvm1800 && atmost_llvm1809
 
