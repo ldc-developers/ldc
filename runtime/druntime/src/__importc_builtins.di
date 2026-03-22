@@ -172,7 +172,8 @@ else version (LDC)
 
     alias __uint128_t = imported!"core.int128".Cent;
 
-    alias __builtin_alloca = imported!"core.stdc.stdlib".alloca;
+    pragma(LDC_alloca)
+    extern(C) void* __builtin_alloca(size_t size);
 
     // gcc builtins:
 
