@@ -209,11 +209,6 @@ typedef struct {} __SVFloat64_t;
 #define __builtin_va_list va_list
 #define __gnuc_va_list va_list
 #define BIONIC_IOCTL_NO_SIGNEDNESS_OVERLOAD
-#define __alignof__(x) _Alignof(x)
-#define __builtin_memmove(a,b,c) memmove(a,b,c)
-#define __builtin_memset(a,b,c) memset(a,b,c)
-#define __builtin_ffs(x) ffs(x)
-#define __builtin_ffsl(x) ffsl(x)
-#define __builtin_ffsll(x) ffsll(x)
+#define __alignof__ _Alignof
 #define __sync_synchronize()
 #endif
