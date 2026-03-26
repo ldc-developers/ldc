@@ -101,6 +101,11 @@ version (DigitalMars)
     alias __builtin_fabsf = imported!"core.stdc.math".fabsf;
     alias __builtin_fabsl = imported!"core.stdc.math".fabsl;
 
+    alias __builtin_memcmp = imported!"core.stdc.string".memcmp;
+    alias __builtin_memcpy = imported!"core.stdc.string".memcpy;
+    alias __builtin_memmove = imported!"core.stdc.string".memmove;
+    alias __builtin_memset = imported!"core.stdc.string".memset;
+
     ushort __builtin_bswap16()(ushort value)
     {
         return cast(ushort) (((value >> 8) & 0xFF) | ((value << 8) & 0xFF00U));
@@ -160,6 +165,11 @@ else version (LDC)
     alias __builtin_fabs  = imported!"ldc.intrinsics".llvm_fabs!double;
     alias __builtin_fabsf = imported!"ldc.intrinsics".llvm_fabs!float;
     alias __builtin_fabsl = imported!"ldc.intrinsics".llvm_fabs!real;
+
+    alias __builtin_memcmp = imported!"core.stdc.string".memcmp;
+    alias __builtin_memcpy = imported!"core.stdc.string".memcpy;
+    alias __builtin_memmove = imported!"core.stdc.string".memmove;
+    alias __builtin_memset = imported!"core.stdc.string".memset;
 
     alias __builtin_bswap16 = imported!"ldc.intrinsics".llvm_bswap!ushort;
     alias __builtin_bswap32 = imported!"ldc.intrinsics".llvm_bswap!uint;
