@@ -37,9 +37,6 @@ jobs:
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
-    env:
-      # silence `ld: warning: object file (…) was built for newer macOS version (…) than being linked (…)`
-      MACOSX_DEPLOYMENT_TARGET: '14.0'
     steps:
       - uses: actions/checkout@v6
         with:
