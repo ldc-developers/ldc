@@ -68,7 +68,7 @@ void addSanitizerLibs(bool useInternalToolchain,
                       std::vector<std::string> &args) {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     args.push_back("ldc_rt.asan.lib");
-#if LDC_LLVM_MAJOR >= 20 // extra library since LLVM 20
+#if LLVM_VERSION_MAJOR >= 20 // extra library since LLVM 20
     const bool linkStaticCRT =
         getMscrtLibName(&useInternalToolchain).contains_insensitive("libcmt");
     args.push_back((llvm::Twine("ldc_rt.asan_") +

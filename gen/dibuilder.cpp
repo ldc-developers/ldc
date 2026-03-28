@@ -789,7 +789,7 @@ DISubroutineType DIBuilder::CreateFunctionType(Type *type,
       DIType ditype = DBuilder.createReferenceType(
           llvm::dwarf::DW_TAG_pointer_type, pointeeType, target.ptrsize * 8);
       ditype = DBuilder.createObjectPointerType(ditype
-#if LDC_LLVM_MAJOR >= 20
+#if LLVM_VERSION_MAJOR >= 20
       , /* Implicit */ true
 #endif
       );
@@ -1215,7 +1215,7 @@ void DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
   auto instr = DBuilder.insertDbgValueIntrinsic(
       val, debugVariable, DBuilder.createExpression(),
       IR->ir->getCurrentDebugLocation(), IR->scopebb());
-#if LDC_LLVM_MAJOR >= 19
+#if LLVM_VERSION_MAJOR >= 19
   llvm::cast<llvm::DbgRecord *>
 #endif
   (instr)->setDebugLoc(IR->ir->getCurrentDebugLocation());

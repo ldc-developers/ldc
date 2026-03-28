@@ -18,7 +18,7 @@
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ExecutionEngine/JITLink/EHFrameSupport.h"
-#if LDC_LLVM_MAJOR >= 20 && defined(LDC_JITRT_USE_JITLINK)
+#if LLVM_VERSION_MAJOR >= 20 && defined(LDC_JITRT_USE_JITLINK)
 #include "llvm/ExecutionEngine/Orc/EHFrameRegistrationPlugin.h"
 #endif
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
@@ -36,7 +36,7 @@ namespace {
 static llvm::SmallVector<std::string, 4> getHostAttrs() {
   llvm::SmallVector<std::string, 4> features;
   llvm::StringMap<bool> hostFeatures;
-#if LDC_LLVM_MAJOR >= 19
+#if LLVM_VERSION_MAJOR >= 19
   hostFeatures = llvm::sys::getHostCPUFeatures();
 #else
   if (llvm::sys::getHostCPUFeatures(hostFeatures))
@@ -115,7 +115,7 @@ static llvm::orc::LLJITBuilder buildLLJITforLDC() {
   // (which includes a lot of platform-related workarounds we need)
   // on LLVM 20+, LLJIT will auto-configure eh-frame plugin and
   // we avoid configuring the eh-frame plugin ourselves to avoid double registration
-#if defined(LDC_JITRT_USE_JITLINK) && LDC_LLVM_MAJOR < 20
+#if defined(LDC_JITRT_USE_JITLINK) && LLVM_VERSION_MAJOR < 20
       .setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession &ES,
                                         const llvm::Triple &TT) {
         auto linker = std::make_unique<llvm::orc::ObjectLinkingLayer>(

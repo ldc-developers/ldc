@@ -156,7 +156,7 @@ public:
   IrFunction *func();
   llvm::Function *topfunc();
 
-#if LDC_LLVM_MAJOR >= 19
+#if LLVM_VERSION_MAJOR >= 19
   llvm::BasicBlock::iterator nextAllocaPos();
 #else
   llvm::BasicBlock *nextAllocaPos();
