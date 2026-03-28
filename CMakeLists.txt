@@ -441,7 +441,6 @@ append("-J${PROJECT_SOURCE_DIR}/dmd/res" DFLAGS_LDC)
 
 append("-version=IN_LLVM" DFLAGS_LDC)
 append("-DIN_LLVM" LDC_CXXFLAGS)
-append("-DOPAQUE_VTBLS" LDC_CXXFLAGS)
 # Predefine LDC_INSTALL_PREFIX as raw string literal, requiring shell + CMake escaping.
 # E.g., for CMAKE_INSTALL_PREFIX=`C:\dir with space`:
 #   g++ "-DLDC_INSTALL_PREFIX=R\"(C:\dir with space)\"" ...
