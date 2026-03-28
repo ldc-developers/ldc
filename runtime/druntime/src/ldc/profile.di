@@ -18,8 +18,6 @@ module ldc.profile;
 
 version = HASHED_FUNC_NAMES;
 
-import ldc.intrinsics : LLVM_version;
-
 @nogc:
 nothrow:
 
@@ -42,14 +40,12 @@ extern(C++) struct ProfileData {
         else
             return cast(inout(ulong)*) ((cast(size_t) &this) + cast(size_t) RelativeCounters);
     }
-    static if (LLVM_version >= 1800)
-        void* BitmapPtr;
+    void* BitmapPtr;
     void* FunctionPointer;
     void* Values;
     uint NumCounters;
     ushort NumValueSites;
-    static if (LLVM_version >= 1800)
-        uint NumBitmapBytes;
+    uint NumBitmapBytes;
 }
 
 // Symbols provided by profile-rt lib

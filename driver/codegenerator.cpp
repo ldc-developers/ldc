@@ -37,7 +37,7 @@
 #include "mlir/IR/MLIRContext.h"
 #endif
 
-#if LDC_LLVM_VER < 2200
+#if LDC_LLVM_MAJOR < 22
 namespace llvm {
   using LLVMRemarkFileHandle = std::unique_ptr<llvm::ToolOutputFile>;
 }
@@ -218,7 +218,7 @@ void CodeGenerator::prepareLLModule(Module *m) {
   // name, as it should not collide with a symbol name used somewhere in the
   // module.
   ir_ = new IRState(m->srcfile.toChars(), context_);
-#if LDC_LLVM_VER >= 2100
+#if LDC_LLVM_MAJOR >= 21
   ir_->module.setTargetTriple(*global.params.targetTriple);
 #else
   ir_->module.setTargetTriple(global.params.targetTriple->str());

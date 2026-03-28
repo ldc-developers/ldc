@@ -31,7 +31,7 @@ using namespace llvm;
 
 #define BUILTIN_NAME_STRING "ClangBuiltinName"
 
-#if LDC_LLVM_VER >= 2000
+#if LDC_LLVM_MAJOR >= 20
 #define LLVM_20_CONST const
 #else
 #define LLVM_20_CONST

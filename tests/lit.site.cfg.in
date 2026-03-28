@@ -25,7 +25,7 @@ config.ldc2_runtime_dir    = "@RUNTIME_DIR@"
 config.ldc2_source_dir     = "@PROJECT_SOURCE_DIR@"
 config.test_source_root    = "@TESTS_IR_DIR@"
 config.llvm_tools_dir      = "@LLVM_TOOLS_DIR@"
-config.llvm_version        = @LDC_LLVM_VER@
+config.llvm_major          = @LLVM_VERSION_MAJOR@
 config.llvm_targetsstr     = "@LLVM_TARGETS_TO_BUILD@"
 config.default_target_bits = @DEFAULT_TARGET_BITS@
 config.with_PGO            = True
@@ -90,15 +90,11 @@ if (platform.system() == 'Windows'):
     config.environment['LIB'] = os.environ['LIB']
 
 # Define available features so that we can disable tests depending on LLVM version
-config.available_features.add("llvm%d" % config.llvm_version)
-# LLVM version history: 3.9, 4.0, 5.0, ...
-# config.llvm_version: 309, 400, 500, ...
-# plusoneable_llvmversion: 39, 40, 50, ...
-plusoneable_llvmversion = config.llvm_version // 10  + config.llvm_version%10
-for version in range(150, plusoneable_llvmversion+1):
-    config.available_features.add("atleast_llvm%d0%d" % (version//10, version%10))
-for version in range(plusoneable_llvmversion, 201):
-    config.available_features.add("atmost_llvm%d0%d" % (version//10, version%10))
+config.available_features.add("llvm%d" % config.llvm_major)
+for version in range(18, config.llvm_major+1):
+    config.available_features.add("atleast_llvm%d" % version)
+for version in range(config.llvm_major, 30):
+    config.available_features.add("atmost_llvm%d" % version)
 
 # Define OS as available feature (Windows, Darwin, Linux, FreeBSD...)
 config.available_features.add(platform.system())

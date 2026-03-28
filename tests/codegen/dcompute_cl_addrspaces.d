@@ -1,7 +1,7 @@
 // See GH issue #2709
 
 // FIXME: hits an assertion for LLVM 18: https://github.com/llvm/llvm-project/issues/87315
-// UNSUPPORTED: atleast_llvm1800 && atmost_llvm1809
+// UNSUPPORTED: llvm18
 
 // REQUIRES: target_SPIRV
 // RUN: %ldc -c -mdcompute-targets=ocl-220 -m64 -mdcompute-file-prefix=addrspace_new -output-ll -output-o %s && FileCheck %s --check-prefix=LL < addrspace_new_ocl220_64.ll \

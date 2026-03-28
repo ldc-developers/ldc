@@ -24,7 +24,7 @@
 #include <string>
 
 // from SPIRVInternal.h
-#if LDC_LLVM_VER < 1900
+#if LDC_LLVM_MAJOR < 19
 #  define SPIR_TARGETTRIPLE32 "spir-unknown-unknown"
 #  define SPIR_TARGETTRIPLE64 "spir64-unknown-unknown"
 #  define SPIR_DATALAYOUT32                                                    \
@@ -42,7 +42,7 @@
 #else // LLVM 19+
 #  define SPIR_TARGETTRIPLE32 "spirv-unknown-unknown"
 #  define SPIR_TARGETTRIPLE64 "spirv64-unknown-unknown"
-#  if LDC_LLVM_VER < 2000
+#  if LDC_LLVM_MAJOR < 20
 #    define SPIR_DATALAYOUT32                                                  \
        "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64"                          \
        "-v96:128-v192:256-v256:256-v512:512-v1024:1024-G1"
@@ -75,7 +75,7 @@ public:
     _ir = new IRState("dcomputeTargetOCL", ctx);
     std::string targTripleStr = is64 ? SPIR_TARGETTRIPLE64
                                      : SPIR_TARGETTRIPLE32;
-#if LDC_LLVM_VER >= 2100
+#if LDC_LLVM_MAJOR >= 21
     llvm::Triple targTriple = llvm::Triple(targTripleStr);
 #else
     std::string targTriple = targTripleStr;

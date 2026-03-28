@@ -160,7 +160,7 @@ Value *ArraySliceCopyOpt::CallOptimizer(Function *Callee, CallInst *CI,
     Sz = (Int->getValue() * ElemSz->getValue()).getZExtValue();
   }
 
-#if LDC_LLVM_VER >= 2100
+#if LDC_LLVM_MAJOR >= 21
   llvm::LocationSize Sz2 =
       (Sz == llvm::MemoryLocation::UnknownSize)
           ? llvm::LocationSize::beforeOrAfterPointer()

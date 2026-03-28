@@ -583,7 +583,7 @@ llvm::FastMathFlags defaultFMF;
 void setDefaultMathOptions(llvm::TargetOptions &targetOptions) {
   if (fFastMath) {
     defaultFMF.setFast();
-#if LDC_LLVM_VER < 2200
+#if LDC_LLVM_MAJOR < 22
     targetOptions.UnsafeFPMath = true;
 #endif
   }
@@ -798,7 +798,7 @@ void createClashingOptions() {
   auto renameAndHide = [&map](const char *from, const char *to) {
     auto i = map.find(from);
     if (i != map.end()) {
-#if LDC_LLVM_VER >= 2200
+#if LDC_LLVM_MAJOR >= 22
       cl::Option *opt = i->second;
 #else
       cl::Option *opt = i->getValue();

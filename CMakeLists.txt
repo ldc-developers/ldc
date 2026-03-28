@@ -36,7 +36,6 @@ find_package(LLVM 18.0 REQUIRED
     mcdisassembler mcparser objcarcopts object option profiledata scalaropts
     selectiondag support tablegen target transformutils vectorize
     windowsdriver windowsmanifest symbolize ${EXTRA_LLVM_MODULES})
-math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 message(STATUS "Using LLVM Version ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}")
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "[^;]*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -49,7 +48,7 @@ endforeach()
 
 # Set MLIR support variables if it is found.
 # FIXME: LLVM 14+ (`mlir::OwningModuleRef` replacement)
-if(NOT LDC_WITH_MLIR STREQUAL "OFF" AND LDC_LLVM_VER LESS 1400)
+if(NOT LDC_WITH_MLIR STREQUAL "OFF" AND LLVM_VERSION_MAJOR LESS 14)
     include(FindMLIR)
     if(MLIR_FOUND)
         message(STATUS "-- Building LDC with MLIR support (${MLIR_ROOT_DIR})")
@@ -405,7 +404,7 @@ set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF
 option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
     # FIXME: dynamic-compile regressions with LLVM 20
-    if(LDC_LLVM_VER LESS 2000)
+    if(LLVM_VERSION_MAJOR LESS 20)
         set(LDC_DYNAMIC_COMPILE ON)
     else()
         set(LDC_DYNAMIC_COMPILE OFF)
@@ -448,7 +447,7 @@ append("-DOPAQUE_VTBLS" LDC_CXXFLAGS)
 #   g++ "-DLDC_INSTALL_PREFIX=R\"(C:\dir with space)\"" ...
 #   => LDC_INSTALL_PREFIX defined as `R"(C:\dir with space)"`
 append("\"-DLDC_INSTALL_PREFIX=R\\\"(${CMAKE_INSTALL_PREFIX})\\\"\"" LDC_CXXFLAGS)
-append("-DLDC_LLVM_VER=${LDC_LLVM_VER}" LDC_CXXFLAGS)
+append("-DLDC_LLVM_MAJOR=${LLVM_VERSION_MAJOR}" LDC_CXXFLAGS)
 append("\"-DLDC_LIBDIR_SUFFIX=R\\\"(${LIB_SUFFIX})\\\"\"" LDC_CXXFLAGS)
 append("-DLDC_HOST_${D_COMPILER_ID}=1" LDC_CXXFLAGS)
 append("-DLDC_HOST_FE_VER=${D_COMPILER_FE_VERSION}" LDC_CXXFLAGS)
@@ -841,7 +840,7 @@ if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
         if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set(compilerrt_arch_suffix "i386")
         endif()
-        if(LDC_LLVM_VER LESS 2000)
+        if(LLVM_VERSION_MAJOR LESS 20)
             copy_compilerrt_lib("clang_rt.asan-${compilerrt_arch_suffix}.lib" "ldc_rt.asan.lib" FALSE)
             copy_compilerrt_lib("clang_rt.lsan-${compilerrt_arch_suffix}.lib" "ldc_rt.lsan.lib" FALSE)
         else()

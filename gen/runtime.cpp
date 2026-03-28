@@ -534,7 +534,7 @@ static void buildRuntimeModule() {
   {
     auto addCapturesNone = [&](int extra, AttrSet& a) {
       llvm::AttrBuilder ab(context);
-#if LDC_LLVM_VER >= 2100
+#if LDC_LLVM_MAJOR >= 21
       ab.addCapturesAttr(llvm::CaptureInfo::none());
 #else
       ab.addAttribute(llvm::Attribute::NoCapture);
