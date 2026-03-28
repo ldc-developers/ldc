@@ -45,14 +45,14 @@ IrFunction *IRState::func() { return &funcGen().irFunc; }
 
 llvm::Function *IRState::topfunc() { return func()->getLLVMFunc(); }
 
-#if LDC_LLVM_VER >= 1900
+#if LLVM_VERSION_MAJOR >= 19
 llvm::BasicBlock::iterator IRState::nextAllocaPos() {
 #else
 llvm::BasicBlock *IRState::nextAllocaPos() {
 #endif
   return funcGen()
       .allocasBlock
-#if LDC_LLVM_VER >= 1900
+#if LLVM_VERSION_MAJOR >= 19
       ->end()
 #endif
       ;

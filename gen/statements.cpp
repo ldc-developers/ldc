@@ -431,7 +431,7 @@ public:
     if (llvm::ConstantInt *const_val = llvm::dyn_cast<llvm::ConstantInt>(cond_val)) {
       Statement *executed = stmt->ifbody;
       Statement *skipped = stmt->elsebody;
-#if LDC_LLVM_VER >= 2100
+#if LLVM_VERSION_MAJOR >= 21
       if (const_val->isZero()) {
 #else
       if (const_val->isZeroValue()) {
@@ -445,7 +445,7 @@ public:
           irs->DBuilder.EmitBlockStart(executed->loc);
         }
         // True condition, the branch is taken so emit counter increment.
-#if LDC_LLVM_VER >= 2100
+#if LLVM_VERSION_MAJOR >= 21
         if (!const_val->isZero()) {
 #else
         if (!const_val->isZeroValue()) {

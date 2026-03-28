@@ -40,7 +40,7 @@ llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
     llvm::cl::init(true));
 
 uint64_t inLittleEndian(uint64_t x) {
-#if LDC_LLVM_VER >= 2200
+#if LLVM_VERSION_MAJOR >= 22
   return llvm::support::endian::byte_swap<uint64_t>(x,
                                                     llvm::endianness::little);
 #else

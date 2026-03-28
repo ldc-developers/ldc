@@ -25,7 +25,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/ADT/SmallVector.h"
-#if LDC_LLVM_VER >= 2200
+#if LLVM_VERSION_MAJOR >= 22
 #include "llvm/Plugins/PassPlugin.h"
 #else
 #include "llvm/Passes/PassPlugin.h"

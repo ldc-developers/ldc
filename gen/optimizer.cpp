@@ -48,7 +48,7 @@
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
-#if LDC_LLVM_VER >= 2000
+#if LLVM_VERSION_MAJOR >= 20
 #include "llvm/Transforms/Utils/Instrumentation.h"
 #else
 #include "llvm/Transforms/Instrumentation.h"
@@ -205,7 +205,7 @@ static OptimizationLevel getOptimizationLevel(){
 #ifndef IN_JITRT
 static void addAddressSanitizerPasses(ModulePassManager &mpm,
                                       OptimizationLevel level
-#if LDC_LLVM_VER >= 2000
+#if LLVM_VERSION_MAJOR >= 20
                                       ,
                                       ThinOrFullLTOPhase
 #endif
@@ -244,7 +244,7 @@ static void addMemorySanitizerPass(ModulePassManager &mpm,
 }
 static void addThreadSanitizerPass(ModulePassManager &mpm,
                                    OptimizationLevel level
-#if LDC_LLVM_VER >= 2000
+#if LLVM_VERSION_MAJOR >= 20
                                    ,
                                    ThinOrFullLTOPhase
 #endif
@@ -255,7 +255,7 @@ static void addThreadSanitizerPass(ModulePassManager &mpm,
 
 static void addSanitizerCoveragePass(ModulePassManager &mpm,
                                      OptimizationLevel level
-#if LDC_LLVM_VER >= 2000
+#if LLVM_VERSION_MAJOR >= 20
                                      ,
                                      ThinOrFullLTOPhase
 #endif
@@ -283,7 +283,7 @@ static void addPGOPasses(ModulePassManager &mpm, OptimizationLevel level) {
 
 static void addStripExternalsPass(ModulePassManager &mpm,
                                   OptimizationLevel level
-#if LDC_LLVM_VER >= 2000
+#if LLVM_VERSION_MAJOR >= 20
                                   ,
                                   ThinOrFullLTOPhase
 #endif
@@ -300,7 +300,7 @@ static void addStripExternalsPass(ModulePassManager &mpm,
 
 static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm,
                                          OptimizationLevel level
-#if LDC_LLVM_VER >= 2000
+#if LLVM_VERSION_MAJOR >= 20
                                          ,
                                          ThinOrFullLTOPhase
 #endif
@@ -315,7 +315,7 @@ static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm,
 
 static void addGarbageCollect2StackPass(ModulePassManager &mpm,
                                         OptimizationLevel level
-#if LDC_LLVM_VER >= 2000
+#if LLVM_VERSION_MAJOR >= 20
                                         ,
                                         ThinOrFullLTOPhase
 #endif
@@ -337,11 +337,11 @@ static std::optional<PGOOptions> getPGOOptions() {
     return PGOOptions(
         global.params.datafileInstrProf, "", "",
         "" /*MemoryProfileUsePath*/,
-#if LDC_LLVM_VER < 2200
+#if LLVM_VERSION_MAJOR < 22
         llvm::vfs::getRealFileSystem(),
 #endif
         PGOOptions::PGOAction::IRInstr, PGOOptions::CSPGOAction::NoCSAction,
-#if LDC_LLVM_VER >= 1900
+#if LLVM_VERSION_MAJOR >= 19
         PGOOptions::ColdFuncOpt::Default,
 #endif
         debugInfoForProfiling, pseudoProbeForProfiling);
@@ -349,11 +349,11 @@ static std::optional<PGOOptions> getPGOOptions() {
     return PGOOptions(
         global.params.datafileInstrProf, "", "",
         "" /*MemoryProfileUsePath*/,
-#if LDC_LLVM_VER < 2200
+#if LLVM_VERSION_MAJOR < 22
         llvm::vfs::getRealFileSystem(),
 #endif
         PGOOptions::PGOAction::IRUse, PGOOptions::CSPGOAction::NoCSAction,
-#if LDC_LLVM_VER >= 1900
+#if LLVM_VERSION_MAJOR >= 19
         PGOOptions::ColdFuncOpt::Default,
 #endif
         debugInfoForProfiling, pseudoProbeForProfiling);
@@ -361,11 +361,11 @@ static std::optional<PGOOptions> getPGOOptions() {
     return PGOOptions(
         global.params.datafileInstrProf, "", "",
         "" /*MemoryProfileUsePath*/,
-#if LDC_LLVM_VER < 2200
+#if LLVM_VERSION_MAJOR < 22
         llvm::vfs::getRealFileSystem(),
 #endif
         PGOOptions::PGOAction::SampleUse, PGOOptions::CSPGOAction::NoCSAction,
-#if LDC_LLVM_VER >= 1900
+#if LLVM_VERSION_MAJOR >= 19
         PGOOptions::ColdFuncOpt::Default,
 #endif
         debugInfoForProfiling, pseudoProbeForProfiling);
@@ -521,14 +521,14 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
 
   if (optLevelVal == 0) {
 #ifdef IN_JITRT
-#if LDC_LLVM_VER >= 2000
+#if LLVM_VERSION_MAJOR >= 20
     const ThinOrFullLTOPhase ltoPrelink = ThinOrFullLTOPhase::None;
 #else
     const bool ltoPrelink = false;
-#endif // LDC_LLVM_VER >= 2000
+#endif
     mpm = pb.buildO0DefaultPipeline(level, ltoPrelink);
-#else
-#if LDC_LLVM_VER >= 2000
+#else // !IN_JITRT
+#if LLVM_VERSION_MAJOR >= 20
     const ThinOrFullLTOPhase ltoPrelink =
         opts::isUsingLTO()
             ? (opts::isUsingThinLTO() ? ThinOrFullLTOPhase::ThinLTOPreLink
@@ -536,7 +536,7 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
             : ThinOrFullLTOPhase::None;
 #else
     const bool ltoPrelink = opts::isUsingLTO();
-#endif // LDC_LLVM_VER >= 2000
+#endif
     mpm = pb.buildO0DefaultPipeline(level, ltoPrelink);
   } else if (opts::ltoFatObjects && opts::isUsingLTO()) {
     mpm = pb.buildFatLTODefaultPipeline(level,

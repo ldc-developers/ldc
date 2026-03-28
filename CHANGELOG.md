@@ -2,6 +2,7 @@
 
 #### Big news
 - Minimum LLVM version raised to 18. (#5094)
+- Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
 
 #### Platform support
 - Supports LLVM 18 - 21.

@@ -310,7 +310,7 @@ void parseCommandLine(Strings &sourceFiles) {
     if (auto target = lookupTarget("", triple, errMsg)) {
       llvm::errs() << "Targeting " << target->getName() << ". ";
       // this prints the available CPUs and features of the target to stderr...
-#if LDC_LLVM_VER >= 2200
+#if LLVM_VERSION_MAJOR >= 22
       target->createMCSubtargetInfo(triple, "help", "");
 #else
       target->createMCSubtargetInfo(cfg_triple, "help", "");
@@ -1032,7 +1032,7 @@ void registerPredefinedVersions() {
 // Expose LLVM version to runtime
 #define STR(x) #x
 #define XSTR(x) STR(x)
-  VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_" XSTR(LDC_LLVM_VER));
+  VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_" XSTR(LLVM_VERSION_MAJOR));
 #undef XSTR
 #undef STR
 }

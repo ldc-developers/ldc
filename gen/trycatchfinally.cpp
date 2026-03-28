@@ -323,7 +323,7 @@ CleanupScope::CleanupScope(llvm::BasicBlock *beginBlock,
 }
 
 namespace {
-#if LDC_LLVM_VER >= 1900
+#if LLVM_VERSION_MAJOR >= 19
 llvm::BasicBlock::iterator getTerminatorPos(llvm::BasicBlock *bb) {
   auto it = bb->rbegin().getReverse();
   assert(it->isTerminator());
