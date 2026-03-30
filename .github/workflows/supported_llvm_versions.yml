@@ -19,6 +19,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: macOS 14, LLVM 21, latest LDC beta
+            os: macos-14
+            host_dc: ldc-beta
+            llvm_version: 21
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON
           - job_name: Ubuntu 24.04, LLVM 20, bootstrap LDC
             os: ubuntu-24.04
             host_dc: ldc-1.19.0
