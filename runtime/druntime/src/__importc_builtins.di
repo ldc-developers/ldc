@@ -170,10 +170,10 @@ else version (LDC)
     alias __builtin_fabsf = imported!"ldc.intrinsics".llvm_fabs!float;
     alias __builtin_fabsl = imported!"ldc.intrinsics".llvm_fabs!real;
 
-    alias __builtin_memcmp = imported!"core.stdc.string".memcmp;
-    alias __builtin_memcpy = imported!"core.stdc.string".memcpy;
-    alias __builtin_memmove = imported!"core.stdc.string".memmove;
-    alias __builtin_memset = imported!"core.stdc.string".memset;
+    alias __builtin_memcmp  = imported!"core.stdc.string".memcmp;
+    alias __builtin_memcpy  = imported!"ldc.intrinsics".llvm_memcpy!size_t;
+    alias __builtin_memmove = imported!"ldc.intrinsics".llvm_memmove!size_t;
+    alias __builtin_memset  = imported!"ldc.intrinsics".llvm_memset!size_t;
 
     alias __builtin_bswap16 = imported!"ldc.intrinsics".llvm_bswap!ushort;
     alias __builtin_bswap32 = imported!"ldc.intrinsics".llvm_bswap!uint;
