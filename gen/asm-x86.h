@@ -2416,7 +2416,9 @@ struct AsmProcessor {
   void addLabel(const char *id) {
     // We need to delay emitting the actual function name, see
     // replace_func_name in asmstmt.cpp for details.
-    printLabelName(insnTemplate, "<<func>>", id);
+    // Pass the function's asmLabelId to make labels unique across template
+    // instantiations when LTO merges them.
+    printLabelName(insnTemplate, "<<func>>", id, sc->func->asmLabelId);
   }
 
   /* Determines whether the operand is a register, memory reference

@@ -129,7 +129,7 @@ public:
     LOG_SCOPE;
 
     printLabelName(irs->nakedAsm, mangleExact(irs->func()->decl),
-                   stmt->ident->toChars());
+                   stmt->ident->toChars(), irs->func()->decl->asmLabelId);
     irs->nakedAsm << ":";
 
     if (stmt->statement) {
