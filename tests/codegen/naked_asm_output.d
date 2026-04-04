@@ -61,37 +61,37 @@ extern(C) int nakedWithLabels() {
 // ASM-LABEL: nakedWithMultipleLabels:
 // ASM-NEXT: .cfi_startproc
 // ASM-NEXT: #APP
-// ASM-NEXT: jl .LnakedWithMultipleLabels_innerAsmLabel
+// ASM-NEXT: jmp .LnakedWithMultipleLabels_innerAsmLabel
 // ASM-NEXT: .LnakedWithMultipleLabels_innerAsmLabel:
-// ASM-NEXT: jl .LnakedWithMultipleLabels_otherAsmLabel
+// ASM-NEXT: jmp .LnakedWithMultipleLabels_otherAsmLabel
 // ASM-NEXT: #NO_APP
 // ASM-NEXT: #APP
 // ASM-NEXT: .LnakedWithMultipleLabels_otherAsmLabel:
-// ASM-NEXT: jl .LnakedWithMultipleLabels_dLabel
+// ASM-NEXT: jmp .LnakedWithMultipleLabels_dLabel
 // ASM-NEXT: #NO_APP
 // ASM-NEXT: #APP
 // ASM-NEXT: .LnakedWithMultipleLabels_dLabel:
 // ASM-NEXT: #NO_APP
 // ASM-NEXT: #APP
-// ASM-NEXT: jl .LnakedWithMultipleLabels_innerAsmLabel
-// ASM-NEXT: jl .LnakedWithMultipleLabels_otherAsmLabel
+// ASM-NEXT: jmp .LnakedWithMultipleLabels_innerAsmLabel
+// ASM-NEXT: jmp .LnakedWithMultipleLabels_otherAsmLabel
 // ASM-NEXT: retq
 
 extern(C) int nakedWithMultipleLabels() {
     asm {
         naked;
-        jl innerAsmLabel;
+        jmp innerAsmLabel;
     innerAsmLabel:
-        jl otherAsmLabel;
+        jmp otherAsmLabel;
     }
     asm {
     otherAsmLabel:
-        jl dLabel;
+        jmp dLabel;
     }
 dLabel:
     asm {
-        jl innerAsmLabel;
-        jl otherAsmLabel;
+        jmp innerAsmLabel;
+        jmp otherAsmLabel;
         ret;
     }
 }

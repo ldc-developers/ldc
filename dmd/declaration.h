@@ -582,7 +582,7 @@ public:
     VarDeclarations *parameters;        // Array of VarDeclaration's for parameters
     DsymbolTable *labtab;               // statement label symbol table
 #if IN_LLVM
-    Identifiers *asmLabels;
+    Identifiers *asmLabels;             // identifiers of labels defined in DMD-style inline assembly
 #endif
     Dsymbol *overnext;                  // next in overload list
     FuncDeclaration *overnext0;         // next in overload list (only used during IFTI)
