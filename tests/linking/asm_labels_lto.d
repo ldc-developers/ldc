@@ -8,12 +8,11 @@
 //
 // See: https://github.com/ldc-developers/ldc/issues/4294
 
-// REQUIRES: LTO
-// REQUIRES: target_X86
+// REQUIRES: LTO && host_X86 && target_X86
 
 // RUN: split-file %s %t
 
-// Compile two modules that each instantiate the same naked asm template.
+// Compile two modules (separately) that each instantiate the same naked asm template.
 // RUN: %ldc -flto=full -c -I%t %t/asm_lto_user.d -of=%t/user%obj
 // RUN: %ldc -flto=full -c -I%t %t/asm_lto_main.d -of=%t/main%obj
 
@@ -23,41 +22,22 @@
 // Verify the executable runs correctly.
 // RUN: %t/test%exe
 
-//--- asm_lto_template.d
+//--- asm_lto_template.di
 // Template with naked function containing inline asm labels.
 // This mimics std.internal.math.biguintx86 which triggers issue #4294.
-// The naked function's asm becomes "module asm" which gets concatenated
-// during LTO, causing duplicate symbol errors without the fix.
 module asm_lto_template;
 
 // Template function - when instantiated in multiple modules and linked
 // with LTO, the labels must have unique IDs to avoid "symbol already defined"
 uint nakedAsmTemplate(int N)() {
-    version (D_InlineAsm_X86) {
-        asm { naked; }
-        asm {
-            xor EAX, EAX;
-        L1:
-            add EAX, N;
-            cmp EAX, 100;
-            jl L1;
-            ret;
-        }
-    } else version (D_InlineAsm_X86_64) {
-        asm { naked; }
-        asm {
-            xor EAX, EAX;
-        L1:
-            add EAX, N;
-            cmp EAX, 100;
-            jl L1;
-            ret;
-        }
-    } else {
-        // Fallback for non-x86
-        uint result = 0;
-        while (result < 100) result += N;
-        return result;
+    asm {
+        naked;
+        xor EAX, EAX;
+    L1:
+        add EAX, N;
+        cmp EAX, 100;
+        jl L1;
+        ret;
     }
 }
 
@@ -84,7 +64,7 @@ int main() {
     // Both modules instantiate nakedAsmTemplate!1
     // Without unique label IDs, LTO linking fails with "symbol already defined"
     uint a = nakedAsmTemplate!1();  // From this module's instantiation
-    uint b = useTemplate();          // From asm_lto_user's instantiation
+    uint b = useTemplate();         // From asm_lto_user's instantiation
 
     // Both should return the same value (>= 100)
     return (a == b && a >= 100) ? 0 : 1;
