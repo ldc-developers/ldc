@@ -99,7 +99,6 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
       // propagate the target to the preprocessor
       args.push_back("--target=" + triple.getTriple());
 
-#if LDC_LLVM_VER >= 1800 // getAllProcessorFeatures was introduced in this version
       // propagate all enabled/disabled features to the preprocessor
       const auto &subTarget = gTargetMachine->getMCSubtargetInfo();
       const auto &featureBits = subTarget->getFeatureBits();
@@ -114,7 +113,6 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
         args.push_back(featureString.str().str());
         featureString.clear();
       }
-#endif
 
       // print macro definitions (clang-cl doesn't support /PD - use clang's
       // -dD)

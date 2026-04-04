@@ -38,13 +38,17 @@ llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
     "pgo-indirect-calls", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
     llvm::cl::desc("(*) Enable PGO of indirect calls"),
     llvm::cl::init(true));
-}
 
-#if LDC_LLVM_VER >= 1800
-namespace llvm::support {
-  const auto little = llvm::endianness::little;
-}
+uint64_t inLittleEndian(uint64_t x) {
+#if LLVM_VERSION_MAJOR >= 22
+  return llvm::support::endian::byte_swap<uint64_t>(x,
+                                                    llvm::endianness::little);
+#else
+  return llvm::support::endian::byte_swap<uint64_t, llvm::endianness::little>(
+      x);
 #endif
+}
+} // anonymous namespace
 
 /// \brief Stable hasher for PGO region counters.
 ///
@@ -121,8 +125,7 @@ public:
 
     // Pass through MD5 if enough work has built up.
     if (Count && Count % NumTypesPerWord == 0) {
-      using namespace llvm::support;
-      uint64_t Swapped = endian::byte_swap<uint64_t, little>(Working);
+      uint64_t Swapped = inLittleEndian(Working);
       MD5.update(llvm::ArrayRef<uint8_t>((uint8_t *)&Swapped, sizeof(Swapped)));
       Working = 0;
     }
@@ -142,8 +145,7 @@ public:
 
     // Check for remaining work in Working.
     if (Working) {
-      using namespace llvm::support;
-      uint64_t Swapped = endian::byte_swap<uint64_t, little>(Working);
+      uint64_t Swapped = inLittleEndian(Working);
       MD5.update(llvm::ArrayRef<uint8_t>((uint8_t *)&Swapped, sizeof(Swapped)));
     }
 
@@ -924,11 +926,7 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
   auto EC = RecordExpected.takeError();
 
   if (EC) {
-#if LDC_LLVM_VER >= 1700
     auto IPE = std::get<0>(llvm::InstrProfError::take(std::move(EC)));
-#else
-    auto IPE = llvm::InstrProfError::take(std::move(EC));
-#endif
     if (IPE == llvm::instrprof_error::unknown_function) {
       IF_LOG Logger::println("No profile data for function: %s",
                              FuncName.c_str());

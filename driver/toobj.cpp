@@ -37,34 +37,14 @@
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
-#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
-#if LDC_LLVM_VER < 1600
-#include "LLVMSPIRVLib/LLVMSPIRVLib.h"
-#endif
-#endif
 #include <cstddef>
 #include <fstream>
 
-using CodeGenFileType = llvm::CodeGenFileType;
-
-#if LDC_LLVM_VER >= 1800
-constexpr llvm::CodeGenFileType CGFT_AssemblyFile = CodeGenFileType::AssemblyFile;
-constexpr llvm::CodeGenFileType CGFT_ObjectFile = CodeGenFileType::ObjectFile;
-#endif
-
-#if LDC_LLVM_VER < 1700
-static llvm::cl::opt<bool>
-    NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
-                          llvm::cl::Hidden,
-                          llvm::cl::desc("Disable integrated assembler"));
-#else
 namespace llvm {
 namespace codegen {
 bool getDisableIntegratedAS();
 }
 }
-#define NoIntegratedAssembler llvm::codegen::getDisableIntegratedAS()
-#endif
 
 namespace {
 
@@ -81,21 +61,13 @@ void runDLLImportRelocationPass(llvm::TargetMachine &Target, llvm::Module &m) {
 // based on llc code, University of Illinois Open Source License
 void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
                    const char *filename,
-                   CodeGenFileType fileType) {
+                   llvm::CodeGenFileType fileType) {
   using namespace llvm;
 
   const ComputeBackend::Type cb = getComputeTargetType(&m);
 
   if (cb == ComputeBackend::SPIRV) {
-#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
-#if LDC_LLVM_VER < 1600
-    IF_LOG Logger::println("running createSPIRVWriterPass()");
-    std::ofstream out(filename, std::ofstream::binary);
-    llvm::createSPIRVWriterPass(out)->runOnModule(m);
-    IF_LOG Logger::println("Success.");
-    return;
-#endif
-#else
+#ifndef LDC_LLVM_SUPPORTED_TARGET_SPIRV
     error(Loc(), "Trying to target SPIRV, but LDC is not built to do so!");
     return;
 #endif
@@ -132,11 +104,8 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
           nullptr,  // DWO output file
           // Always generate assembly for ptx as it is an assembly format
           // The PTX backend fails if we pass anything else.
-          (cb == ComputeBackend::NVPTX) ? CGFT_AssemblyFile : fileType
-#if LDC_LLVM_VER < 1700
-          , codeGenOptLevel()
-#endif
-      )) {
+          (cb == ComputeBackend::NVPTX) ? CodeGenFileType::AssemblyFile
+                                        : fileType)) {
     llvm_unreachable("no support for asm output");
   }
 
@@ -300,14 +269,14 @@ public:
 void writeObjectFile(llvm::Module *m, const char *filename) {
   IF_LOG Logger::println("Writing object file to: %s", filename);
   codegenModule(*gTargetMachine, *m, filename,
-                CGFT_ObjectFile);
+                llvm::CodeGenFileType::ObjectFile);
 }
 
 bool shouldAssembleExternally() {
   // There is no integrated assembler on AIX because XCOFF is not supported.
   // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
   return global.params.output_o &&
-         (NoIntegratedAssembler ||
+         (llvm::codegen::getDisableIntegratedAS() ||
           global.params.targetTriple->getOS() == llvm::Triple::AIX);
 }
 
@@ -479,10 +448,10 @@ void writeModule(llvm::Module *m, const char *filename) {
       // to avoid running 'addPassesToEmitFile' passes twice on same module
       auto clonedModule = llvm::CloneModule(*m);
       codegenModule(*gTargetMachine, *clonedModule, spath.c_str(),
-                    CGFT_AssemblyFile);
+                    llvm::CodeGenFileType::AssemblyFile);
     } else {
       codegenModule(*gTargetMachine, *m, spath.c_str(),
-                    CGFT_AssemblyFile);
+                    llvm::CodeGenFileType::AssemblyFile);
     }
 
     if (assembleExternally) {

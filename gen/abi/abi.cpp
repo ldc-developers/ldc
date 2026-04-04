@@ -158,11 +158,7 @@ llvm::CallingConv::ID TargetABI::callingConv(FuncDeclaration *fdecl) {
 void TargetABI::setUnwindTableKind(llvm::Function *fn) {
   llvm::UWTableKind kind = defaultUnwindTableKind();
   if (kind != llvm::UWTableKind::None) {
-#if LDC_LLVM_VER >= 1600
     fn->setUWTableKind(kind);
-#else
-    fn->setUWTableKind(kind);
-#endif
   }
 }
 
@@ -285,10 +281,8 @@ TargetABI *TargetABI::getTarget() {
   case llvm::Triple::thumb:
   case llvm::Triple::thumbeb:
     return getArmTargetABI();
-#if LDC_LLVM_VER >= 1600
   case llvm::Triple::loongarch64:
     return getLoongArch64TargetABI();
-#endif // LDC_LLVM_VER >= 1600
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     return getWasmTargetABI();

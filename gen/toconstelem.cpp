@@ -522,11 +522,7 @@ public:
             // extend i1 to i8
             if (c->getType()->isIntegerTy(1)) {
               LLType *I8PtrTy = LLType::getInt8Ty(p->context());
-#if LDC_LLVM_VER < 1800
-              c = llvm::ConstantExpr::getZExt(c, I8PtrTy);
-#else
               c = llvm::ConstantFoldCastOperand(llvm::Instruction::ZExt, c, I8PtrTy, *gDataLayout);
-#endif
             }
             varInits[e->sd->fields[i]] = c;
           }

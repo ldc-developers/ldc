@@ -4274,8 +4274,6 @@ void fix16997(Scope* sc, UnaExp ue)
 extern (D) bool keyCompatibleWithoutCasting(Expression ekey, Type t2)
 {
     Type t1 = ekey.type;
-    t1 = t1.toBasetype();
-    t2 = t2.toBasetype();
 
     if ((t1.isStaticOrDynamicArray() || t1.ty == Tpointer) && t2.ty == t1.ty)
     {
@@ -4283,7 +4281,13 @@ extern (D) bool keyCompatibleWithoutCasting(Expression ekey, Type t2)
             return true;
         return false;
     }
-    return implicitConvTo(ekey, t2) >= MATCH.constant;
+    if (implicitConvTo(ekey, t2) < MATCH.constant)
+        return false;
+    if (auto ts = t1.isTypeStruct())
+        return implicitConvToThroughAliasThis(ts, t2) == MATCH.nomatch;
+    if (auto tc = t1.isTypeClass())
+        return implicitConvToThroughAliasThis(tc, t2) == MATCH.nomatch;
+    return true;
 }
 
 /******************************************************************/

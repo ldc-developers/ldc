@@ -1,7 +1,19 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.112.1+](https://dlang.org/changelog/2.112.0.html), incl. new command-line options `-extI`, `-dllimport=externalOnly` and `-edition`. (#4949, #4962, #4988, #5029, #5042, #5046, #5051)
+- Support for [LLVM 22](https://releases.llvm.org/22.1.0/docs/ReleaseNotes.html). The prebuilt packages use v22.1.2. (#5097, #5102)
+- Minimum LLVM version raised to 18. (#5094)
+- Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
+
+#### Platform support
+- Supports LLVM 18 - 22.
+
+#### Bug fixes
+
+# LDC 1.42.0 (2026-03-01)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.112.1+](https://dlang.org/changelog/2.112.0.html), incl. new command-line options `-extI`, `-dllimport=externalOnly` and `-edition`. (#4949, #4962, #4988, #5029, #5042, #5046, #5051, #5061, #5067, #5069, #5076)
 - Support for [LLVM 21](https://releases.llvm.org/21.1.0/docs/ReleaseNotes.html). The prebuilt packages use v21.1.8. (#4950, #5033)
 - New prebuilt package for Alpine Linux aarch64 with musl libc, analogous to the existing x86_64 package. (#4943)
 - **Breaking change for dcompute**: The special `@kernel` UDA is now a function and _**requires**_ parentheses as in `@kernel() void foo(){}`. Optionally you can provide launch dimensions, `@kernel([2,4,8])`, to specify to the compute runtime how the kernel is intended to be launched.
@@ -20,8 +32,6 @@
 #### Platform support
 - Supports LLVM 15 - 21.
 - PowerPC64: `real` now matches the C++ host compiler's `long double` when compiling for the native target, not just on Linux hosts. (#5054)
-
-#### Bug fixes
 
 # LDC 1.41.0 (2025-06-07)
 

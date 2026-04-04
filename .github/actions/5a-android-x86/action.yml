@@ -27,6 +27,7 @@ runs:
           --installWithSuffix="-android-$arch" \
           CMAKE_INSTALL_PREFIX="$PWD/install" \
           RT_CONF_TRIPLE_REGEX="$arch-.*-linux-android" \
+          BUILD_LTO_LIBS=ON \
           "${flags[@]}" \
           ANDROID_ABI="$abi" # override the one in CROSS_CMAKE_FLAGS
 

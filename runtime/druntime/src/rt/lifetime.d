@@ -1150,12 +1150,6 @@ unittest
 // test bug 14126
 unittest
 {
-    version (D_Optimized) enum isOptimized = true;
-    else                  enum isOptimized = false;
-
-  // LDC: disable with -O for LLVM < 17, see https://github.com/ldc-developers/ldc/issues/4538
-  static if (!isOptimized || imported!"ldc.intrinsics".LLVM_version >= 1700)
-  {
     static struct S
     {
         S* thisptr;
@@ -1167,5 +1161,4 @@ unittest
     {
         s.thisptr = &s;
     }
-  }
 }

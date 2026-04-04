@@ -83,7 +83,11 @@ void CTFloat::toAPFloat(const real_t src, APFloat &dst) {
   u.fp = src;
 
   const unsigned sizeInBits = APFloat::getSizeInBits(*apSemantics);
+#if LLVM_VERSION_MAJOR >= 22
+  const APInt bits = APInt(sizeInBits, u.bits);
+#else
   const APInt bits = APInt(sizeInBits, numUint64Parts, u.bits);
+#endif
 
   dst = APFloat(*apSemantics, bits);
 }

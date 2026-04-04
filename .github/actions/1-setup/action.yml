@@ -2,6 +2,8 @@ name: Install prerequisites
 inputs:
   llvm_version:
     required: true
+  clang_major:
+    required: true
   arch:
     required: true
 runs:
@@ -24,7 +26,7 @@ runs:
         packages=( \
           git-core cmake g++ \
           libcurl4 libzstd-dev \
-          curl gdb p7zip-full tzdata unzip zip python3-pip \
+          curl gdb p7zip-full zstd tzdata unzip zip python3-pip \
         )
         if [[ $arch == x86_64 ]]; then
           packages+=(g++-multilib libcurl4:i386)
@@ -37,39 +39,41 @@ runs:
         # Make sure to link libzstd statically
         sudo rm /usr/lib/$arch-linux-gnu/libzstd.so
 
-    - name: 'Linux: Install clang 21 from apt.llvm.org'
+    - name: 'Linux: Install clang ${{ inputs.clang_major }} from apt.llvm.org'
       if: runner.os == 'Linux'
       shell: bash
       run: |
         set -eux
         cd ..
         curl -fL --retry 3 --max-time 30 -O https://apt.llvm.org/llvm.sh
-        sudo bash llvm.sh 21
+        sudo bash llvm.sh ${{ inputs.clang_major }}
         for tool in clang clang++ ld.lld; do
-          sudo ln -sf $tool-21 /usr/bin/$tool
+          sudo ln -sf $tool-${{ inputs.clang_major }} /usr/bin/$tool
           $tool --version
         done
-    - name: 'macOS: Install Homebrew clang and lld 21' # see mimalloc comment in ../3-build-native/action.yml
+    - name: 'macOS: Install Homebrew clang and lld ${{ inputs.clang_major }}' # see mimalloc comment in ../3-build-native/action.yml
       if: runner.os == 'macOS'
       shell: bash
       run: |
         set -eux
-        brew install llvm@21 lld@21
+        major='${{ inputs.clang_major }}'
+        brew install llvm@$major lld@$major
         # https://github.com/llvm/llvm-project/issues/155531#issuecomment-3229499205
         if [[ '${{ inputs.arch }}' == arm64 ]]; then
-          prefix="/opt/homebrew/opt/llvm"
+          prefix="/opt/homebrew/opt/llvm@$major"
         else
-          prefix="/usr/local/opt/llvm"
+          prefix="/usr/local/opt/llvm@$major"
         fi
         rm -rf "$prefix/include/c++/v1"
-    - name: 'Windows: Install clang 21 from GitHub'
+    - name: 'Windows: Install clang ${{ inputs.clang_major }} from GitHub'
       if: runner.os == 'Windows'
       shell: bash
       run: |
         set -eux
         cd ..
+        version='${{ inputs.clang_major }}.1.2'
         curl -fL --retry 3 --max-time 300 -o clang.exe \
-          https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/LLVM-21.1.8-win64.exe
+          https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/LLVM-$version-win64.exe
         ./clang.exe //S # double-slash for bash
         rm clang.exe
         # C:\Program Files\LLVM\bin should already be in PATH
@@ -111,11 +115,11 @@ runs:
           elif [[ '${{ runner.os }}' == macOS ]]; then
             os=osx
           fi
-          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz \
-            https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-$os-$arch$assertsSuffix.tar.xz
+          curl -fL --retry 3 --max-time 300 -o llvm.tar.zst \
+            https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-$os-$arch$assertsSuffix.tar.zst
           mkdir llvm
-          tar -xf llvm.tar.xz --strip 1 -C llvm
-          rm llvm.tar.xz
+          tar -xf llvm.tar.zst --zstd --strip 1 -C llvm
+          rm llvm.tar.zst
         fi
 
         llvm/bin/llvm-config --version
@@ -129,7 +133,7 @@ runs:
         ld --version
 
     - name: Install D host compiler
-      uses: dlang-community/setup-dlang@v1
+      uses: dlang-community/setup-dlang@v2
       with:
         compiler: ldc-latest
     - name: 'Posix: Clear LD_LIBRARY_PATH env variable' # don't use host druntime/Phobos .so/.dylib etc.

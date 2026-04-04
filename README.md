@@ -71,11 +71,11 @@ the full feature set of official packages from GitHub**):
 
 In-depth material on building and installing LDC and the standard
 libraries is available on the project wiki for
-[Linux, macOS, BSD, and Android](http://wiki.dlang.org/Building_LDC_from_source) and
-[Windows](http://wiki.dlang.org/Building_and_hacking_LDC_on_Windows_using_MSVC).
+[Linux, macOS, BSD, and Android](https://wiki.dlang.org/Building_LDC_from_source) and
+[Windows](https://wiki.dlang.org/Building_and_hacking_LDC_on_Windows_using_MSVC).
 
 If you have a working C++/D build environment, CMake, and a recent LLVM
-version (≥ 15) available, there should be no big surprises. Do not
+version (≥ 18) available, there should be no big surprises. Do not
 forget to make sure the Phobos submodule is up to date:
 
     $ cd ldc

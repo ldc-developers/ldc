@@ -14,24 +14,12 @@
 
 #pragma once
 
-#if LDC_LLVM_VER < 1700
-#include "llvm/ADT/Optional.h"
-#else
-#include <optional>
-namespace llvm {
-template <typename T> using Optional = std::optional<T>;
-}
-#endif
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CodeGen.h"
+#include <optional>
 #include <string>
 #include <vector>
-namespace llvm {
-#if LDC_LLVM_VER < 1800
-using CodeGenOptLevel = llvm::CodeGenOpt::Level;
-#endif
-}
 
 namespace ExplicitBitness {
 enum Type { None, M32, M64 };
@@ -69,8 +57,8 @@ llvm::TargetMachine *
 createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
                     std::string featuresString, ExplicitBitness::Type bitness,
                     FloatABI::Type &floatABI,
-                    llvm::Optional<llvm::Reloc::Model> relocModel,
-                    llvm::Optional<llvm::CodeModel::Model> codeModel,
+                    std::optional<llvm::Reloc::Model> relocModel,
+                    std::optional<llvm::CodeModel::Model> codeModel,
                     llvm::CodeGenOptLevel codeGenOptLevel,
                     bool noLinkerStripDead);
 

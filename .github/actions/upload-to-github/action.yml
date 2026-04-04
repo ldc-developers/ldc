@@ -4,7 +4,7 @@ runs:
   steps:
 
     - name: Download all artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         path: artifacts/
         merge-multiple: true # place all files into artifacts/ directly
@@ -31,7 +31,7 @@ runs:
       # fetch-gh-release-asset errors if there are no existing artifacts (from Cirrus). Allow the error
       # for CI builds, because Cirrus sometimes exceeds monthly limit (and thus no artifacts).
       continue-on-error: ${{ env.GITHUB_RELEASE_TAG == 'CI' }}
-      uses: dsaltares/fetch-gh-release-asset@1.1.1
+      uses: dsaltares/fetch-gh-release-asset@1.1.2
       with:
         version: tags/${{ env.GITHUB_RELEASE_TAG }}
         regex: true

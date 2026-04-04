@@ -56,8 +56,8 @@ runs:
           -DCMAKE_BUILD_TYPE=Release ^
           "-DLLVM_ROOT_DIR=%CD%\..\${{ inputs.llvm_dir }}" ^
           "-DD_COMPILER=${{ inputs.host_dc }}" ^
-          -DCMAKE_C_COMPILER=clang-cl ^
-          -DCMAKE_CXX_COMPILER=clang-cl ^
+          "-DCMAKE_C_COMPILER=C:\Program Files\LLVM\bin\clang-cl.exe" ^
+          "-DCMAKE_CXX_COMPILER=C:\Program Files\LLVM\bin\clang-cl.exe" ^
           ${{ inputs.specify_install_dir == 'true' && '"-DCMAKE_INSTALL_PREFIX=%installDir%"' || '' }} ^
           ${{ inputs.specify_install_dir == 'true' && '"-DINCLUDE_INSTALL_DIR=%installDir%\import"' || '' }} ^
           ${{ inputs.cmake_flags }}

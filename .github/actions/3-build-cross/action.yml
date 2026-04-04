@@ -45,11 +45,11 @@ runs:
           fi
         fi
 
-        curl -fL --retry 3 --max-time 300 -o llvm-cross.tar.xz \
-          https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-${{ inputs.os }}-${{ inputs.arch }}$assertsSuffix.tar.xz
+        curl -fL --retry 3 --max-time 300 -o llvm-cross.tar.zst \
+          https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-${{ inputs.os }}-${{ inputs.arch }}$assertsSuffix.tar.zst
         mkdir llvm-cross
-        tar -xf llvm-cross.tar.xz --strip 1 -C llvm-cross
-        rm llvm-cross.tar.xz
+        tar -xf llvm-cross.tar.zst --zstd --strip 1 -C llvm-cross
+        rm llvm-cross.tar.zst
 
     - name: Make non-native llvm-config runnable on host
       shell: bash
@@ -144,6 +144,7 @@ runs:
           --installWithSuffix "" \
           CMAKE_INSTALL_PREFIX="$PWD/install" \
           INCLUDE_INSTALL_DIR="$PWD/install/import" \
+          BUILD_LTO_LIBS=ON \
           "${flags[@]}"
 
     - name: Cross-compile LDC executables

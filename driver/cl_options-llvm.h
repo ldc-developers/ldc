@@ -9,17 +9,10 @@
 
 #pragma once
 
-#if LDC_LLVM_VER < 1700
-#include "llvm/ADT/Optional.h"
-#else
-#include <optional>
-namespace llvm {
-template <typename T> using Optional = std::optional<T>;
-}
-#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Target/TargetOptions.h"
+#include <optional>
 
 namespace llvm {
 class Function;
@@ -29,9 +22,9 @@ class Triple;
 namespace opts {
 
 std::string getArchStr();
-llvm::Optional<llvm::Reloc::Model> getRelocModel();
-llvm::Optional<llvm::CodeModel::Model> getCodeModel();
-llvm::Optional<llvm::FramePointerKind> framePointerUsage();
+std::optional<llvm::Reloc::Model> getRelocModel();
+std::optional<llvm::CodeModel::Model> getCodeModel();
+std::optional<llvm::FramePointerKind> framePointerUsage();
 
 bool disableRedZone();
 bool printTargetFeaturesHelp();

@@ -17,6 +17,12 @@ runs:
 
         if [[ '${{ inputs.cross_compiling }}' != true ]]; then
           ninja -C build install >/dev/null
+
+          if type -P apk &>/dev/null; then
+            # Alpine: copy and rename llvm-prof{data,gen} tools
+            cp llvm/bin/llvm-profdata install/bin/ldc-profdata
+            cp llvm/bin/llvm-profgen  install/bin/ldc-profgen
+          fi
         else
           # the cross-compiled runtime libs have already been installed:
           # * lib/: runtime library artifacts

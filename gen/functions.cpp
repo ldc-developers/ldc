@@ -908,10 +908,6 @@ bool eraseDummyAfterReturnBB(llvm::BasicBlock *bb) {
  * to be found.
  */
 void emulateWeakAnyLinkageForMSVC(IrFunction *irFunc, LINK linkage) {
-#if LDC_LLVM_VER >= 1800
-  #define startswith starts_with
-#endif
-
   LLFunction *func = irFunc->getLLVMFunc();
 
   const bool isWin32 = global.params.targetTriple->isArch32Bit();
@@ -928,18 +924,18 @@ void emulateWeakAnyLinkageForMSVC(IrFunction *irFunc, LINK linkage) {
 
   std::string finalWeakMangle = finalMangle.str();
   if (linkage == LINK::cpp) {
-    assert(finalMangle.startswith("?"));
+    assert(finalMangle.starts_with("?"));
     // prepend `__weak_` to first identifier
-    size_t offset = finalMangle.startswith("??$") ? 3 : 1;
+    size_t offset = finalMangle.starts_with("??$") ? 3 : 1;
     finalWeakMangle.insert(offset, "__weak_");
   } else if (linkage == LINK::d) {
     const size_t offset = isWin32 ? 1 : 0;
-    assert(finalMangle.substr(offset).startswith("_D"));
+    assert(finalMangle.substr(offset).starts_with("_D"));
     // prepend a `__weak` package
     finalWeakMangle.insert(offset + 2, "6__weak");
   } else {
     // prepend `__weak_`
-    const size_t offset = isWin32 && finalMangle.startswith("_") ? 1 : 0;
+    const size_t offset = isWin32 && finalMangle.starts_with("_") ? 1 : 0;
     finalWeakMangle.insert(offset, "__weak_");
   }
 
@@ -963,10 +959,6 @@ void emulateWeakAnyLinkageForMSVC(IrFunction *irFunc, LINK linkage) {
   // declaration
   irFunc->setLLVMFunc(newFunc);
   func->replaceNonMetadataUsesWith(newFunc);
-
-#if LDC_LLVM_VER >= 1800
-  #undef startswith
-#endif
 }
 
 } // anonymous namespace
@@ -1164,6 +1156,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       func->addFnAttr(LLAttribute::SanitizeAddress);
     }
 
+    if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
+      func->addFnAttr(LLAttribute::OptForFuzzing);
+    }
+    
     if (opts::isSanitizerEnabled(opts::MemorySanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeMemory);
     }
@@ -1182,7 +1178,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (opts::isUsingSampleBasedPGOProfile()) {
     func->addFnAttr("use-sample-profile");
   }
-
+  if (opts::noBuiltIn) {
+    func->addFnAttr("no-builtins");
+  }
   if (fd->hasInlineAsm()) {
     // disable frame-pointer-elimination for functions with DMD-style inline asm
     func->addFnAttr("frame-pointer", "all");
@@ -1209,14 +1207,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // @naked: emit body and return, no prologue/epilogue
   const bool isNaked = func->hasFnAttribute(llvm::Attribute::Naked);
 
-  // create alloca point
-  // this gets erased when the function is complete, so alignment etc does not
-  // matter at all
-  llvm::Instruction *allocaPoint =
-      new llvm::AllocaInst(LLType::getInt32Ty(gIR->context()),
-                           0, // Address space
-                           "alloca_point", beginbb);
-  funcGen.allocapoint = allocaPoint;
+  // create temporary allocas block
+  funcGen.allocasBlock =
+      llvm::BasicBlock::Create(gIR->context(), "allocas", func);
 
   emitInstrumentationFnEnter(fd);
 
@@ -1329,12 +1322,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
 
-  // erase alloca point
-  if (allocaPoint->getParent()) {
-    funcGen.allocapoint = nullptr;
-    allocaPoint->eraseFromParent();
-    allocaPoint = nullptr;
-  }
+  // move allocas from temporary block to the start of the function
+  beginbb->splice(beginbb->begin(), funcGen.allocasBlock);
+  funcGen.allocasBlock->eraseFromParent();
+  funcGen.allocasBlock = nullptr;
 
   if (gIR->dcomputetarget) {
     auto kernAttr = getKernelAttr(fd);

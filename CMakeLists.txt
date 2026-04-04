@@ -29,14 +29,13 @@ include(BuildDExecutable)
 # Locate LLVM.
 #
 
-find_package(LLVM 15.0 REQUIRED
+find_package(LLVM 18.0 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
     debuginfodwarf debuginfomsf debuginfopdb demangle
     instcombine ipo instrumentation irreader libdriver linker lto mc
     mcdisassembler mcparser objcarcopts object option profiledata scalaropts
     selectiondag support tablegen target transformutils vectorize
     windowsdriver windowsmanifest symbolize ${EXTRA_LLVM_MODULES})
-math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 message(STATUS "Using LLVM Version ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}")
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "[^;]*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -49,7 +48,7 @@ endforeach()
 
 # Set MLIR support variables if it is found.
 # FIXME: LLVM 14+ (`mlir::OwningModuleRef` replacement)
-if(NOT LDC_WITH_MLIR STREQUAL "OFF" AND LDC_LLVM_VER LESS 1400)
+if(NOT LDC_WITH_MLIR STREQUAL "OFF" AND LLVM_VERSION_MAJOR LESS 14)
     include(FindMLIR)
     if(MLIR_FOUND)
         message(STATUS "-- Building LDC with MLIR support (${MLIR_ROOT_DIR})")
@@ -59,46 +58,6 @@ if(NOT LDC_WITH_MLIR STREQUAL "OFF" AND LDC_LLVM_VER LESS 1400)
     else()
         message(STATUS "-- Building LDC without MLIR support: not found")
     endif()
-endif()
-
-# Check and adapt for LLVMSPIRVLib (Khronos SPIRV-LLVM-Translator)
-set(LLVM_SPIRV_FOUND OFF)
-if (LDC_LLVM_VER LESS 1600)
-if(MSVC)
-    if(EXISTS "${LLVM_LIBRARY_DIRS}/LLVMSPIRVLib.lib")
-        set(LLVM_SPIRV_FOUND ON)
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/LLVMSPIRVLib.lib" ${LLVM_LIBRARIES})
-    endif()
-else()
-    if((EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.a") OR
-       (EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.so") OR
-       (EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.dylib"))
-        set(LLVM_SPIRV_FOUND ON)
-        set(LLVM_LIBRARIES -lLLVMSPIRVLib ${LLVM_LIBRARIES})
-    endif()
-endif()
-if(NOT LLVM_SPIRV_FOUND)
-    find_package(PkgConfig)
-    if(PkgConfig_FOUND)
-        if(MSVC)
-            # make pkg-config use -LC:\path\to\build\LLVMSPIRVLib.lib not -L-lLLVMSPIRVLib
-            set(PKG_CONFIG_EXECUTABLE "${PKG_CONFIG_EXECUTABLE} --msvc-syntax")
-        endif()
-        pkg_check_modules(LLVM_SPIRV LLVMSPIRVLib)
-        if(LLVM_SPIRV_FOUND)
-            set(LLVM_SPIRV_FOUND ON) # translate 1 to ON
-            include_directories(${LLVM_SPIRV_INCLUDE_DIRS})
-        else()
-            set(LLVM_SPIRV_FOUND OFF)
-        endif()
-    endif()
-endif()
-if(LLVM_SPIRV_FOUND)
-    message(STATUS "-- Building LDC with SPIR-V support")
-    add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_SPIRV=1")
-else()
-    message(STATUS "-- Building LDC without SPIR-V support: not found")
-endif()
 endif()
 
 #
@@ -136,6 +95,9 @@ set(ALTERNATIVE_MALLOC_O   ""     CACHE STRING "If specified, adds ALTERNATIVE_M
 
 # Most linux distributions have a policy of not bundling dependencies like zlib
 set(PHOBOS_SYSTEM_ZLIB OFF CACHE BOOL "Use system zlib instead of Phobos' vendored version")
+
+# Force use of softfloat for compiler
+option(LDC_FORCE_SOFTFLOAT_REAL "Force LDC to be built with 80-bit real in software" OFF)
 
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
@@ -175,6 +137,7 @@ if(NOT MSVC_IDE)
 endif()
 
 if(MSVC)
+    set(LDC_FORCE_SOFTFLOAT_REAL ON)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
         message(STATUS "Let D host compiler output 64-bit object files")
         append("-m64" DFLAGS_BASE)
@@ -204,6 +167,11 @@ if(MSVC)
             string(REGEX REPLACE "/Ob[0-2]" "${llvm_ob_flag}" ${flag_var} "${${flag_var}}")
         endif()
     endforeach()
+endif()
+
+if (LDC_FORCE_SOFTFLOAT_REAL)
+    append("-version=LDC_real_softfloat" DFLAGS_LDC)
+    append("-DLDC_real_softfloat" LDC_CXXFLAGS)
 endif()
 
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
@@ -435,10 +403,8 @@ include(HandleLTOPGOBuildOptions)
 set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF). Enabled by default; not supported for LLVM < 18.")
 option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
-    if(LDC_LLVM_VER LESS 1800)
-        set(LDC_DYNAMIC_COMPILE OFF)
     # FIXME: dynamic-compile regressions with LLVM 20
-    elseif(LDC_LLVM_VER LESS 2000)
+    if(LLVM_VERSION_MAJOR LESS 20)
         set(LDC_DYNAMIC_COMPILE ON)
     else()
         set(LDC_DYNAMIC_COMPILE OFF)
@@ -475,13 +441,11 @@ append("-J${PROJECT_SOURCE_DIR}/dmd/res" DFLAGS_LDC)
 
 append("-version=IN_LLVM" DFLAGS_LDC)
 append("-DIN_LLVM" LDC_CXXFLAGS)
-append("-DOPAQUE_VTBLS" LDC_CXXFLAGS)
 # Predefine LDC_INSTALL_PREFIX as raw string literal, requiring shell + CMake escaping.
 # E.g., for CMAKE_INSTALL_PREFIX=`C:\dir with space`:
 #   g++ "-DLDC_INSTALL_PREFIX=R\"(C:\dir with space)\"" ...
 #   => LDC_INSTALL_PREFIX defined as `R"(C:\dir with space)"`
 append("\"-DLDC_INSTALL_PREFIX=R\\\"(${CMAKE_INSTALL_PREFIX})\\\"\"" LDC_CXXFLAGS)
-append("-DLDC_LLVM_VER=${LDC_LLVM_VER}" LDC_CXXFLAGS)
 append("\"-DLDC_LIBDIR_SUFFIX=R\\\"(${LIB_SUFFIX})\\\"\"" LDC_CXXFLAGS)
 append("-DLDC_HOST_${D_COMPILER_ID}=1" LDC_CXXFLAGS)
 append("-DLDC_HOST_FE_VER=${D_COMPILER_FE_VERSION}" LDC_CXXFLAGS)
@@ -580,9 +544,6 @@ if(WIN32)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(${LDC_LIB} dl)
 endif()
-if(LLVM_SPIRV_FOUND)
-    target_link_libraries(${LDC_LIB} ${LLVM_SPIRV_LIBRARIES} ${LLVM_SPIRV_LDFLAGS})
-endif()
 
 set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
@@ -601,19 +562,17 @@ if(MSVC)
     endif()
 endif()
 if(LDC_WITH_LLD)
-    if(MSVC)
-        list(APPEND LDC_LINKERFLAG_LIST LLVMSymbolize.lib)
-    else()
-        set(LDC_LINKERFLAG_LIST -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
+    if(LLVM_VERSION_MAJOR GREATER 21)
+        if(MSVC)
+            list(APPEND LDC_LINKERFLAG_LIST LLVMDTLTO.lib)
+        else()
+            set(LDC_LINKERFLAG_LIST -lLLVMDTLTO ${LDC_LINKERFLAG_LIST})
+        endif()
     endif()
     if(MSVC)
-        list(APPEND LDC_LINKERFLAG_LIST lldMinGW.lib lldCOFF.lib lldELF.lib lldMachO.lib lldWasm.lib lldCommon.lib)
+        list(APPEND LDC_LINKERFLAG_LIST lldMinGW.lib lldCOFF.lib lldELF.lib lldMachO.lib lldWasm.lib lldCommon.lib LLVMSymbolize.lib)
     else()
-        set(LDC_LINKERFLAG_LIST -llldMinGW -llldCOFF -llldELF -llldMachO -llldWasm -llldCommon ${LDC_LINKERFLAG_LIST})
-    endif()
-    if(APPLE)
-        # LLD 13.0.0 on Mac needs libxar
-        list(APPEND LDC_LINKERFLAG_LIST -lxar)
+        set(LDC_LINKERFLAG_LIST -llldMinGW -llldCOFF -llldELF -llldMachO -llldWasm -llldCommon -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
     endif()
     if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
         # FreeBSD LLVM port links to zstd, but does not convey this information via CMake
@@ -799,11 +758,7 @@ endif()
 # another directory.
 set(COMPILER_RT_BASE_DIR "${LLVM_LIBRARY_DIRS}/clang" CACHE PATH "Base path of compiler-rt libraries. If they in are /usr/lib/clang/17/lib/linux/libclang_rt* you should set this value to /usr/lib/clang")
 set(COMPILER_RT_LIBDIR "${COMPILER_RT_BASE_DIR}")
-if(LDC_LLVM_VER LESS 1600)
-    set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/${LLVM_VERSION_BASE_STRING}")
-else()
-    set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/${LLVM_VERSION_MAJOR}")
-endif()
+set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/${LLVM_VERSION_MAJOR}")
 set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/lib")
 if(APPLE)
     set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/darwin")
@@ -881,7 +836,7 @@ if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
         if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set(compilerrt_arch_suffix "i386")
         endif()
-        if(LDC_LLVM_VER LESS 2000)
+        if(LLVM_VERSION_MAJOR LESS 20)
             copy_compilerrt_lib("clang_rt.asan-${compilerrt_arch_suffix}.lib" "ldc_rt.asan.lib" FALSE)
             copy_compilerrt_lib("clang_rt.lsan-${compilerrt_arch_suffix}.lib" "ldc_rt.lsan.lib" FALSE)
         else()
@@ -956,12 +911,6 @@ add_subdirectory(tools)
 
 set(switches)
 
-# LLVM 16: Disable function specializations by default.
-# They cause miscompiles of e.g. the frontend for some targets (macOS x86_64 and Windows x64).
-if(LDC_LLVM_VER GREATER 1599 AND LDC_LLVM_VER LESS 1700)
-    list(APPEND switches "-func-specialization-size-threshold=1000000000")
-endif()
-
 list(APPEND switches "-defaultlib=phobos2-ldc,druntime-ldc")
 
 makeConfSection(NAME "30-compiler" SECTION "default"
@@ -1018,11 +967,15 @@ enable_testing()
 set(LDC_UNITTEST_EXE ${LDC_EXE}-unittest)
 set(LDC_UNITTEST_EXE_NAME ${PROGRAM_PREFIX}${LDC_UNITTEST_EXE}${PROGRAM_SUFFIX})
 set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_UNITTEST_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
+# Remove a potential `-fprofile-use` in DFLAGS_LDC to disable PGO for the
+# unittest executable (profile gathered from normal ldc2 executable).
+set(DFLAGS_LDC_UT "${DFLAGS_LDC}")
+string(REGEX REPLACE "(^| )-fprofile-use=[^ ]+( |$)" " " DFLAGS_LDC_UT ${DFLAGS_LDC_UT})
 build_d_executable(
     "${LDC_UNITTEST_EXE}"
     "${LDC_UNITTEST_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
-    "-g -unittest ${DFLAGS_LDC}"
+    "-g -unittest ${DFLAGS_LDC_UT}"
     "${LDC_LINKERFLAG_LIST};${FULLY_STATIC_LDFLAG}"
     ""
     "${LDC_LIB}"

@@ -32,9 +32,7 @@
 #include "ir/irtypefunction.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Attributes.h"
-#if LDC_LLVM_VER >= 1600
 #include "llvm/Support/ModRef.h"
-#endif
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -511,15 +509,9 @@ static void buildRuntimeModule() {
   // `readonly`
   {
     auto addReadOnly = [&](AttrSet& a) {
-#if LDC_LLVM_VER >= 1600
       a = a.merge(AttrSet(llvm::AttributeList().addFnAttribute(
                           context, llvm::Attribute::getWithMemoryEffects(
                             context, llvm::MemoryEffects::readOnly()))));
-#else
-      llvm::AttrBuilder ab(context);
-      ab.addAttribute(llvm::Attribute::ReadOnly);
-      a = a.addToFunction(ab);
-#endif
     };
     addReadOnly(Attr_ReadOnly);
     addReadOnly(Attr_ReadOnly_NoUnwind);
@@ -542,7 +534,7 @@ static void buildRuntimeModule() {
   {
     auto addCapturesNone = [&](int extra, AttrSet& a) {
       llvm::AttrBuilder ab(context);
-#if LDC_LLVM_VER >= 2100
+#if LLVM_VERSION_MAJOR >= 21
       ab.addCapturesAttr(llvm::CaptureInfo::none());
 #else
       ab.addAttribute(llvm::Attribute::NoCapture);

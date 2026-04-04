@@ -11,7 +11,13 @@
 
 #pragma once
 
-#if !_MSC_VER // has native 10 byte doubles
+#if defined(LDC_real_softfloat)
+#define USE_LONGDOUBLE_SOFTFLOAT 1
+#elif defined(_MSC_VER)
+#define USE_LONGDOUBLE_SOFTFLOAT 1
+#endif
+
+#if !USE_LONGDOUBLE_SOFTFLOAT // has native 10 byte doubles
 #include <stdio.h>
 typedef long double longdouble;
 typedef volatile long double volatile_longdouble;

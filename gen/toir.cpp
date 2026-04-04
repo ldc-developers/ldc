@@ -1016,11 +1016,7 @@ public:
   }
 
   static llvm::PointerType * getWithSamePointeeType(llvm::PointerType *p, unsigned addressSpace) {
-#if LDC_LLVM_VER >= 1700
     return llvm::PointerType::get(p->getContext(), addressSpace);
-#else
-    return llvm::PointerType::getWithSamePointeeType(p, addressSpace);
-#endif
   }
 
   //////////////////////////////////////////////////////////////////////////////

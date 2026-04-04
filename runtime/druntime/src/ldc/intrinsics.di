@@ -19,18 +19,18 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-     version (LDC_LLVM_1500) enum LLVM_version = 1500;
-else version (LDC_LLVM_1600) enum LLVM_version = 1600;
-else version (LDC_LLVM_1700) enum LLVM_version = 1700;
-else version (LDC_LLVM_1800) enum LLVM_version = 1800;
-else version (LDC_LLVM_1801) enum LLVM_version = 1801;
-else version (LDC_LLVM_1901) enum LLVM_version = 1901;
-else version (LDC_LLVM_2001) enum LLVM_version = 2001;
-else version (LDC_LLVM_2101) enum LLVM_version = 2101;
-else version (LDC_LLVM_2200) enum LLVM_version = 2200;
+     version (LDC_LLVM_18) enum LLVM_major = 18;
+else version (LDC_LLVM_19) enum LLVM_major = 19;
+else version (LDC_LLVM_20) enum LLVM_major = 20;
+else version (LDC_LLVM_21) enum LLVM_major = 21;
+else version (LDC_LLVM_22) enum LLVM_major = 22;
+else version (LDC_LLVM_23) enum LLVM_major = 23;
 else static assert(false, "LDC LLVM version not supported");
 
-enum LLVM_atleast(int major) = (LLVM_version >= major * 100);
+deprecated("please use LLVM_major")
+enum LLVM_version = LLVM_major * 100 + 1;
+
+enum LLVM_atleast(int major) = LLVM_major >= major;
 
 // All intrinsics are nothrow and @nogc. The codegen intrinsics are not categorized
 // any further (they probably could), the rest is pure (aborting is fine by

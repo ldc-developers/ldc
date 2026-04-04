@@ -210,11 +210,7 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   if (numArgIdx >= 0) {
     builder.addAllocSizeAttr(llvmSizeIdx, llvmNumIdx);
   } else {
-#if LDC_LLVM_VER < 1600
-    builder.addAllocSizeAttr(llvmSizeIdx, llvm::Optional<unsigned>());
-#else
     builder.addAllocSizeAttr(llvmSizeIdx, std::optional<unsigned>());
-#endif
   }
 
   llvm::Function *func = irFunc->getLLVMFunc();
@@ -307,10 +303,6 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
   // The current implementation here does not do any checking of the specified
   // string and simply passes all to llvm.
 
-#if LDC_LLVM_VER >= 1800
-  #define startswith starts_with
-#endif
-
   checkStructElems(sle, {Type::tstring});
   llvm::StringRef targetspec = getFirstElemString(sle);
 
@@ -338,20 +330,20 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
     if (s.empty())
       continue;
 
-    if (s.startswith("arch=")) {
+    if (s.starts_with("arch=")) {
       // TODO: be smarter than overwriting the previous arch= setting
       CPU = s.drop_front(5);
       continue;
     }
-    if (s.startswith("tune=")) {
+    if (s.starts_with("tune=")) {
       // clang 3.8 ignores tune= too
       continue;
     }
-    if (s.startswith("fpmath=")) {
+    if (s.starts_with("fpmath=")) {
       // TODO: implementation; clang 3.8 ignores fpmath= too
       continue;
     }
-    if (s.startswith("no-")) {
+    if (s.starts_with("no-")) {
       std::string f = (std::string("-") + s.drop_front(3)).str();
       features.emplace_back(std::move(f));
       continue;
@@ -370,10 +362,6 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
                     llvm::join(features.begin(), features.end(), ","));
     irFunc->targetFeaturesOverridden = true;
   }
-
-#if LDC_LLVM_VER >= 1800
-  #undef startswith
-#endif
 }
 
 void applyAttrAssumeUsed(IRState &irs, StructLiteralExp *sle,
@@ -438,11 +426,7 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("intel_ocl_bicc", llvm::CallingConv::Intel_OCL_BI)
           .Case("x86_64_sysvcc", llvm::CallingConv::X86_64_SysV)
           .Case("win64cc", llvm::CallingConv::Win64)
-#if LDC_LLVM_VER >= 1800
           .Case("webkit_jscc", llvm::CallingConv::WASM_EmscriptenInvoke)
-#else
-          .Case("webkit_jscc", llvm::CallingConv::WebKit_JS)
-#endif
           .Case("anyregcc", llvm::CallingConv::AnyReg)
           .Case("preserve_mostcc", llvm::CallingConv::PreserveMost)
           .Case("preserve_allcc", llvm::CallingConv::PreserveAll)
@@ -450,13 +434,8 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("swiftcc", llvm::CallingConv::Swift)
           .Case("swifttailcc", llvm::CallingConv::SwiftTail)
           .Case("x86_intrcc", llvm::CallingConv::X86_INTR)
-#if LDC_LLVM_VER >= 1700
           .Case("hhvmcc", llvm::CallingConv::DUMMY_HHVM)
           .Case("hhvm_ccc", llvm::CallingConv::DUMMY_HHVM_C)
-#else
-          .Case("hhvmcc", llvm::CallingConv::HHVM)
-          .Case("hhvm_ccc", llvm::CallingConv::HHVM_C)
-#endif
           .Case("cxx_fast_tlscc", llvm::CallingConv::CXX_FAST_TLS)
           .Case("amdgpu_vs", llvm::CallingConv::AMDGPU_VS)
           .Case("amdgpu_gfx", llvm::CallingConv::AMDGPU_Gfx)

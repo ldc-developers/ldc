@@ -26,4 +26,4 @@ static libraries from a Visual C++ toolchain, which cannot be bundled with
 https://github.com/ldc-developers/mingw-w64-libs for details.
 
 For further information, including on how to report bugs, please refer to the
-LDC wiki: http://wiki.dlang.org/LDC.
+LDC wiki: https://wiki.dlang.org/LDC.

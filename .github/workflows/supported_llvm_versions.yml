@@ -19,48 +19,35 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 24.04, LLVM 20, latest LDC beta
-            os: ubuntu-24.04
+          - job_name: macOS 14, LLVM 21, latest LDC beta
+            os: macos-14
             host_dc: ldc-beta
-            llvm_version: 20
-            cmake_flags: -DCMAKE_EXE_LINKER_FLAGS=-lcurl # work around libcurl dependency for ldc-profdata (LLVM apparently built with non-default LLVM_ENABLE_CURL=ON)
-          - job_name: Ubuntu 24.04, LLVM 19, latest LDC beta
-            os: ubuntu-24.04
-            host_dc: ldc-beta
-            llvm_version: 19
-            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
-          - job_name: Ubuntu 24.04, LLVM 18, bootstrap LDC
+            llvm_version: 21
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON
+          - job_name: Ubuntu 24.04, LLVM 20, bootstrap LDC
             os: ubuntu-24.04
             host_dc: ldc-1.19.0
-            llvm_version: 18
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DPHOBOS_SYSTEM_ZLIB=ON
-          - job_name: macOS 14, LLVM 17, latest LDC beta
-            os: macos-14
-            host_dc: ldc-beta
-            llvm_version: 17.0.5
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
-          - job_name: macOS 14, LLVM 16, latest LDC beta
-            os: macos-14
-            host_dc: ldc-beta
-            llvm_version: 16.0.5
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
-          - job_name: Ubuntu 24.04, LLVM 15, latest DMD beta
+            llvm_version: 20
+            # work around libcurl dependency for ldc-profdata (LLVM apparently built with non-default LLVM_ENABLE_CURL=ON)
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DPHOBOS_SYSTEM_ZLIB=ON -DCMAKE_EXE_LINKER_FLAGS=-lcurl
+          - job_name: Ubuntu 24.04, LLVM 19, latest DMD beta
             os: ubuntu-24.04
             host_dc: dmd-beta
-            llvm_version: 15
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLIB_SUFFIX=64
+            llvm_version: 19
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DPHOBOS_SYSTEM_ZLIB=ON -DLIB_SUFFIX=64
+          - job_name: macOS 14, LLVM 18, latest LDC beta
+            os: macos-14
+            host_dc: ldc-beta
+            llvm_version: 18
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
-    env:
-      # silence `ld: warning: object file (…) was built for newer macOS version (…) than being linked (…)`
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '13.6' || '11.6' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
-          fetch-depth: 50
       - name: Install D host compiler
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
         with:
           compiler: ${{ matrix.host_dc }}
       - name: Clear LD_LIBRARY_PATH to prevent loading host compiler libs
@@ -68,7 +55,7 @@ jobs:
       - name: Install lit
         run: |
           set -euxo pipefail
-          if [[ '${{ matrix.os }}' == 'macos-14' ]]; then
+          if [[ '${{ runner.os }}' == 'macOS' ]]; then
             brew install lit
           else
             python3 -m pip install --user lit psutil
@@ -80,43 +67,14 @@ jobs:
           set -eux
           sudo apt-get update
           sudo apt-get install gdb lld-${{ matrix.llvm_version }} llvm-${{ matrix.llvm_version }}-dev libclang-common-${{ matrix.llvm_version }}-dev ${{ matrix.llvm_version == '20' && 'libcurl4-openssl-dev' || '' }}
-
-      - name: 'macOS: Install a more recent GNU make'
-        if: runner.os == 'macOS'
-        run: |
-          brew install make
-          gmake --version
-
-      - name: 'macOS: Try to restore cached LLVM'
-        if: runner.os == 'macOS'
-        uses: actions/cache@v4
-        with:
-          path: llvm
-          key: llvm-${{ matrix.llvm_version }}-${{ runner.os }}
-
-      - name: 'macOS: Download & extract prebuilt vanilla LLVM ${{ matrix.llvm_version }}'
+      - name: 'macOS: Install Homebrew llvm and a more recent GNU make'
         if: runner.os == 'macOS'
         run: |
           set -eux
-          if [[ -d llvm ]]; then
-            echo "Already cached"
-            exit 0
-          fi
-
-          version='${{ matrix.llvm_version }}'
-          if [[ "$version" =~ ^https:// ]]; then
-            url="$version"
-          else
-            url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-arm64-apple-darwin22.0.tar.xz"
-          fi
-
-          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz "$url"
-          mkdir llvm
-          tar -xf llvm.tar.xz --strip 1 -C llvm
-          rm llvm.tar.xz
-
-          # don't link lib{c++,unwind} libs from LLVM package, they'd need RPATH fiddling
-          rm -f llvm/lib/lib{c++,unwind}.*
+          brew install llvm@${{ matrix.llvm_version }} make
+          gmake --version
+          # don't link lib{c++,unwind} libs from LLVM package, use default ones (as we use default Apple clang)
+          rm -f /opt/homebrew/opt/llvm@${{ matrix.llvm_version }}/lib/lib{c++,unwind}.*
 
       - name: 'Linux: Make lld the default linker'
         if: runner.os == 'Linux'
@@ -131,7 +89,8 @@ jobs:
           set -eux
           cmake -G Ninja . \
             -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_ROOT_DIR=${{ runner.os == 'Linux' && format('/usr/lib/llvm-{0}', matrix.llvm_version) || '"$PWD/llvm"' }} \
+            -DLLVM_ROOT_DIR=${{ format(runner.os == 'Linux' && '/usr/lib/llvm-{0}' || '/opt/homebrew/opt/llvm@{0}', matrix.llvm_version) }} \
+            ${{ runner.os == 'macOS' && '-DCMAKE_EXE_LINKER_FLAGS="-L/opt/homebrew/opt/zstd/lib -lzstd"' || '' }} \
             ${{ matrix.cmake_flags }}
           ninja obj/ldc2.o all ldc2-unittest all-test-runners
           bin/ldc2 --version
@@ -164,14 +123,10 @@ jobs:
         run: |
           set -eux
           excludes='dmd-testsuite|lit-tests|ldc2-unittest'
+          # FIXME: https://github.com/dlang/phobos/issues/10730
+          excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
           if [[ '${{ runner.os }}' == macOS ]]; then
             N=$(sysctl -n hw.logicalcpu)
-            if [[ '${{ matrix.os }}' == macos-14 ]]; then
-              # FIXME: crashes frequently with enabled optimizations on M1 runners
-              excludes+='|^std.internal.math.gammafunction(-shared)?$'
-            fi
-            # FIXME: https://github.com/dlang/phobos/issues/10730
-            excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
           else
             N=$(nproc)
           fi

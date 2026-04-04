@@ -1045,7 +1045,7 @@ DValue *DtoCallFunction(Loc loc, Type *resulttype, DValue *fnval,
     if (cf->isIntrinsic()) { // override intrinsic attrs
       attrlist =
           llvm::Intrinsic::getAttributes(gIR->context(), cf->getIntrinsicID()
-#if LDC_LLVM_VER >= 2100
+#if LLVM_VERSION_MAJOR >= 21
                                          ,cf->getFunctionType()
 #endif
                                          );

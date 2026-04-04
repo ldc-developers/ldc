@@ -47,13 +47,6 @@ using namespace dmd;
 namespace cl = llvm::cl;
 using LLMetadata = llvm::Metadata;
 
-#if LDC_LLVM_VER >= 1600
-namespace llvm {
-  template <typename T> using Optional = std::optional<T>;
-  inline constexpr std::nullopt_t None = std::nullopt;
-}
-#endif
-
 static cl::opt<cl::boolOrDefault> emitColumnInfo(
     "gcolumn-info", cl::ZeroOrMore, cl::Hidden,
     cl::desc("Include column numbers in line debug infos. Defaults to "
@@ -426,7 +419,7 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
 DIType DIBuilder::CreatePointerType(TypePointer *type) {
   // TODO: The addressspace is important for dcompute targets. See e.g.
   // https://www.mail-archive.com/dwarf-discuss@lists.dwarfstd.org/msg00326.html
-  const llvm::Optional<unsigned> DWARFAddressSpace = llvm::None;
+  const std::optional<unsigned> DWARFAddressSpace;
 
   const auto name = processDIName(type->toPrettyChars(true));
 
@@ -672,10 +665,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
     ret = DBuilder.createClassType(
         scope, name, file, lineNum, sizeInBits, alignmentInBits,
         classOffsetInBits, DIFlags::FlagZero, derivedFrom, elemsArray,
-#if LDC_LLVM_VER >= 1800
-        runtimeLang,
-#endif
-        vtableHolder, templateParams, uniqueIdentifier);
+        runtimeLang, vtableHolder, templateParams, uniqueIdentifier);
   } else {
     ret = DBuilder.createStructType(scope, name, file, lineNum, sizeInBits,
                                     alignmentInBits, DIFlags::FlagZero,
@@ -799,7 +789,7 @@ DISubroutineType DIBuilder::CreateFunctionType(Type *type,
       DIType ditype = DBuilder.createReferenceType(
           llvm::dwarf::DW_TAG_pointer_type, pointeeType, target.ptrsize * 8);
       ditype = DBuilder.createObjectPointerType(ditype
-#if LDC_LLVM_VER >= 2000
+#if LLVM_VERSION_MAJOR >= 20
       , /* Implicit */ true
 #endif
       );
@@ -819,11 +809,7 @@ DISubroutineType DIBuilder::CreateFunctionType(Type *type,
 }
 
 DISubroutineType DIBuilder::CreateEmptyFunctionType() {
-#if LDC_LLVM_VER >= 2100 
   auto paramsArray = DBuilder.getOrCreateTypeArray({});
-#else
-  auto paramsArray = DBuilder.getOrCreateTypeArray(llvm::None);
-#endif
   return DBuilder.createSubroutineType(paramsArray);
 }
 
@@ -869,7 +855,7 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     // display null as void*
     return DBuilder.createPointerType(
         CreateTypeDescription(Type::tvoid), target.ptrsize * 8, 0,
-        /* DWARFAddressSpace */ llvm::None, "typeof(null)");
+        /* DWARFAddressSpace */ std::nullopt, "typeof(null)");
   }
   if (auto te = t->isTypeEnum())
     return CreateEnumType(te);
@@ -892,7 +878,7 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     const auto name =
         (tc->sym->toPrettyChars(true) + llvm::StringRef("*")).str();
     return DBuilder.createPointerType(aggregateDIType, target.ptrsize * 8, 0,
-                                      llvm::None, processDIName(name));
+                                      std::nullopt, processDIName(name));
   }
   if (auto tf = t->isTypeFunction())
     return CreateFunctionType(tf);
@@ -1229,7 +1215,7 @@ void DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
   auto instr = DBuilder.insertDbgValueIntrinsic(
       val, debugVariable, DBuilder.createExpression(),
       IR->ir->getCurrentDebugLocation(), IR->scopebb());
-#if LDC_LLVM_VER >= 1900
+#if LLVM_VERSION_MAJOR >= 19
   llvm::cast<llvm::DbgRecord *>
 #endif
   (instr)->setDebugLoc(IR->ir->getCurrentDebugLocation());

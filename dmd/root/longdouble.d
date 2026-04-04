@@ -11,8 +11,14 @@
 
 module dmd.root.longdouble;
 
-version (CRuntime_Microsoft)
+version (LDC_real_softfloat)
 {
+    version = EnableSoftfloat;
+    alias longdouble = longdouble_soft;
+}
+else version (CRuntime_Microsoft)
+{
+    version = EnableSoftfloat;
     static if (real.sizeof > 8)
         alias longdouble = real;
     else
@@ -23,7 +29,7 @@ else
 
 // longdouble_soft needed when building the backend with
 // Visual C or the frontend with LDC on Windows
-version (CRuntime_Microsoft):
+version (EnableSoftfloat):
 extern (C++):
 nothrow:
 @nogc:
@@ -71,7 +77,7 @@ bool initFPU()
     return true;
 }
 
-version(unittest) version(CRuntime_Microsoft)
+version(unittest)
 extern(D) shared static this()
 {
     initFPU(); // otherwise not guaranteed to be run before pure unittest below

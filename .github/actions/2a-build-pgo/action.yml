@@ -28,5 +28,9 @@ runs:
       run: |
         set -eux
         cd ../pgo-ldc
-        ../bootstrap-ldc/bin/ldc-profdata merge --output=merged.profdata *.profraw
+        profdata="../bootstrap-ldc/bin/ldc-profdata"
+        if type -P apk &>/dev/null; then
+          profdata="../llvm/bin/llvm-profdata"
+        fi
+        $profdata merge --output=merged.profdata *.profraw
         ls -lh *.prof{data,raw}

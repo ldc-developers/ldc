@@ -431,7 +431,11 @@ public:
     if (llvm::ConstantInt *const_val = llvm::dyn_cast<llvm::ConstantInt>(cond_val)) {
       Statement *executed = stmt->ifbody;
       Statement *skipped = stmt->elsebody;
+#if LLVM_VERSION_MAJOR >= 21
+      if (const_val->isZero()) {
+#else
       if (const_val->isZeroValue()) {
+#endif
         std::swap(executed, skipped);
       }
       if (!containsLabel(skipped)) {
@@ -441,7 +445,11 @@ public:
           irs->DBuilder.EmitBlockStart(executed->loc);
         }
         // True condition, the branch is taken so emit counter increment.
+#if LLVM_VERSION_MAJOR >= 21
+        if (!const_val->isZero()) {
+#else
         if (!const_val->isZeroValue()) {
+#endif
           PGO.emitCounterIncrement(stmt);
         }
         if (executed) {

@@ -53,7 +53,7 @@ void LocalVariableLifetimeAnnotator::addLocalVariable(llvm::AllocaInst *address,
 
   // Emit lifetime start
   irs.CreateCallOrInvoke(getLLVMLifetimeStartFn(),
-#if LDC_LLVM_VER >= 2200
+#if LLVM_VERSION_MAJOR >= 22
                          {address},
 #else
                          {size, address},
@@ -67,7 +67,7 @@ void LocalVariableLifetimeAnnotator::popScope() {
     return;
 
   for (const auto &var : scopes.back().variables) {
-#if LDC_LLVM_VER < 2200
+#if LLVM_VERSION_MAJOR < 22
     auto size = var.first;
 #endif
     auto address = var.second;
@@ -75,7 +75,7 @@ void LocalVariableLifetimeAnnotator::popScope() {
     assert(address);
 
     irs.CreateCallOrInvoke(getLLVMLifetimeEndFn(),
-#if LDC_LLVM_VER >= 2200
+#if LLVM_VERSION_MAJOR >= 22
                            {address},
 #else
                            {size, address},
@@ -92,7 +92,7 @@ llvm::Function *LocalVariableLifetimeAnnotator::getLLVMLifetimeStartFn() {
     return lifetimeStartFunction;
 
   lifetimeStartFunction = llvm::Intrinsic::
-#if LDC_LLVM_VER >= 2100
+#if LLVM_VERSION_MAJOR >= 20
     getOrInsertDeclaration(
 #else
     getDeclaration(
@@ -108,7 +108,7 @@ llvm::Function *LocalVariableLifetimeAnnotator::getLLVMLifetimeEndFn() {
     return lifetimeEndFunction;
 
   lifetimeEndFunction = llvm::Intrinsic::
-#if LDC_LLVM_VER >= 2100
+#if LLVM_VERSION_MAJOR >= 20
     getOrInsertDeclaration(
 #else
     getDeclaration(

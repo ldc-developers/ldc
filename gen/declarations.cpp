@@ -412,24 +412,19 @@ public:
   void visit(PragmaDeclaration *decl) override {
     const auto &triple = *global.params.targetTriple;
 
-#if LDC_LLVM_VER >= 1800
-    #define endswith ends_with
-    #define startswith starts_with
-#endif
-
     if (decl->ident == Id::lib) {
       assert(!irs->dcomputetarget);
       llvm::StringRef name = getPragmaStringArg(decl);
 
       if (triple.isWindowsGNUEnvironment()) {
-        if (name.endswith(".lib")) {
+        if (name.ends_with(".lib")) {
           // On MinGW, strip the .lib suffix, if any, to improve compatibility
           // with code written for DMD (we pass the name to GCC via -l, just as
           // on Posix).
           name = name.drop_back(4);
         }
 
-        if (name.startswith("shell32")) {
+        if (name.starts_with("shell32")) {
           // Another DMD compatibility kludge: Ignore
           // pragma(lib, "shell32.lib"), it is implicitly provided by
           // MinGW.
@@ -438,10 +433,10 @@ public:
       }
 
       if (triple.isWindowsMSVCEnvironment()) {
-        if (name.endswith(".a")) {
+        if (name.ends_with(".a")) {
           name = name.drop_back(2);
         }
-        if (name.endswith(".lib")) {
+        if (name.ends_with(".lib")) {
           name = name.drop_back(4);
         }
 
@@ -450,7 +445,7 @@ public:
         std::string arg = ("/DEFAULTLIB:\"" + name + "\"").str();
         gIR->addLinkerOption(llvm::StringRef(arg));
       } else {
-        const bool isStaticLib = name.endswith(".a");
+        const bool isStaticLib = name.ends_with(".a");
         const size_t nameLen = name.size();
 
         char *arg = nullptr;
@@ -490,11 +485,6 @@ public:
       }
     }
     visit(static_cast<AttribDeclaration *>(decl));
-
-#if LDC_LLVM_VER >= 1800
-    #undef endswith
-    #undef startswith
-#endif
   }
 
   //////////////////////////////////////////////////////////////////////////

@@ -24,10 +24,10 @@
 #include "llvm/ProfileData/InstrProfReader.h"
 #include <deque>
 #include <memory>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <vector>
-#include <optional>
 
 namespace llvm {
 class LLVMContext;
@@ -152,7 +152,12 @@ public:
   FuncGenState &funcGen();
   IrFunction *func();
   llvm::Function *topfunc();
-  llvm::Instruction *topallocapoint();
+
+#if LLVM_VERSION_MAJOR >= 19
+  llvm::BasicBlock::iterator nextAllocaPos();
+#else
+  llvm::BasicBlock *nextAllocaPos();
+#endif
 
   // Use this to set the IRBuilder's insertion point for a new function.
   // The previous IRBuilder state is restored when the returned value is
@@ -245,11 +250,9 @@ public:
   // calls with a StringExp with matching data will return the same variable.
   // Exception: ulong[]-typed hex strings (not null-terminated either).
   llvm::GlobalVariable *getCachedStringLiteral(StringExp *se);
-  llvm::GlobalVariable *getCachedStringLiteral(llvm::StringRef s
-#if LDC_LLVM_VER >= 1700
-                                               ,std::optional< unsigned > = std::nullopt
-#endif
-                                               );
+  llvm::GlobalVariable *
+  getCachedStringLiteral(llvm::StringRef s,
+                         std::optional<unsigned> = std::nullopt);
 
   // List of functions with cpu or features attributes overriden by user
   std::vector<IrFunction *> targetCpuOrFeaturesOverridden;

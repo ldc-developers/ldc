@@ -22,9 +22,7 @@
 
 #if LDC_WITH_LLD
 #include "lld/Common/Driver.h"
-#if LDC_LLVM_VER >= 1700
 LLD_HAS_DRIVER(coff)
-#endif
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -39,22 +37,15 @@ void addMscrtLibs(bool useInternalToolchain, std::vector<std::string> &args) {
   // We need the vcruntime lib for druntime's exception handling (ldc.eh_msvc).
   // Pick one of the 4 variants matching the selected main UCRT lib.
 
-#if LDC_LLVM_VER >= 1700
-#define contains_lower contains_insensitive
-#define endswith_lower ends_with_insensitive
-#else
-#define contains_lower contains_insensitive
-#define endswith_lower endswith_insensitive
-#endif
   if (useInternalToolchain) {
-    assert(mscrtlibName.contains_lower("vcruntime"));
+    assert(mscrtlibName.contains_insensitive("vcruntime"));
     return;
   }
 
-  const bool isStatic = mscrtlibName.contains_lower("libcmt");
+  const bool isStatic = mscrtlibName.contains_insensitive("libcmt");
 
-  const bool isDebug =
-      mscrtlibName.endswith_lower("d") || mscrtlibName.endswith_lower("d.lib");
+  const bool isDebug = mscrtlibName.ends_with_insensitive("d") ||
+                       mscrtlibName.ends_with_insensitive("d.lib");
 
   const llvm::StringRef prefix = isStatic ? "lib" : "";
   const llvm::StringRef suffix = isDebug ? "d" : "";
@@ -77,9 +68,9 @@ void addSanitizerLibs(bool useInternalToolchain,
                       std::vector<std::string> &args) {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     args.push_back("ldc_rt.asan.lib");
-#if LDC_LLVM_VER >= 2000 // extra library since LLVM 20
+#if LLVM_VERSION_MAJOR >= 20 // extra library since LLVM 20
     const bool linkStaticCRT =
-        getMscrtLibName(&useInternalToolchain).contains_lower("libcmt");
+        getMscrtLibName(&useInternalToolchain).contains_insensitive("libcmt");
     args.push_back((llvm::Twine("ldc_rt.asan_") +
                     (linkStaticCRT ? "static" : "dynamic") +
                     "_runtime_thunk.lib")
@@ -108,7 +99,8 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 
   const bool forceMSVC = env::has(L"LDC_VSDIR_FORCE");
   const bool useInternalToolchain =
-      (!forceMSVC && getExplicitMscrtLibName().contains_lower("vcruntime")) ||
+      (!forceMSVC &&
+       getExplicitMscrtLibName().contains_insensitive("vcruntime")) ||
       !msvcEnv.setup();
 
   if (forceMSVC && useInternalToolchain) {
@@ -243,22 +235,12 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   }
 
   auto explicitPlatformLibs = getExplicitPlatformLibs();
-#if LDC_LLVM_VER >= 1600
   if (explicitPlatformLibs.has_value()) {
     for (auto &lib : explicitPlatformLibs.value()) {
       args.push_back(llvm::sys::path::has_extension(lib) ? std::move(lib)
                                                          : lib + ".lib");
     }
-  }
-#else
-  if (explicitPlatformLibs.hasValue()) {
-    for (auto &lib : explicitPlatformLibs.getValue()) {
-      args.push_back(llvm::sys::path::has_extension(lib) ? std::move(lib)
-                                                         : lib + ".lib");
-    }
-  }
-#endif
-  else {
+  } else {
     // default platform libs
     // TODO check which libaries are necessary
     args.insert(args.end(),

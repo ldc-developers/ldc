@@ -325,12 +325,10 @@ unsigned buildClassinfoFlags(ClassDeclaration *cd) {
     flags |= ClassFlags::isAbstract;
   }
   for (ClassDeclaration *pc = cd; pc; pc = pc->baseClass) {
-    if (pc->members) {
-      for (Dsymbol *sm : *pc->members) {
-        // printf("sm = %s %s\n", sm->kind(), sm->toChars());
-        if (hasPointers(sm)) {
-          return flags;
-        }
+    for (VarDeclaration *vd : pc->fields) {
+      // printf("vd = %s %s\n", vd->kind(), vd->toChars());
+      if (hasPointers(vd)) {
+        return flags;
       }
     }
   }

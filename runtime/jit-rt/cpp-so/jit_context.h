@@ -32,14 +32,7 @@
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #endif
 
-#if LDC_LLVM_VER < 1700
-#include "llvm/ADT/Optional.h"
-#else
 #include <optional>
-namespace llvm {
-template <typename T> using Optional = std::optional<T>;
-}
-#endif
 
 #include "context.h"
 #include "disassembler.h"

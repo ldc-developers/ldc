@@ -260,7 +260,7 @@ struct IndirectByvalRewrite : ABIRewrite {
     auto &attrs = arg.attrs;
     attrs.clear();
     attrs.addAttribute(LLAttribute::NoAlias);
-#if LDC_LLVM_VER >= 2100
+#if LLVM_VERSION_MAJOR >= 21
     attrs.addCapturesAttr(llvm::CaptureInfo::none());
 #else
     attrs.addAttribute(LLAttribute::NoCapture);
