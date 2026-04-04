@@ -9,45 +9,46 @@
 
 // REQUIRES: target_X86
 
+// Generate both .s (asm) and .ll (IR) outputs at once.
+// RUN: %ldc -mtriple=x86_64-linux-gnu -O0 -output-s -output-ll -of=%t.s %s
+
 // Test 1: Basic naked function - verify no prologue/epilogue
-// RUN: %ldc -mtriple=x86_64-linux-gnu -O0 -output-s -of=%t.s %s
 // RUN: FileCheck %s --check-prefix=ASM < %t.s
 
 // Test 2: Verify LLVM IR has correct attributes
-// RUN: %ldc -mtriple=x86_64-linux-gnu -O0 -output-ll -of=%t.ll %s
 // RUN: FileCheck %s --check-prefix=IR < %t.ll
 
 module naked_asm_output;
 
 // ASM-LABEL: simpleNaked:
-// ASM-NOT: pushq %rbp
-// ASM-NOT: movq %rsp, %rbp
-// ASM: xorl %eax, %eax
-// ASM: retq
-// ASM-NOT: popq %rbp
+// ASM-NEXT: .cfi_startproc
+// ASM-NEXT: #APP
+// ASM-NEXT: xorl %eax, %eax
+// ASM-NEXT: retq
 
 // IR-LABEL: define i32 @simpleNaked()
 // IR-SAME: #[[ATTRS:[0-9]+]]
 extern(C) int simpleNaked() {
-    asm { naked; }
     asm {
+        naked;
         xor EAX, EAX;
         ret;
     }
 }
 
 // ASM-LABEL: nakedWithLabels:
-// ASM-NOT: pushq %rbp
-// ASM: xorl %eax, %eax
-// ASM: .LnakedWithLabels_loop:
-// ASM: incl %eax
-// ASM: cmpl $10, %eax
-// ASM: jl .LnakedWithLabels_loop
-// ASM: retq
+// ASM-NEXT: .cfi_startproc
+// ASM-NEXT: #APP
+// ASM-NEXT: xorl %eax, %eax
+// ASM-NEXT: .LnakedWithLabels_loop:
+// ASM-NEXT: incl %eax
+// ASM-NEXT: cmpl $10, %eax
+// ASM-NEXT: jl .LnakedWithLabels_loop
+// ASM-NEXT: retq
 
 extern(C) int nakedWithLabels() {
-    asm { naked; }
     asm {
+        naked;
         xor EAX, EAX;
     loop:
         inc EAX;
@@ -58,25 +59,39 @@ extern(C) int nakedWithLabels() {
 }
 
 // ASM-LABEL: nakedWithMultipleLabels:
-// ASM-NOT: pushq %rbp
-// ASM: .LnakedWithMultipleLabels_start:
-// ASM: .LnakedWithMultipleLabels_middle:
-// ASM: .LnakedWithMultipleLabels_end:
-// ASM: retq
+// ASM-NEXT: .cfi_startproc
+// ASM-NEXT: #APP
+// ASM-NEXT: jl .LnakedWithMultipleLabels_innerAsmLabel
+// ASM-NEXT: .LnakedWithMultipleLabels_innerAsmLabel:
+// ASM-NEXT: jl .LnakedWithMultipleLabels_otherAsmLabel
+// ASM-NEXT: #NO_APP
+// ASM-NEXT: #APP
+// ASM-NEXT: .LnakedWithMultipleLabels_otherAsmLabel:
+// ASM-NEXT: jl .LnakedWithMultipleLabels_dLabel
+// ASM-NEXT: #NO_APP
+// ASM-NEXT: #APP
+// ASM-NEXT: .LnakedWithMultipleLabels_dLabel:
+// ASM-NEXT: #NO_APP
+// ASM-NEXT: #APP
+// ASM-NEXT: jl .LnakedWithMultipleLabels_innerAsmLabel
+// ASM-NEXT: jl .LnakedWithMultipleLabels_otherAsmLabel
+// ASM-NEXT: retq
 
 extern(C) int nakedWithMultipleLabels() {
-    asm { naked; }
     asm {
-        xor EAX, EAX;
-    start:
-        inc EAX;
-        cmp EAX, 5;
-        jl start;
-    middle:
-        inc EAX;
-        cmp EAX, 10;
-        jl middle;
-    end:
+        naked;
+        jl innerAsmLabel;
+    innerAsmLabel:
+        jl otherAsmLabel;
+    }
+    asm {
+    otherAsmLabel:
+        jl dLabel;
+    }
+dLabel:
+    asm {
+        jl innerAsmLabel;
+        jl otherAsmLabel;
         ret;
     }
 }
@@ -84,17 +99,17 @@ extern(C) int nakedWithMultipleLabels() {
 // Template function - should have comdat for deduplication
 // ASM: .section .text._D16naked_asm_output__T13nakedTemplateVii42ZQvFZi,"axG",@progbits,_D16naked_asm_output__T13nakedTemplateVii42ZQvFZi,comdat
 // ASM-LABEL: _D16naked_asm_output__T13nakedTemplateVii42ZQvFZi:
-// ASM-NOT: pushq %rbp
-// ASM: movl $42, %eax
-// ASM: retq
+// ASM-NEXT: .cfi_startproc
+// ASM-NEXT: #APP
+// ASM-NEXT: movl $42, %eax
+// ASM-NEXT: retq
 
 // Template function check - use IR-DAG to allow flexible ordering since
 // the template may be emitted after its caller (instantiate1)
-// IR-DAG: define weak_odr i32 @_D16naked_asm_output__T13nakedTemplateVii42ZQvFZi(){{.*}}comdat
-
+// IR-DAG: define weak_odr i32 @_D16naked_asm_output__T13nakedTemplateVii42ZQvFZi() #[[ATTRS]] comdat
 int nakedTemplate(int N)() {
-    asm { naked; }
     asm {
+        naked;
         mov EAX, N;
         ret;
     }
@@ -105,5 +120,5 @@ int instantiate1() {
     return nakedTemplate!42();
 }
 
-// Verify naked attribute is present in attributes group
+// Verify naked and noinline attributes are present in attributes group
 // IR: attributes #[[ATTRS]] = {{{.*}}naked{{.*}}noinline
