@@ -136,13 +136,13 @@ void DtoDeleteArray(Loc loc, DValue *arr) {
  ******************************************************************************/
 
 unsigned DtoAlignment(Type *type) {
-  const auto alignment = type->alignment();
+  const auto alignment = dmd::alignment(type);
   if (!alignment.isDefault() && !alignment.isPack())
     return alignment.get();
 
   auto ts = type->toBasetype()->isTypeStruct();
   return ts && !ts->sym->members ? 0 // opaque struct
-                                 : type->alignsize();
+                                 : dmd::alignsize(type);
 }
 
 unsigned DtoAlignment(VarDeclaration *vd) {
