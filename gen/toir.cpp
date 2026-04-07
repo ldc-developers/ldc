@@ -182,7 +182,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
         // try to construct it in-place
         if (!toInPlaceConstruction(field, expr)) {
           DtoAssign(loc, field, toElem(expr), EXP::blit);
-          if (expr->isLvalue())
+          if (isLvalue(expr))
             callPostblit(loc, expr, DtoLVal(field));
         }
       } else {
@@ -581,10 +581,10 @@ public:
     // getting out of sync?
     bool lvalueElem = false;
     if ((e->e2->op == EXP::slice &&
-         static_cast<UnaExp *>(e->e2)->e1->isLvalue()) ||
+         isLvalue(static_cast<UnaExp *>(e->e2)->e1)) ||
         (e->e2->op == EXP::cast_ &&
-         static_cast<UnaExp *>(e->e2)->e1->isLvalue()) ||
-        (e->e2->op != EXP::slice && e->e2->isLvalue())) {
+         isLvalue(static_cast<UnaExp *>(e->e2)->e1)) ||
+        (e->e2->op != EXP::slice && isLvalue(e->e2))) {
       lvalueElem = true;
     }
 

@@ -148,7 +148,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     DValue *const dval = DtoArgument(formalParam, argexp);
 
     // load from lvalue/let TargetABI rewrite it/...
-    bool isLValueExp = argexp->isLvalue();
+    bool isLValueExp = isLvalue(argexp);
     // regard temporaries as rvalues here
     if (isLValueExp) {
       auto ae = argexp;
