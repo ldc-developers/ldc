@@ -6,7 +6,7 @@
  * utilities needed for arguments parsing, path manipulation, etc...
  * This file is not shared with other compilers which use the DMD front-end.
  *
- * Copyright:   Copyright (C) 1999-2025 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2026 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/compiler/src/dmd/main.d, _main.d)
@@ -35,6 +35,7 @@ import dmd.deps;
 import dmd.dinterpret;
 // IN_LLVM import dmd.dmdparams;
 import dmd.dsymbolsem;
+import dmd.typesem : Type_init;
 import dmd.dtemplate;
 import dmd.dtoh;
 // IN_LLVM import dmd.glue : generateCodeAndWrite, ObjcGlue_initialize;
@@ -129,7 +130,7 @@ extern (C) int main(int argc, char** argv)
  * Returns:
  * Return code of the application
  */
-extern (C) int _Dmain(char[][])
+extern (C) int _Dmain(const(char)[][] dargs)
 {
     // possibly install memory error handler
     version (DigitalMars)
@@ -162,8 +163,7 @@ extern (C) int _Dmain(char[][])
             fputs(buf.peekChars(), stderr);
         }
 
-    auto args = Runtime.cArgs();
-    return tryMain(args.argc, cast(const(char)**)args.argv, global.params);
+    return tryMain(dargs, global.params);
 }
 
 } // !IN_LLVM
@@ -179,14 +179,13 @@ private:
  * provided source file and do semantic analysis on them.
  *
  * Params:
- *   argc = Number of arguments passed via command line
  *   argv = Array of string arguments passed via command line
  *   params = set based on argc, argv
  *
  * Returns:
  *   Application return code
  */
-// LDC: changed from `private int tryMain(size_t argc, const(char)** argv, out Param params)`
+// LDC: changed from `private int tryMain(const(char)[][] argv, out Param params)`
 extern (C++) int mars_tryMain(ref Param params, ref Strings files)
 {
     import dmd.common.charactertables;
@@ -220,7 +219,7 @@ version (IN_LLVM) {} else
 {
     target.setTargetBuildDefaults();
 
-    if (parseCommandlineAndConfig(argc, argv, params, files))
+    if (parseCommandlineAndConfig(argv, params, files))
         return EXIT_FAILURE;
 }
 
@@ -439,7 +438,7 @@ else
 
     // Initialization
     target._init(params);
-    Type._init();
+    Type_init();
     Id.initialize();
     Module._init();
     Expression._init();
@@ -526,11 +525,11 @@ else
         import dmd.timetrace;
 version (IN_LLVM)
 {
-        initializeTimeTrace(params.timeTraceGranularityUs, params.argv0.toCString.ptr);
+        initializeTimeTrace(params.timeTraceGranularityUs, toCString(params.argv0).ptr);
 }
 else
 {
-        initializeTimeTrace(params.timeTraceGranularityUs, argv[0]);
+        initializeTimeTrace(params.timeTraceGranularityUs, toCString(argv[0]).ptr);
 }
     }
 
@@ -683,7 +682,11 @@ version (IN_LLVM)
 
             buf.reset();         // reuse the buffer
             genhdrfile(m, params.dihdr.fullOutput, buf);
-            if (!writeFile(m.loc, m.hdrfile.toString(), buf[]))
+            if (params.dihdr.name == "-") {
+                size_t n = fwrite(buf[].ptr, 1, buf.length, stdout);
+                assert(n == buf.length);
+            }
+            else if (!writeFile(m.loc, m.hdrfile.toString(), buf[]))
                 fatal();
         }
     }
@@ -771,14 +774,25 @@ version (IN_LLVM)
 }
 else
 {
-    // Scan for functions to inline
+    // Scan for modules with always inline functions
     foreach (m; modules)
     {
-        if (params.useInline || m.hasAlwaysInlines)
+        if (m.hasAlwaysInlines)
         {
             if (params.v.verbose)
-                message("inline scan %s", m.toChars());
-            inlineScanModule(m, global.errorSink);
+                message("scan pragma(inline) in %s", m.toChars());
+            inlineScanPragmaInline(m, global.errorSink);
+        }
+    }
+
+    if (params.useInline)
+    {
+        // Scan for functions to inline
+        foreach (m; modules)
+        {
+            if (params.v.verbose)
+                message("scan all inlines in %s", m.toChars());
+            inlineScanAllFunctions(m, global.errorSink);
         }
     }
 }
@@ -1044,14 +1058,13 @@ else
  * Parses the command line arguments and configuration files
  *
  * Params:
- *   argc = Number of arguments passed via command line
  *   argv = Array of string arguments passed via command line
  *   params = parameters from argv
  *   files = files from argv
  * Returns: true on failure
  */
 version (IN_LLVM) {} else
-bool parseCommandlineAndConfig(size_t argc, const(char)** argv, out Param params, ref Strings files)
+bool parseCommandlineAndConfig(const(char)[][] argv, out Param params, ref Strings files)
 {
     // Detect malformed input
     static bool badArgs()
@@ -1060,15 +1073,16 @@ bool parseCommandlineAndConfig(size_t argc, const(char)** argv, out Param params
         return true;
     }
 
-    if (argc < 1 || !argv)
+    const size_t argc = argv.length;
+    if (argc < 1)
         return badArgs();
     // Convert argc/argv into arguments[] for easier handling
-    Strings arguments = Strings(argc);
-    for (size_t i = 0; i < argc; i++)
+    Strings arguments = Strings(argv.length);
+    for (size_t i = 0; i < argv.length; i++)
     {
         if (!argv[i])
             return badArgs();
-        arguments[i] = argv[i];
+        arguments[i] = toCString(argv[i]).ptr;
     }
     if (const(char)* missingFile = responseExpand(arguments)) // expand response files
         error(Loc.initial, "cannot open response file '%s'", missingFile);
@@ -1126,9 +1140,6 @@ bool parseCommandlineAndConfig(size_t argc, const(char)** argv, out Param params
 
     bool isX86_64 = arch[0] == '6';
 
-    version(Windows) // delete LIB entry in [Environment] (necessary for optlink) to allow inheriting environment for MS-COFF
-        environment.update("LIB", 3).value = null;
-
     // read from DFLAGS in [Environment{arch}] section
     char[80] envsection = void;
     snprintf(envsection.ptr, envsection.length, "Environment%.*s", cast(int) arch.length, arch.ptr);
@@ -1161,7 +1172,7 @@ bool parseCommandlineAndConfig(size_t argc, const(char)** argv, out Param params
 
 
 // in druntime:
-alias MainFunc = extern(C) int function(char[][] args);
+alias MainFunc = extern(C) int function(const(char)[][] args);
 extern (C) int _d_run_main(int argc, char** argv, MainFunc dMain);
 
 
@@ -1271,6 +1282,9 @@ else
 
         if (params.useSwitchError == CHECKENABLE._default)
             params.useSwitchError = CHECKENABLE.off;
+
+        if (params.useNullCheck == CHECKENABLE._default)
+            params.useNullCheck = CHECKENABLE.off;
     }
     else
     {
@@ -1291,6 +1305,9 @@ else
 
         if (params.useSwitchError == CHECKENABLE._default)
             params.useSwitchError = CHECKENABLE.on;
+
+        if (params.useNullCheck == CHECKENABLE._default)
+            params.useNullCheck = CHECKENABLE.off;
     }
 
     if (params.betterC)

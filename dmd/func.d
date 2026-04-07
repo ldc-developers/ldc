@@ -8,7 +8,7 @@
  * - `invariant`
  * - `unittest`
  *
- * Copyright:   Copyright (C) 1999-2025 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2026 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/compiler/src/dmd/func.d, _func.d)
@@ -23,30 +23,19 @@ import core.stdc.string;
 import dmd.aggregate;
 import dmd.arraytypes;
 import dmd.astenums;
-import dmd.blockexit;
-import dmd.dcast;
 import dmd.dclass;
 import dmd.declaration;
-import dmd.delegatize;
-import dmd.dmodule;
-import dmd.dscope;
-import dmd.dstruct;
 import dmd.dsymbol;
 import dmd.dtemplate;
-import dmd.escape;
-import dmd.expression;
 import dmd.globals;
 import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
-import dmd.init;
 import dmd.location;
 import dmd.mtype;
 import dmd.objc;
 import dmd.common.outbuffer;
 import dmd.rootobject;
-import dmd.root.string;
-import dmd.root.stringtable;
 import dmd.statement;
 import dmd.targetcompiler;
 import dmd.tokens;
@@ -215,6 +204,40 @@ private struct ContractInfo
     Expressions* fdensureParams;        /// argument list for __ensure
 }
 
+/// Information for data flow analysis regarding parameters
+extern(D) struct ParametersDFAInfo
+{
+    ParameterDFAInfo thisPointer;
+    ParameterDFAInfo returnValue;
+    ParameterDFAInfo[] parameters;
+}
+
+/// Information for data flow analysis per parameter
+extern(D) struct ParameterDFAInfo
+{
+    /// Parameter id: -1 this, -2 return, otherwise it is FuncDeclaration.parameters index
+    int parameterId;
+
+    /// Is the parameter non-null upon input, only applies to pointers.
+    Fact notNullIn;
+    /// Is the parameter non-null, applies only for by-ref parameters that are pointers.
+    Fact notNullOut;
+
+    /// Was the attributes for this parameter specified by the user?
+    bool specifiedByUser;
+
+    /// Given a property, has it been specificed and is it guaranteed?
+    enum Fact : ubyte
+    {
+        ///
+        Unspecified,
+        ///
+        NotGuaranteed,
+        ///
+        Guaranteed
+    }
+}
+
 /***********************************************************
  */
 extern (C++) class FuncDeclaration : Declaration
@@ -325,6 +348,8 @@ version (IN_LLVM) {} else
     AttributeViolation* pureViolation;
     AttributeViolation* nothrowViolation;
 
+    ParametersDFAInfo* parametersDFAInfo;
+
     /// See the `FUNCFLAG` struct
     import dmd.common.bitfields;
     mixin(generateBitFields!(FUNCFLAG, uint));
@@ -355,8 +380,13 @@ version (IN_LLVM) {} else
         /* The type given for "infer the return type" is a TypeFunction with
          * NULL for the return type.
          */
-        if (type && type.nextOf() is null)
-            this.inferRetType = true;
+        if (type)
+        {
+            if (auto tf = type.isTypeFunction())
+                this.inferRetType = tf.next is null;
+            else
+                assert(0); // unreachable
+        }
     }
 
     static FuncDeclaration create(Loc loc, Loc endloc, Identifier id, StorageClass storage_class, Type type, bool noreturn = false)
@@ -653,46 +683,6 @@ version (IN_LLVM)
         return toAliasFunc().isThis() !is null;
     }
 
-    // Determine if a function is pedantically virtual
-    final bool isVirtualMethod()
-    {
-        if (toAliasFunc() != this)
-            return toAliasFunc().isVirtualMethod();
-
-        //printf("FuncDeclaration::isVirtualMethod() %s\n", toChars());
-        if (!isVirtual())
-            return false;
-        // If it's a final method, and does not override anything, then it is not virtual
-        if (isFinalFunc() && foverrides.length == 0)
-        {
-            return false;
-        }
-        return true;
-    }
-
-    // Determine if function goes into virtual function pointer table
-    bool isVirtual() const
-    {
-        if (toAliasFunc() != this)
-            return toAliasFunc().isVirtual();
-
-        auto p = toParent();
-
-        if (!isMember || !p.isClassDeclaration)
-            return false;
-
-        if (p.isClassDeclaration.classKind == ClassKind.objc)
-            return .objc.isVirtual(this);
-
-        version (none)
-        {
-            printf("FuncDeclaration::isVirtual(%s)\n", toChars());
-            printf("isMember:%p isStatic:%d private:%d ctor:%d !Dlinkage:%d\n", isMember(), isStatic(), visibility == Visibility.Kind.private_, isCtorDeclaration(), linkage != LINK.d);
-            printf("result is %d\n", isMember() && !(isStatic() || visibility == Visibility.Kind.private_ || visibility == Visibility.Kind.package_) && p.isClassDeclaration() && !(p.isInterfaceDeclaration() && isFinalFunc()));
-        }
-        return !(isStatic() || visibility.kind == Visibility.Kind.private_ || visibility.kind == Visibility.Kind.package_) && !(p.isInterfaceDeclaration() && isFinalFunc());
-    }
-
     final bool isFinalFunc() const
     {
         if (toAliasFunc() != this)
@@ -715,53 +705,9 @@ version (IN_LLVM)
         return (cd !is null) && (cd.storage_class & STC.final_);
     }
 
-    bool addPreInvariant()
-    {
-        auto ad = isThis();
-        return (ad && global.params.useInvariants == CHECKENABLE.on && (visibility.kind == Visibility.Kind.protected_ || visibility.kind == Visibility.Kind.public_ || visibility.kind == Visibility.Kind.export_) && !this.isNaked);
-    }
-
-    bool addPostInvariant()
-    {
-        auto ad = isThis();
-        return (ad && ad.inv && global.params.useInvariants == CHECKENABLE.on && (visibility.kind == Visibility.Kind.protected_ || visibility.kind == Visibility.Kind.public_ || visibility.kind == Visibility.Kind.export_) && !this.isNaked);
-    }
-
     override const(char)* kind() const
     {
         return this.isGenerated ? "generated function" : "function";
-    }
-
-    /***********************************************
-     * Determine if function's variables are referenced by a function
-     * nested within it.
-     */
-    final bool hasNestedFrameRefs()
-    {
-        if (closureVars.length)
-            return true;
-
-        /* If a virtual function has contracts, assume its variables are referenced
-         * by those contracts, even if they aren't. Because they might be referenced
-         * by the overridden or overriding function's contracts.
-         * This can happen because frequire and fensure are implemented as nested functions,
-         * and they can be called directly by an overriding function and the overriding function's
-         * context had better match, or
-         * https://issues.dlang.org/show_bug.cgi?id=7335 will bite.
-         */
-        if (fdrequire || fdensure)
-            return true;
-
-        if (foverrides.length && isVirtualMethod())
-        {
-            for (size_t i = 0; i < foverrides.length; i++)
-            {
-                FuncDeclaration fdv = foverrides[i];
-                if (fdv.hasNestedFrameRefs())
-                    return true;
-            }
-        }
-        return false;
     }
 
     /*********************************************
@@ -777,46 +723,6 @@ version (IN_LLVM)
         }
 
         return ParameterList(null, VarArg.none);
-    }
-
-    /**********************************
-     * Generate a FuncDeclaration for a runtime library function.
-     */
-    extern(D) static FuncDeclaration genCfunc(Parameters* fparams, Type treturn, const(char)* name, STC stc = STC.none)
-    {
-        return genCfunc(fparams, treturn, Identifier.idPool(name[0 .. strlen(name)]), stc);
-    }
-
-    extern(D) static FuncDeclaration genCfunc(Parameters* fparams, Type treturn, Identifier id, STC stc = STC.none)
-    {
-        FuncDeclaration fd;
-        TypeFunction tf;
-        Dsymbol s;
-        __gshared DsymbolTable st = null;
-
-        //printf("genCfunc(name = '%s')\n", id.toChars());
-        //printf("treturn\n\t"); treturn.print();
-
-        // See if already in table
-        if (!st)
-            st = new DsymbolTable();
-        s = st.lookup(id);
-        if (s)
-        {
-            fd = s.isFuncDeclaration();
-            assert(fd);
-            assert(fd.type.nextOf().equals(treturn));
-        }
-        else
-        {
-            tf = new TypeFunction(ParameterList(fparams), treturn, LINK.c, stc);
-            fd = new FuncDeclaration(Loc.initial, Loc.initial, id, STC.static_, tf);
-            fd.visibility = Visibility(Visibility.Kind.public_);
-            fd._linkage = LINK.c;
-
-            st.insert(fd);
-        }
-        return fd;
     }
 
     inout(FuncDeclaration) toAliasFunc() inout @safe
@@ -1001,21 +907,6 @@ extern (C++) final class FuncLiteralDeclaration : FuncDeclaration
         return tok == TOK.delegate_ ? super.isThis() : null;
     }
 
-    override bool isVirtual() const
-    {
-        return false;
-    }
-
-    override bool addPreInvariant()
-    {
-        return false;
-    }
-
-    override bool addPostInvariant()
-    {
-        return false;
-    }
-
     override const(char)* kind() const
     {
         // GCC requires the (char*) casts
@@ -1065,21 +956,6 @@ extern (C++) final class CtorDeclaration : FuncDeclaration
              isMoveCtor ? "move constructor" : "constructor";
     }
 
-    override bool isVirtual() const
-    {
-        return false;
-    }
-
-    override bool addPreInvariant()
-    {
-        return false;
-    }
-
-    override bool addPostInvariant()
-    {
-        return (isThis() && vthis && global.params.useInvariants == CHECKENABLE.on);
-    }
-
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -1102,21 +978,6 @@ extern (C++) final class PostBlitDeclaration : FuncDeclaration
         auto dd = new PostBlitDeclaration(loc, endloc, storage_class, ident);
         FuncDeclaration.syntaxCopy(dd);
         return dd;
-    }
-
-    override bool isVirtual() const
-    {
-        return false;
-    }
-
-    override bool addPreInvariant()
-    {
-        return false;
-    }
-
-    override bool addPostInvariant()
-    {
-        return (isThis() && vthis && global.params.useInvariants == CHECKENABLE.on);
     }
 
     override void accept(Visitor v)
@@ -1154,23 +1015,6 @@ extern (C++) final class DtorDeclaration : FuncDeclaration
         return "destructor";
     }
 
-    override bool isVirtual() const
-    {
-        // D dtor's don't get put into the vtbl[]
-        // this is a hack so that extern(C++) destructors report as virtual, which are manually added to the vtable
-        return vtblIndex != -1;
-    }
-
-    override bool addPreInvariant()
-    {
-        return (isThis() && vthis && global.params.useInvariants == CHECKENABLE.on);
-    }
-
-    override bool addPostInvariant()
-    {
-        return false;
-    }
-
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -1204,21 +1048,6 @@ extern (C++) class StaticCtorDeclaration : FuncDeclaration
     override final inout(AggregateDeclaration) isThis() inout @nogc nothrow pure @safe
     {
         return null;
-    }
-
-    override final bool isVirtual() const @nogc nothrow pure @safe
-    {
-        return false;
-    }
-
-    override final bool addPreInvariant() @nogc nothrow pure @safe
-    {
-        return false;
-    }
-
-    override final bool addPostInvariant() @nogc nothrow pure @safe
-    {
-        return false;
     }
 
     override void accept(Visitor v)
@@ -1285,21 +1114,6 @@ extern (C++) class StaticDtorDeclaration : FuncDeclaration
         return null;
     }
 
-    override final bool isVirtual() const
-    {
-        return false;
-    }
-
-    override final bool addPreInvariant()
-    {
-        return false;
-    }
-
-    override final bool addPostInvariant()
-    {
-        return false;
-    }
-
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -1350,33 +1164,9 @@ extern (C++) final class InvariantDeclaration : FuncDeclaration
         return id;
     }
 
-    override bool isVirtual() const
-    {
-        return false;
-    }
-
-    override bool addPreInvariant()
-    {
-        return false;
-    }
-
-    override bool addPostInvariant()
-    {
-        return false;
-    }
-
     override void accept(Visitor v)
     {
         v.visit(this);
-    }
-
-    extern (D) void fixupInvariantIdent(size_t offset)
-    {
-        OutBuffer idBuf;
-        idBuf.writestring("__invariant");
-        idBuf.print(offset);
-
-        ident = Identifier.idPool(idBuf[]);
     }
 }
 
@@ -1410,21 +1200,6 @@ extern (C++) final class UnitTestDeclaration : FuncDeclaration
         return null;
     }
 
-    override bool isVirtual() const
-    {
-        return false;
-    }
-
-    override bool addPreInvariant()
-    {
-        return false;
-    }
-
-    override bool addPostInvariant()
-    {
-        return false;
-    }
-
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -1454,21 +1229,6 @@ extern (C++) final class NewDeclaration : FuncDeclaration
         return "allocator";
     }
 
-    override bool isVirtual() const
-    {
-        return false;
-    }
-
-    override bool addPreInvariant()
-    {
-        return false;
-    }
-
-    override bool addPostInvariant()
-    {
-        return false;
-    }
-
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -1492,6 +1252,8 @@ struct AttributeViolation
 
     string action;   /// Action that made the attribute fail to get inferred
 
+    VarDeclaration scopeVar;  /// For scope violations: the parameter whose scope status caused the issue
+
     this(Loc loc, FuncDeclaration fd) { this.loc = loc; this.fd = fd; }
 
     this(Loc loc, const(char)* fmt, RootObject[] args)
@@ -1506,5 +1268,11 @@ struct AttributeViolation
             args.length > 3 && args[3] ? args[3].toErrMsg() : "",
         );
         this.action = buf.extractSlice();
+    }
+
+    this(Loc loc, const(char)* fmt, VarDeclaration scopeVar, RootObject[] args)
+    {
+        this(loc, fmt, args);
+        this.scopeVar = scopeVar;
     }
 }

@@ -15,7 +15,6 @@ module __builtins;
 import core.stdc.config : c_long, c_ulong;
 import core.checkedint : adds, subs, muls;
 
-
 /* gcc relies on internal __builtin_xxxx functions and templates to
  * accomplish <stdarg.h>. D does the same thing with templates in core.stdc.stdarg.
  * Here, we redirect the gcc builtin declarations to the equivalent
