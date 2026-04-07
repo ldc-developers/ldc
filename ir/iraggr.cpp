@@ -171,7 +171,7 @@ static llvm::Constant *FillSArrayDims(Type *arrTypeD, llvm::Constant *init) {
 
   if (arrTypeD->ty == TY::Tsarray) {
     init = FillSArrayDims(arrTypeD->nextOf(), init);
-    size_t dim = static_cast<TypeSArray *>(arrTypeD)->dim->toUInteger();
+    size_t dim = toUInteger(static_cast<TypeSArray *>(arrTypeD)->dim);
     llvm::ArrayType *arrty = llvm::ArrayType::get(init->getType(), dim);
     return llvm::ConstantArray::get(arrty,
                                     std::vector<llvm::Constant *>(dim, init));

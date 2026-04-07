@@ -26,7 +26,7 @@ Type *getSingleWrappedScalarType(Type *t) {
   }
 
   if (auto tsa = t->isTypeSArray()) {
-    if (tsa->dim->toInteger() != 1)
+    if (toInteger(tsa->dim) != 1)
       return nullptr;
     return getSingleWrappedScalarType(tsa->nextOf());
   }

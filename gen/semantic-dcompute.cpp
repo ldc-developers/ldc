@@ -205,7 +205,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // @compute semantics and the recursive visitor should stop here.
     if (auto ce = stmt->condition->isCallExp()) {
       if (ce->f && ce->f->ident == Id::dcReflect) {
-        auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
+        auto arg1 = (DComputeTarget::ID)dmd::toInteger((*ce->arguments)[0]);
         if (arg1 == DComputeTarget::ID::Host)
           stop = true;
       }

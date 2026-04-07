@@ -206,7 +206,7 @@ public:
     b.push_typeinfo(tc->nextOf());
 
     // length
-    b.push(DtoConstSize_t(static_cast<size_t>(tc->dim->toUInteger())));
+    b.push(DtoConstSize_t(static_cast<size_t>(toUInteger(tc->dim))));
 
     // finish
     b.finalize(gvar);

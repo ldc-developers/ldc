@@ -49,7 +49,7 @@ std::optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd) {
   }
 
   TemplateInstance *ti = sd->isInstantiated();
-  int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
+  int addrspace = toInteger(isExpression((*ti->tiargs)[0]));
   Type *type = isType((*ti->tiargs)[1]);
   return std::optional<DcomputePointer>(DcomputePointer(addrspace, type));
 }

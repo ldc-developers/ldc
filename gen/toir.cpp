@@ -435,7 +435,7 @@ public:
     const auto stringLength = e->len;
 
     if (auto tsa = dtype->isTypeSArray()) {
-      const auto arrayLength = tsa->dim->toInteger();
+      const auto arrayLength = toInteger(tsa->dim);
       assert(arrayLength >= stringLength);
       // ImportC: static array length may exceed string length incl. null
       // terminator - bypass string-literal cache and create a separate constant
@@ -567,7 +567,7 @@ public:
     if (e->e1->type->toBasetype()->ty == TY::Tstruct &&
         e->e2->op == EXP::int64) {
       Logger::println("performing aggregate zero initialization");
-      assert(e->e2->toInteger() == 0);
+      assert(toInteger(e->e2) == 0);
       LLValue *lval = DtoLVal(lhs);
       DtoMemSetZero(DtoType(lhs->type), lval);
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
@@ -1286,7 +1286,7 @@ public:
       // (namely default initialization, int[16][16] arr; -> int[256] arr = 0;)
       if (etype->ty == TY::Tsarray) {
         TypeSArray *tsa = static_cast<TypeSArray *>(etype);
-        elen = DtoConstSize_t(tsa->dim->toUInteger());
+        elen = DtoConstSize_t(toUInteger(tsa->dim));
       }
     }
 
@@ -2602,7 +2602,7 @@ public:
       if (auto ts = tsrc->isTypeSArray()) {
         Logger::println("static array expression");
         (void)ts;
-        assert(ts->dim->toInteger() == N &&
+        assert(toInteger(ts->dim) == N &&
                "Static array vector initializer length mismatch, should have "
                "been handled in frontend.");
       } else {

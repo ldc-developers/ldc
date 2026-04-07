@@ -2344,12 +2344,12 @@ struct AsmProcessor {
       switch (type) {
       case Arg_Integer:
         if (dmd::isUnsigned(e->type)) {
-          insnTemplate << "$" << e->toUInteger();
+          insnTemplate << "$" << dmd::toUInteger(e);
         } else {
 #ifndef ASM_X86_64
-          insnTemplate << "$" << static_cast<sinteger_t>(e->toInteger());
+          insnTemplate << "$" << static_cast<sinteger_t>(dmd::toInteger(e));
 #else
-          insnTemplate << "$" << e->toInteger();
+          insnTemplate << "$" << dmd::toInteger(e);
 #endif
         }
         break;
@@ -3199,7 +3199,7 @@ struct AsmProcessor {
       if (is_offset) {
         invalidExpression();
       }
-      operand->constDisplacement += exp->toInteger();
+      operand->constDisplacement += dmd::toInteger(exp);
       if (!operand->inBracket) {
         operand->hasNumber = 1;
       }
@@ -3209,15 +3209,15 @@ struct AsmProcessor {
       }
       if (!operand->inBracket) {
         if (operand->reg == Reg_Invalid) {
-          operand->reg = static_cast<Reg>(exp->toInteger());
+          operand->reg = static_cast<Reg>(dmd::toInteger(exp));
         } else {
           error(stmt->loc, "too many registers in operand (use brackets)");
         }
       } else {
         if (operand->baseReg == Reg_Invalid) {
-          operand->baseReg = static_cast<Reg>(exp->toInteger());
+          operand->baseReg = static_cast<Reg>(dmd::toInteger(exp));
         } else if (operand->indexReg == Reg_Invalid) {
-          operand->indexReg = static_cast<Reg>(exp->toInteger());
+          operand->indexReg = static_cast<Reg>(dmd::toInteger(exp));
           operand->scale = 1;
         } else {
           error(stmt->loc, "too many registers memory operand");
@@ -3289,7 +3289,7 @@ struct AsmProcessor {
     Expression *exp = parseAsmExp();
     slotExp(exp);
     if (isRegExp(exp)) {
-      operand->dataSize = static_cast<PtrType>(regInfo[exp->toInteger()].size);
+      operand->dataSize = static_cast<PtrType>(regInfo[dmd::toInteger(exp)].size);
     }
   }
 
@@ -3305,7 +3305,7 @@ struct AsmProcessor {
       }
       nextToken();
       Expression *exp3 = parseCondExp();
-      exp = exp->toUInteger() ? exp2 : exp3;
+      exp = dmd::toUInteger(exp) ? exp2 : exp3;
     }
     return exp;
   }
@@ -3496,8 +3496,8 @@ struct AsmProcessor {
         return true;
       }
 
-      operand->indexReg = static_cast<Reg>(e1->toInteger());
-      operand->scale = e2->toInteger();
+      operand->indexReg = static_cast<Reg>(dmd::toInteger(e1));
+      operand->scale = dmd::toInteger(e2);
       switch (operand->scale) {
       case 1:
       case 2:
@@ -3849,7 +3849,7 @@ struct AsmProcessor {
     // parse primary: DMD allows 'MyAlign' (const int) but not '2+2'
     // GAS is padding with NOPs last time I checked.
     Expression *e = ctfeInterpret(parseAsmExp());
-    uinteger_t align = e->toUInteger();
+    uinteger_t align = dmd::toUInteger(e);
 
     if ((align & (align - 1)) == 0) {
 // FIXME: This printf is not portable. The use of `align` varies from

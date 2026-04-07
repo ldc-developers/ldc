@@ -64,7 +64,7 @@ Expression *extractNoStrideInc(Expression *e, dinteger_t baseSize, bool &negate)
   if (!mul->e2->isConst()) {
     return nullptr;
   }
-  dinteger_t stride = mul->e2->toInteger();
+  dinteger_t stride = toInteger(mul->e2);
 
   if (stride != baseSize) {
     return nullptr;
@@ -89,7 +89,7 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
 
   if (offset->isConst()) {
     llBase = DtoRVal(base);
-    const dinteger_t byteOffset = offset->toInteger();
+    const dinteger_t byteOffset = toInteger(offset);
     if (byteOffset == 0) {
       llResult = llBase;
     } else {

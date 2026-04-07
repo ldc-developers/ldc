@@ -350,10 +350,10 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       fatal();
     }
     auto atomicOrdering =
-        static_cast<llvm::AtomicOrdering>((*e->arguments)[0]->toInteger());
+        static_cast<llvm::AtomicOrdering>(toInteger((*e->arguments)[0]));
     llvm::SyncScope::ID scope = llvm::SyncScope::System;
     if (e->arguments->length == 2) {
-      scope = static_cast<llvm::SyncScope::ID>((*e->arguments)[1]->toInteger());
+      scope = static_cast<llvm::SyncScope::ID>(toInteger((*e->arguments)[1]));
     }
     // orderings below acquire are invalid; like clang, don't emit any
     // instruction in those cases
@@ -372,7 +372,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
-    int atomicOrdering = (*e->arguments)[2]->toInteger();
+    int atomicOrdering = toInteger((*e->arguments)[2]);
 
     DValue *dval = toElem(exp1);
     LLValue *ptr = DtoRVal(exp2);
@@ -407,7 +407,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
 
     Expression *exp = (*e->arguments)[0];
-    int atomicOrdering = (*e->arguments)[1]->toInteger();
+    int atomicOrdering = toInteger((*e->arguments)[1]);
 
     LLValue *ptr = DtoRVal(exp);
     LLType *pointeeType = DtoType(e->type);
@@ -455,10 +455,10 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Expression *exp2 = (*e->arguments)[1];
     Expression *exp3 = (*e->arguments)[2];
     const auto successOrdering =
-        llvm::AtomicOrdering((*e->arguments)[3]->toInteger());
+        llvm::AtomicOrdering(toInteger((*e->arguments)[3]));
     const auto failureOrdering =
-        llvm::AtomicOrdering((*e->arguments)[4]->toInteger());
-    const bool isWeak = (*e->arguments)[5]->toInteger() != 0;
+        llvm::AtomicOrdering(toInteger((*e->arguments)[4]));
+    const bool isWeak = toInteger((*e->arguments)[5]) != 0;
 
     LLValue *ptr = DtoRVal(exp1);
     LLType *pointeeType = DtoType(exp1->type->isTypePointer()->nextOf());
@@ -528,7 +528,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
-    int atomicOrdering = (*e->arguments)[2]->toInteger();
+    int atomicOrdering = toInteger((*e->arguments)[2]);
     LLValue *ptr = DtoRVal(exp1);
     LLValue *val = DtoRVal(exp2);
     LLValue *ret =

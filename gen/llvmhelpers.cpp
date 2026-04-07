@@ -1149,7 +1149,7 @@ LLConstant *DtoConstExpInit(Loc loc, Type *targetType, Expression *exp) {
     baseValType = stripModifiers(baseValType);
     LLSmallVector<size_t, 4> dims; // { 3, 2 }
     for (auto t = baseTargetType; t->ty == TY::Tsarray;) {
-      dims.push_back(static_cast<TypeSArray *>(t)->dim->toUInteger());
+      dims.push_back(toUInteger(static_cast<TypeSArray *>(t)->dim));
       auto elementType = stripModifiers(t->nextOf()->toBasetype());
       if (elementType->equals(baseValType))
         break;
@@ -1175,7 +1175,7 @@ LLConstant *DtoConstExpInit(Loc loc, Type *targetType, Expression *exp) {
     TypeVector *tv = static_cast<TypeVector *>(baseTargetType);
     assert(tv->basetype->ty == TY::Tsarray);
     dinteger_t elemCount =
-        static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
+        toInteger(static_cast<TypeSArray *>(tv->basetype)->dim);
     const auto elementCount = llvm::ElementCount::getFixed(elemCount);
     return llvm::ConstantVector::getSplat(elementCount, val);
   }

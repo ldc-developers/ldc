@@ -42,7 +42,7 @@ LLArrayType *DtoStaticArrayType(Type *t) {
   TypeSArray *tsa = static_cast<TypeSArray *>(t);
   Type *tnext = tsa->nextOf();
 
-  return LLArrayType::get(DtoMemType(tnext), tsa->dim->toUInteger());
+  return LLArrayType::get(DtoMemType(tnext), toUInteger(tsa->dim));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -322,7 +322,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
   // initialized elements in the value/index lists
   if (arrty->ty == TY::Tsarray) {
     TypeSArray *tsa = static_cast<TypeSArray *>(arrty);
-    arrlen = static_cast<size_t>(tsa->dim->toInteger());
+    arrlen = static_cast<size_t>(toInteger(tsa->dim));
   }
 
   // make sure the number of initializers is sane
@@ -356,7 +356,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 
     // idx can be null, then it's just the next element
     if (idx) {
-      j = idx->toInteger();
+      j = toInteger(idx);
     }
     assert(j < arrlen);
 
@@ -801,7 +801,7 @@ LLValue *DtoArrayLen(DValue *v) {
     assert(!v->isSlice());
     assert(!v->isNull());
     TypeSArray *sarray = static_cast<TypeSArray *>(t);
-    return DtoConstSize_t(sarray->dim->toUInteger());
+    return DtoConstSize_t(toUInteger(sarray->dim));
   }
   llvm_unreachable("unsupported array for len");
 }
@@ -862,7 +862,7 @@ DValue *DtoCastArray(Loc loc, DValue *u, Type *to) {
     LLValue *ptr = nullptr;
     if (fromtype->ty == TY::Tsarray) {
       length = DtoConstSize_t(
-          static_cast<TypeSArray *>(fromtype)->dim->toUInteger());
+          toUInteger(static_cast<TypeSArray *>(fromtype)->dim));
       ptr = DtoLVal(u);
     } else {
       length = DtoArrayLen(u);
@@ -901,7 +901,7 @@ DValue *DtoCastArray(Loc loc, DValue *u, Type *to) {
     if (fromtype->ty == TY::Tsarray) {
       ptr = DtoLVal(u);
     } else {
-      size_t tosize = static_cast<TypeSArray *>(totype)->dim->toInteger();
+      size_t tosize = toInteger(static_cast<TypeSArray *>(totype)->dim);
       size_t i =
           (tosize * size(totype->nextOf()) - 1) / size(fromtype->nextOf());
       DConstValue index(Type::tsize_t, DtoConstSize_t(i));

@@ -51,7 +51,7 @@ bool parseBoolExp(Expression *e, bool &res) {
   e = optimize(e, WANTvalue);
   if (auto i = e->isIntegerExp()) {
     if (e->type->equals(Type::tbool)) {
-      res = (i->toInteger() != 0);
+      res = (toInteger(i) != 0);
       return true;
     }
   }
