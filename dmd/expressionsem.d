@@ -538,16 +538,19 @@ Optional!bool toBool(Expression _this)
         case EXP.arrayLiteral: return arrayLiteralToBool(_this.isArrayLiteralExp());
         case EXP.assocArrayLiteral: return assocArrayLiteralToBool(_this.isAssocArrayLiteralExp());
         case EXP.symbolOffset:
+        {
             version (IN_LLVM)
             {
                 import gen.dpragma : LDCPragma;
 
                 // For a weak symbol, we only statically know that it is non-null if the
                 // offset is non-zero.
-                if (var.llvmInternal == LDCPragma.LLVMextern_weak && offset == 0)
+                auto soe = _this.isSymOffExp();
+                if (soe.var.llvmInternal == LDCPragma.LLVMextern_weak && soe.offset == 0)
                     return typeof(return)();
             }
             return typeof(return)(true);
+        }
         case EXP.address: return addrToBool(_this.isAddrExp());
         case EXP.slice: return _this.isSliceExp().e1.toBool();
         case EXP.comma: return _this.isCommaExp().e2.toBool();

@@ -583,7 +583,6 @@ immutable Msgtable[] msgtable =
     { "udaOptStrategy", "optStrategy" },
     { "udaLLVMAttr", "llvmAttr" },
     { "udaLLVMFastMathFlag", "llvmFastMathFlag" },
-    { "udaSection", "section" },
     { "udaTarget", "target" },
     { "udaAssumeUsed", "_assumeUsed" },
     { "udaCallingConvention", "callingConvention" },
