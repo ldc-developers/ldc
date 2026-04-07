@@ -118,7 +118,7 @@ public:
     } else {
       assert(llvm::isa<LLIntegerType>(t));
       result = LLConstantInt::get(t, static_cast<uint64_t>(e->getInteger()),
-                                  !e->type->isUnsigned());
+                                  !isUnsigned(e->type));
       assert(result);
       IF_LOG Logger::cout() << "value = " << *result << '\n';
     }
@@ -190,7 +190,7 @@ public:
   // very similar to emitPointerOffset() in binops.cpp
   LLConstant *tryEmitPointerOffset(BinExp *e, bool negateOffset) {
     Type *t1b = e->e1->type->toBasetype();
-    if (t1b->ty != TY::Tpointer || !e->e2->type->isIntegral())
+    if (t1b->ty != TY::Tpointer || !isIntegral(e->e2->type))
       return nullptr;
 
     Type *const pointeeType = t1b->nextOf();

@@ -74,9 +74,9 @@ struct PPCTargetABI : TargetABI {
           compositeToArray32.applyTo(arg);
         }
       }
-    } else if (ty->isIntegral()) {
-      arg.attrs.addAttribute(ty->isUnsigned() ? LLAttribute::ZExt
-                                              : LLAttribute::SExt);
+    } else if (isIntegral(ty)) {
+      arg.attrs.addAttribute(isUnsigned(ty) ? LLAttribute::ZExt
+                                            : LLAttribute::SExt);
     }
   }
 };

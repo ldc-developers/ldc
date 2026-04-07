@@ -929,9 +929,9 @@ public:
     }
 
     // Casts are also "optimized into" SymOffExp by the frontend.
-    LLValue *llVal = (e->type->toBasetype()->isIntegral()
-                          ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
-                          : DtoBitCast(offsetValue, DtoType(e->type)));
+    LLValue *llVal = isIntegral(e->type->toBasetype())
+                         ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
+                         : DtoBitCast(offsetValue, DtoType(e->type));
     result = new DImValue(e->type, llVal);
   }
 
@@ -1322,7 +1322,7 @@ public:
 
     LLValue *eval = nullptr;
 
-    if (t->isIntegral() || t->ty == TY::Tpointer || t->ty == TY::Tnull) {
+    if (isIntegral(t) || t->ty == TY::Tpointer || t->ty == TY::Tnull) {
       llvm::ICmpInst::Predicate icmpPred;
       tokToICmpPred(e->op, isLLVMUnsigned(t), &icmpPred, &eval);
 
@@ -1338,7 +1338,7 @@ public:
         }
         eval = p->ir->CreateICmp(icmpPred, a, b);
       }
-    } else if (t->isFloating()) {
+    } else if (isFloating(t)) {
       llvm::FCmpInst::Predicate cmpop;
       switch (e->op) {
       case EXP::lessThan:
@@ -1430,7 +1430,7 @@ public:
 
     // the Tclass catches interface comparisons, regular
     // class equality should be rewritten as a.opEquals(b) by this time
-    if (t->isIntegral() || t->ty == TY::Tpointer || t->ty == TY::Tclass ||
+    if (isIntegral(t) || t->ty == TY::Tpointer || t->ty == TY::Tclass ||
         t->ty == TY::Tnull) {
       Logger::println("integral or pointer or interface");
       llvm::ICmpInst::Predicate cmpop;
@@ -1454,7 +1454,7 @@ public:
         Logger::cout() << "rv: " << *rv << '\n';
       }
       eval = p->ir->CreateICmp(cmpop, lv, rv);
-    } else if (t->isFloating()) { // includes iscomplex
+    } else if (isFloating(t)) { // includes iscomplex
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t->ty == TY::Tsarray || t->ty == TY::Tarray) {
       Logger::println("static or dynamic array");
@@ -1495,10 +1495,10 @@ public:
     Type *e1type = e->e1->type->toBasetype();
     Type *e2type = e->e2->type->toBasetype();
 
-    if (e1type->isIntegral()) {
-      assert(e2type->isIntegral());
+    if (isIntegral(e1type)) {
+      assert(isIntegral(e2type));
       LLValue *one =
-          LLConstantInt::get(val->getType(), 1, !e2type->isUnsigned());
+          LLConstantInt::get(val->getType(), 1, !isUnsigned(e2type));
       if (e->op == EXP::plusPlus) {
         post = llvm::BinaryOperator::CreateAdd(val, one, "", p->scopebb());
       } else if (e->op == EXP::minusMinus) {
@@ -1509,8 +1509,8 @@ public:
       LLConstant *offset =
           e->op == EXP::plusPlus ? DtoConstUint(1) : DtoConstInt(-1);
       post = DtoGEP1(DtoMemType(dv->type->nextOf()), val, offset, "", p->scopebb());
-    } else if (e1type->isComplex()) {
-      assert(e2type->isComplex());
+    } else if (isComplex(e1type)) {
+      assert(isComplex(e2type));
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
       LLValue *re, *im;
       DtoGetComplexParts(e->loc, e1type, dv, re, im);
@@ -1520,8 +1520,8 @@ public:
         re = llvm::BinaryOperator::CreateFSub(re, one, "", p->scopebb());
       }
       DtoComplexSet(DtoType(dv->type), lval, re, im);
-    } else if (e1type->isFloating()) {
-      assert(e2type->isFloating());
+    } else if (isFloating(e1type)) {
+      assert(isFloating(e2type));
       LLValue *one = DtoConstFP(e1type, ldouble(1.0));
       if (e->op == EXP::plusPlus) {
         post = llvm::BinaryOperator::CreateFAdd(val, one, "", p->scopebb());
@@ -1534,7 +1534,7 @@ public:
 
     // The real part of the complex number has already been updated, skip the
     // store
-    if (!e1type->isComplex()) {
+    if (!isComplex(e1type)) {
       DtoStore(post, lval);
     }
     result = new DImValue(e->type, val);
@@ -2054,7 +2054,7 @@ public:
         assert(lv->getType() == rv->getType());
       }
       eval = DtoDelegateEquals(e->op, lv, rv);
-    } else if (t1->isFloating()) { // includes iscomplex
+    } else if (isFloating(t1)) { // includes iscomplex
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t1->ty == TY::Tpointer || t1->ty == TY::Tclass) {
       LLValue *lv = DtoRVal(l);
@@ -2178,14 +2178,14 @@ public:
 
     DRValue *dval = toElem(e->e1)->getRVal();
 
-    if (e->type->isComplex()) {
+    if (isComplex(e->type)) {
       result = DtoComplexNeg(e->loc, e->type, dval);
       return;
     }
 
     LLValue *val = DtoRVal(dval);
 
-    if (e->type->isIntegral()) {
+    if (isIntegral(e->type)) {
       val = p->ir->CreateNeg(val, "negval");
     } else {
       val = p->ir->CreateFNeg(val, "negval");

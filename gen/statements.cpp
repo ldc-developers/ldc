@@ -1447,13 +1447,13 @@ public:
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
     // evaluate lwr/upr
-    assert(stmt->lwr->type->isIntegral());
+    assert(isIntegral(stmt->lwr->type));
     LLValue *lower = DtoRVal(toElemDtor(stmt->lwr));
-    assert(stmt->upr->type->isIntegral());
+    assert(isIntegral(stmt->upr->type));
     LLValue *upper = DtoRVal(toElemDtor(stmt->upr));
 
     // handle key
-    assert(stmt->key->type->isIntegral());
+    assert(isIntegral(stmt->key->type));
     LLValue *keyval  = DtoRawVarDeclaration(stmt->key);
     LLType  *keytype = DtoType(stmt->key->type);
     // store initial value in key

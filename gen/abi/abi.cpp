@@ -113,7 +113,7 @@ bool TargetABI::isAggregate(Type *t) {
   //        by runtime functions, for which we don't apply the rewrites yet
   //        when calling them
   return ty == TY::Tstruct || ty == TY::Tsarray ||
-         /*ty == TY::Tarray ||*/ ty == TY::Tdelegate || t->isComplex();
+         /*ty == TY::Tarray ||*/ ty == TY::Tdelegate || isComplex(t);
 }
 
 bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {

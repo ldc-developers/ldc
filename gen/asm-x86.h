@@ -2343,7 +2343,7 @@ struct AsmProcessor {
     if (sc->func->isNaked()) {
       switch (type) {
       case Arg_Integer:
-        if (e->type->isUnsigned()) {
+        if (dmd::isUnsigned(e->type)) {
           insnTemplate << "$" << e->toUInteger();
         } else {
 #ifndef ASM_X86_64
@@ -3232,7 +3232,7 @@ struct AsmProcessor {
           operand->hasNumber = 1;
         }
       } else {
-        if (v && v->type->isScalar()) {
+        if (v && dmd::isScalar(v->type)) {
           // DMD doesn't check Tcomplex*, and counts Tcomplex32 as
           // Tfloat64
           TY ty = v->type->toBasetype()->ty;

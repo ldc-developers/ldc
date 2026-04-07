@@ -391,7 +391,7 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
 
   // just emit a typedef for non-integral base types
   auto tb = type->toBasetype();
-  if (!tb->isIntegral()) {
+  if (!isIntegral(tb)) {
     auto tbase = CreateTypeDescription(tb);
     return DBuilder.createTypedef(tbase, name, file, lineNumber, scope);
   }
@@ -861,7 +861,7 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     return CreateEnumType(te);
   if (auto tv = t->isTypeVector())
     return CreateVectorType(tv);
-  if (t->isIntegral() || t->isFloating())
+  if (isIntegral(t) || isFloating(t))
     return CreateBasicType(t);
   if (auto tp = t->isTypePointer())
     return CreatePointerType(tp);

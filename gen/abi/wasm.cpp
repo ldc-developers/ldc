@@ -31,7 +31,7 @@ Type *getSingleWrappedScalarType(Type *t) {
     return getSingleWrappedScalarType(tsa->nextOf());
   }
 
-  return t->isScalar()
+  return isScalar(t)
                  // some more pointers:
                  || t->ty == TY::Tclass || t->ty == TY::Taarray
              ? t

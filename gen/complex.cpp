@@ -139,9 +139,9 @@ void DtoGetComplexParts(Loc loc, Type *to, DValue *val, DValue *&re,
 
   Type *t = val->type->toBasetype();
 
-  if (t->isComplex()) {
+  if (isComplex(t)) {
     DValue *v = DtoCastComplex(loc, val, to);
-    if (to->isComplex()) {
+    if (isComplex(to)) {
       if (v->isLVal()) {
         LLValue *reVal = DtoGEP(DtoType(v->type), DtoLVal(v), 0u, 0, ".re_part");
         LLValue *imVal = DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1, ".im_part");
@@ -158,13 +158,13 @@ void DtoGetComplexParts(Loc loc, Type *to, DValue *val, DValue *&re,
     } else {
       DtoGetComplexParts(loc, to, v, re, im);
     }
-  } else if (t->isImaginary()) {
+  } else if (isImaginary(t)) {
     re = nullptr;
     im = DtoCastFloat(loc, val, baseimty);
-  } else if (t->isFloating()) {
+  } else if (isFloating(t)) {
     re = DtoCastFloat(loc, val, baserety);
     im = nullptr;
-  } else if (t->isIntegral()) {
+  } else if (isIntegral(t)) {
     re = DtoCastInt(loc, val, baserety);
     im = nullptr;
   } else {
@@ -431,7 +431,7 @@ LLValue *DtoComplexEquals(Loc loc, EXP op, DValue *lhs, DValue *rhs) {
 DValue *DtoCastComplex(Loc loc, DValue *val, Type *_to) {
   Type *to = _to->toBasetype();
   Type *vty = val->type->toBasetype();
-  if (to->isComplex()) {
+  if (isComplex(to)) {
     if (size(vty) == size(to)) {
       return val;
     }
@@ -451,7 +451,7 @@ DValue *DtoCastComplex(Loc loc, DValue *val, Type *_to) {
     LLValue *pair = DtoAggrPair(DtoType(_to), re, im);
     return new DImValue(_to, pair);
   }
-  if (to->isImaginary()) {
+  if (isImaginary(to)) {
     // FIXME: this loads both values, even when we only need one
     LLValue *v = DtoRVal(val);
     LLValue *impart = gIR->ir->CreateExtractValue(v, 1, ".im_part");
@@ -476,7 +476,7 @@ DValue *DtoCastComplex(Loc loc, DValue *val, Type *_to) {
     return new DImValue(
         _to, DtoComplexEquals(loc, EXP::notEqual, val, DtoNullValue(vty)));
   }
-  if (to->isFloating() || to->isIntegral()) {
+  if (isFloating(to) || isIntegral(to)) {
     // FIXME: this loads both values, even when we only need one
     LLValue *v = DtoRVal(val);
     LLValue *repart = gIR->ir->CreateExtractValue(v, 0, ".re_part");
