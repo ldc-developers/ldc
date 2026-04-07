@@ -1686,7 +1686,7 @@ public:
     // pointer
     if (et->ty == TY::Tpointer) {
       Type *elementType = et->nextOf()->toBasetype();
-      if (elementType->ty == TY::Tstruct && elementType->needsDestruction()) {
+      if (elementType->ty == TY::Tstruct && needsDestruction(elementType)) {
         DtoDeleteStruct(e->loc, dval);
       } else {
         DtoDeleteMemory(e->loc, dval);

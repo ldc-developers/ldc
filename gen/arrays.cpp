@@ -200,7 +200,7 @@ void DtoArrayAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
 
   Type *const elemType = t->nextOf()->toBasetype();
   const bool needsDestruction =
-      (!isConstructing && elemType->needsDestruction());
+      (!isConstructing && dmd::needsDestruction(elemType));
   LLValue *lhsPtr = DtoArrayPtr(lhs);
   LLValue *lhsLength = DtoArrayLen(lhs);
 

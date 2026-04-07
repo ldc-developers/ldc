@@ -123,7 +123,7 @@ void DtoDeleteArray(Loc loc, DValue *arr) {
   // the TypeInfo argument must be null if the type has no dtor
   Type *elementType = arr->type->nextOf();
   bool hasDtor = (elementType->toBasetype()->ty == TY::Tstruct &&
-                  elementType->needsDestruction());
+                  needsDestruction(elementType));
   LLValue *typeInfo = !hasDtor ? getNullPtr()
                                : DtoTypeInfoOf(loc, elementType);
 
