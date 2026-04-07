@@ -3795,7 +3795,7 @@ struct AsmProcessor {
         // DMD uses labels secondarily to other symbols, so check
         // if IdentifierExp::semantic won't find anything.
         Dsymbol *scopesym;
-        if (!sc->search(stmt->loc, ident, scopesym)) {
+        if (!dmd::search(sc, stmt->loc, ident, scopesym)) {
           if (LabelDsymbol *labelsym = sc->func->searchLabel(ident, stmt->loc)) {
             e = createDsymbolExp(stmt->loc, labelsym);
             if (opTakesLabel()) {
@@ -3812,7 +3812,7 @@ struct AsmProcessor {
       // Special case for floating point constant declarations.
       if (e->op == EXP::float64) {
         Dsymbol *scopesym;
-        Dsymbol *sym = sc->search(stmt->loc, ident, scopesym);
+        Dsymbol *sym = dmd::search(sc, stmt->loc, ident, scopesym);
         if (sym) {
           VarDeclaration *v = sym->isVarDeclaration();
           if (v) {
