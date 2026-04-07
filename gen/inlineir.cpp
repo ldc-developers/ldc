@@ -133,20 +133,20 @@ DValue *DtoInlineIRExpr(Loc loc, FuncDeclaration *fdecl,
     if (isExtended) {
       Expression *a0 = isExpression(objs[0]);
       assert(a0);
-      StringExp *prefexp = a0->toStringExp();
+      StringExp *prefexp = toStringExp(a0);
       Expression *a1 = isExpression(objs[1]);
       assert(a1);
-      StringExp *strexp = a1->toStringExp();
+      StringExp *strexp = toStringExp(a1);
       Expression *a2 = isExpression(objs[2]);
       assert(a2);
-      StringExp *suffexp = a2->toStringExp();
+      StringExp *suffexp = toStringExp(a2);
       prefix = exprToString(prefexp);
       code = exprToString(strexp);
       suffix = exprToString(suffexp);
     } else {
       Expression *a0 = isExpression(objs[0]);
       assert(a0);
-      StringExp *strexp = a0->toStringExp();
+      StringExp *strexp = toStringExp(a0);
       code = exprToString(strexp);
     }
 
