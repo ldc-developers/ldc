@@ -102,7 +102,7 @@ version (LDC) // note: there's a copy for importC in __importc_builtins.di
         version (ARM)
             public import core.stdc.stdarg : __va_list;
         else version (AArch64)
-            public import core.internal.vararg.aarch64 : __va_list;
+            public import core.internal.vararg.aapcs64 : __va_list;
     }
 }
 
