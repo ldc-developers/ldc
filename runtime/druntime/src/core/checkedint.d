@@ -970,8 +970,8 @@ ulong mulu()(ulong x, uint y, ref bool overflow)
 {
     version (LDC_HasNativeI64Mul)
     {
-        if (!__ctfe)
-            return mulu(x, ulong(y), overflow);
+        return __ctfe ? mulu_generic(x, y, overflow)
+            : mulu(x, ulong(y), overflow);
     }
     else version (D_InlineAsm_X86_64)
     {
