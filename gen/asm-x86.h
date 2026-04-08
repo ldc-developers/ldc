@@ -3174,6 +3174,11 @@ struct AsmProcessor {
   }
 #endif
 
+  Reg regFromRegExp(Expression *exp) {
+    assert(isRegExp(exp));
+    return static_cast<Reg>(static_cast<IntegerExp *>(exp)->value);
+  }
+
   void slotExp(Expression *exp) {
     /*
       if offset, make a note
@@ -3209,15 +3214,15 @@ struct AsmProcessor {
       }
       if (!operand->inBracket) {
         if (operand->reg == Reg_Invalid) {
-          operand->reg = static_cast<Reg>(dmd::toInteger(exp));
+          operand->reg = regFromRegExp(exp);
         } else {
           error(stmt->loc, "too many registers in operand (use brackets)");
         }
       } else {
         if (operand->baseReg == Reg_Invalid) {
-          operand->baseReg = static_cast<Reg>(dmd::toInteger(exp));
+          operand->baseReg = regFromRegExp(exp);
         } else if (operand->indexReg == Reg_Invalid) {
-          operand->indexReg = static_cast<Reg>(dmd::toInteger(exp));
+          operand->indexReg = regFromRegExp(exp);
           operand->scale = 1;
         } else {
           error(stmt->loc, "too many registers memory operand");
@@ -3289,7 +3294,7 @@ struct AsmProcessor {
     Expression *exp = parseAsmExp();
     slotExp(exp);
     if (isRegExp(exp)) {
-      operand->dataSize = static_cast<PtrType>(regInfo[dmd::toInteger(exp)].size);
+      operand->dataSize = static_cast<PtrType>(regInfo[regFromRegExp(exp)].size);
     }
   }
 
@@ -3496,7 +3501,7 @@ struct AsmProcessor {
         return true;
       }
 
-      operand->indexReg = static_cast<Reg>(dmd::toInteger(e1));
+      operand->indexReg = regFromRegExp(e1);
       operand->scale = dmd::toInteger(e2);
       switch (operand->scale) {
       case 1:
