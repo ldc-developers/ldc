@@ -479,6 +479,13 @@ public:
                          e->e2->type ? e->e2->type->toChars() : nullptr);
     LOG_SCOPE;
 
+    if (auto ce = e->isConstructExp()) {
+      if (ce->lowering) {
+        result = toElem(ce->lowering);
+        return;
+      }
+    }
+
     // Initialization of ref variable?
     // Can't just override ConstructExp::toElem because not all EXP::construct
     // operations are actually instances of ConstructExp... Long live the DMD
