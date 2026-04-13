@@ -918,6 +918,13 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_LLVM");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang"); // legacy
     break;
+  case llvm::Triple::Hurd:
+    VersionCondition::addPredefinedGlobalIdent("Hurd");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_GNU");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc"); // legacy
+    break;
   default:
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
