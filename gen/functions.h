@@ -40,7 +40,6 @@ void DtoResolveFunction(FuncDeclaration *fdecl);
 void DtoDeclareFunction(FuncDeclaration *fdecl);
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally = false);
 
-void DtoDefineNakedFunction(FuncDeclaration *fd);
 void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc loc,
                           FuncDeclaration *fdecl);
 

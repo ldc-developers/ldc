@@ -3,6 +3,7 @@
 #### Big news
 - Support for [LLVM 22](https://releases.llvm.org/22.1.0/docs/ReleaseNotes.html). The prebuilt packages use v22.1.2. (#5097, #5102)
 - Minimum LLVM version raised to 18. (#5094)
+- DMD-style inline assembly: `asm { naked; }` is now much less of a special case wrt. codegen - such naked functions are now emitted as if `asm { naked; }` was replaced with the `@naked` function UDA. IR-wise, they are not emitted as module-level asm blobs anymore, but regular IR functions. This should lift a few former `asm { naked; }`-specific restrictions and fixed at least one LTO issue. (#5041)
 - Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
 
 #### Platform support
