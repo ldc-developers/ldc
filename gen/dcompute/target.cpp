@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/Support/raw_ostream.h"
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 
 #include "dmd/dsymbol.h"

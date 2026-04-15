@@ -38,4 +38,4 @@ struct DcomputePointer {
     return LLPointerType::get(getGlobalContext(), as);
   }
 };
-std::optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
+auto toDcomputePointer(StructDeclaration *sd) -> std::optional<DcomputePointer>;
