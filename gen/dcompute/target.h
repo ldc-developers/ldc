@@ -27,7 +27,7 @@ class DComputeTarget {
 public:
   llvm::LLVMContext &ctx;
   int tversion; // OpenCL or CUDA CC version:major*100 + minor*10
-  enum class ID { Host = 0, OpenCL = 1, CUDA = 2 };
+  enum class ID { Host = 0, OpenCL = 1, CUDA = 2, Metal = 3 };
   ID target;    // ID for codegen time conditional compilation.
   const char *short_name;
   const char *binSuffix;
@@ -56,6 +56,10 @@ public:
 
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
 DComputeTarget *createCUDATarget(llvm::LLVMContext &c, int sm);
+#endif
+
+#if LDC_LLVM_SUPPORTED_TARGET_AArch64
+auto createMetalTarget(llvm::LLVMContext &c, int version) -> DComputeTarget *;
 #endif
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV

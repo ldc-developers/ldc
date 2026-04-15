@@ -22,8 +22,10 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "globals.h"
 #include "ir/irfunction.h"
 #include "ir/irfuncty.h"
+#include "llvm/TargetParser/Triple.h"
 #include <algorithm>
 
 using namespace dmd;
@@ -286,6 +288,17 @@ TargetABI *TargetABI::getTarget() {
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     return getWasmTargetABI();
+  
+  case llvm::Triple::UnknownArch:
+    if (global.params.targetTriple->getArchName() == "air64") {
+      return createMetalABI();
+    }
+    
+    warning(Loc(),
+            "unknown target ABI, falling back to generic implementation. C/C++ "
+            "interop will almost certainly NOT work.");
+    return new TargetABI;
+  
   default:
     warning(Loc(),
             "unknown target ABI, falling back to generic implementation. C/C++ "
