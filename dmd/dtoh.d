@@ -2983,6 +2983,11 @@ public:
                 const l = dec.resolvedLinkage();
                 res = (l == LINK.cpp || l == LINK.c);
             }
+            else if (auto ad = sym.isAggregateDeclaration())
+            {
+                import dmd.aggregate : ClassKind;
+                res = ad.classKind == ClassKind.cpp;
+            }
         }
 
         // Remember result for later calls
