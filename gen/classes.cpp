@@ -277,6 +277,12 @@ DValue *DtoCastClass(Loc loc, DValue *val, Type *_to) {
   Type *from = val->type->toBasetype();
   TypeClass *fc = static_cast<TypeClass *>(from);
 
+  // Qualifier-only casts are semantic no-ops; avoid dynamic cast routing.
+  if (dmd::equivalent(from, to)) {
+    Logger::println("qualifier-only cast");
+    return new DImValue(_to, DtoRVal(val));
+  }
+
   // copy DMD logic:
   // if to isBaseOf from with offset:   (to ? to + offset : null)
   // else if from is C++ and to is C++:  to

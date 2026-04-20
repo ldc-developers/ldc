@@ -728,22 +728,8 @@ private:
           Type *thistype = gIR->func()->decl->vthis->type;
           if (thistype != iface->type) {
             auto thisVal = DtoLoad(DtoType(thistype), thisptrLval);
-            auto thisTypeClass = thistype->toBasetype()->isTypeClass();
-            auto ifaceTypeClass = iface->type->toBasetype()->isTypeClass();
-            const bool sameInterfaceSymbol =
-                thisTypeClass && ifaceTypeClass &&
-                thisTypeClass->sym->isInterfaceDeclaration() &&
-                thisTypeClass->sym == ifaceTypeClass->sym;
-
-            if (sameInterfaceSymbol) {
-              // Qualifier-only interface casts don't require dynamic cast routing.
-              thisptrLval = DtoAllocaDump(
-                  new DImValue(iface->type,
-                               DtoBitCast(thisVal, DtoType(iface->type))));
-            } else {
-              DImValue dthis(thistype, thisVal);
-              thisptrLval = DtoAllocaDump(DtoCastClass(loc, &dthis, iface->type));
-            }
+            DImValue dthis(thistype, thisVal);
+            thisptrLval = DtoAllocaDump(DtoCastClass(loc, &dthis, iface->type));
           }
         }
       }
