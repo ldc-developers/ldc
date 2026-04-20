@@ -88,7 +88,7 @@ std::string objcGetTypeEncoding(Type *t) {
       tmp.append(isUnion ? "(" : "{");
       tmp.append(t->toChars());
       tmp.append("=");
-      
+
       for(unsigned int i = 0; i < sym->numArgTypes(); i++) {
         tmp.append(objcGetTypeEncoding(sym->argType(i)));
       }
@@ -139,7 +139,7 @@ std::string objcGetClassMethodListSymbol(const char *className, bool meta) {
   return objcGetSymbolName(meta ? "_OBJC_$_CLASS_METHODS_" : "_OBJC_$_INSTANCE_METHODS_", className);
 }
 
-std::string objcGetProtoMethodListSymbol(const char *className, bool meta, bool optional) {  
+std::string objcGetProtoMethodListSymbol(const char *className, bool meta, bool optional) {
   return optional ?
     objcGetSymbolName(meta ? "_OBJC_$_PROTOCOL_CLASS_METHODS_OPT_" : "_OBJC_$_PROTOCOL_INSTANCE_METHODS_OPT_", className) :
     objcGetSymbolName(meta ? "_OBJC_$_PROTOCOL_CLASS_METHODS_" : "_OBJC_$_PROTOCOL_INSTANCE_METHODS_", className);
@@ -315,7 +315,7 @@ LLStructType *objcGetProtocolType(const llvm::Module& module) {
 
 LLConstant *objcEmitList(llvm::Module &module, LLConstantList objects, bool alignSizeT, bool countOnly) {
   LLConstantList members;
-  
+
   // Emit nullptr for empty lists.
   if (objects.empty())
     return nullptr;
@@ -368,7 +368,7 @@ size_t objcGetClassFlags(ClassDeclaration *decl) {
   size_t flags = 0;
   if (!decl->baseClass)
     flags |= RO_ROOT;
-  
+
   if (decl->objc.isMeta)
     flags |= RO_META;
 
@@ -390,7 +390,7 @@ ClassDeclaration *objcGetMetaClass(ClassDeclaration *decl) {
 
 ClassDeclaration *objcGetSuper(ClassDeclaration *decl) {
   return (decl->objc.isRootClass() || !decl->baseClass) ?
-    decl : 
+    decl :
     decl->baseClass;
 }
 
@@ -399,7 +399,7 @@ ClassDeclaration *objcGetSuper(ClassDeclaration *decl) {
 //
 
 ptrdiff_t objcGetInstanceStart(llvm::Module &module, ClassDeclaration *decl, bool meta) {
-  ptrdiff_t start = meta ? 
+  ptrdiff_t start = meta ?
     getTypeAllocSize(objcGetClassType(module)) :
     getPointerSize();
 
@@ -418,13 +418,13 @@ ptrdiff_t objcGetInstanceStart(llvm::Module &module, ClassDeclaration *decl, boo
 }
 
 size_t objcGetInstanceSize(llvm::Module &module, ClassDeclaration *decl, bool meta) {
-  size_t start = meta ? 
+  size_t start = meta ?
     getTypeAllocSize(objcGetClassType(module)) :
     getPointerSize();
 
   if (meta)
     return start;
-  
+
   return start + dmd::size(decl, decl->loc);
 }
 
@@ -441,12 +441,12 @@ LLConstant *ObjCState::getClassRoTable(ClassDeclaration *decl) {
   if (auto it = classRoTables.find(decl); it != classRoTables.end()) {
     return it->second;
   }
-  
+
   // No need to generate RO tables for externs.
   // nor for null declarations.
   if (!decl || decl->objc.isExtern)
     return getNullPtr();
-  
+
   // Base Methods
   auto meta = decl->objc.isMeta;
   auto name = objcResolveName(decl);
@@ -469,7 +469,7 @@ LLConstant *ObjCState::getClassRoTable(ClassDeclaration *decl) {
   }
 
   if (!meta) {
-    
+
     // Instance variables
     if (auto baseIvars = createIvarList(decl)) {
       ivarList = getOrCreate(objcGetIvarListSymbol(name), baseIvars->getType(), OBJC_SECNAME_CONST);
@@ -501,7 +501,7 @@ LLConstant *ObjCState::getClassTable(ClassDeclaration *decl) {
   if (auto it = classTables.find(decl); it != classTables.end()) {
     return it->second;
   }
-  
+
   // If decl is null, just return a null pointer.
   if (!decl)
     return getNullPtr();
@@ -512,7 +512,7 @@ LLConstant *ObjCState::getClassTable(ClassDeclaration *decl) {
   auto table = getOrCreate(sym, objcGetClassType(module), OBJC_SECNAME_DATA, decl->objc.isExtern);
   classTables[decl] = table;
   this->retain(table);
-  
+
   // Extern tables don't need a body.
   if (decl->objc.isExtern)
     return table;
@@ -547,7 +547,7 @@ ObjcClassInfo *ObjCState::getClass(ClassDeclaration *decl) {
 
   if (!decl->objc.isMeta)
     classInfo->ref->setInitializer(classInfo->table);
-  
+
   return classInfo;
 }
 
@@ -638,7 +638,7 @@ LLConstant *ObjCState::createProtocolTable(InterfaceDeclaration *decl) {
     optClassMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
     optClassMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
   }
-  
+
   auto protoType = objcGetProtocolType(module);
   auto allocSize = getTypeAllocSize(protoType);
 
@@ -652,7 +652,7 @@ LLConstant *ObjCState::createProtocolTable(InterfaceDeclaration *decl) {
   members.push_back(getNullPtr());                    // instanceProperties (TODO)
   members.push_back(DtoConstUint(allocSize));         // size
   members.push_back(DtoConstUint(0));                 // flags
-  
+
   return LLConstantStruct::getAnon(
     members,
     true
@@ -734,7 +734,7 @@ ObjcMethodInfo *ObjCState::getMethod(FuncDeclaration *decl) {
   methodInfo->llfunction = decl->fbody ?
     DtoBitCast(DtoCallee(decl), getOpaquePtrType()) :
     getNullPtr();
-  
+
   this->retain(methodInfo->name);
   this->retain(methodInfo->type);
   this->retain(methodInfo->selector);
@@ -754,7 +754,7 @@ LLConstant *ObjCState::createMethodList(ClassDeclaration *decl, bool optional) {
   LLConstantList methodList;
 
   if (decl) {
-    
+
     auto methodDeclList = getMethodsForType(decl, optional);
     for(auto func : methodDeclList) {
       methodList.push_back(createMethodInfo(func));
@@ -829,7 +829,7 @@ LLConstant *ObjCState::createIvarInfo(VarDeclaration *decl) {
 
 LLConstant *ObjCState::createIvarList(ClassDeclaration *decl) {
   LLConstantList ivarList;
-  
+
   for(auto field : decl->fields) {
     ivarList.push_back(createIvarInfo(field));
   }
@@ -840,13 +840,12 @@ LLConstant *ObjCState::createIvarList(ClassDeclaration *decl) {
 //    HELPERS
 //
 LLValue *ObjCState::deref(ClassDeclaration *decl, LLType *as) {
-
   // Protocols can also have static functions
   // as such we need to also be able to dereference them.
   if (auto proto = decl->isInterfaceDeclaration()) {
     return DtoLoad(as, getProtocol(proto)->ref);
   }
-  
+
   // Classes may be class stubs.
   // in that case, we need to call objc_loadClassRef instead of just
   // loading from the classref.
@@ -869,7 +868,7 @@ ObjcList<FuncDeclaration *> ObjCState::getMethodsForType(ClassDeclaration *decl,
   if (decl) {
     for(size_t i = 0; i < decl->objc.methodList.length; i++) {
       auto method = decl->objc.methodList.ptr[i];
-      
+
       if (isProtocol) {
         if (method->objc.isOptional == optional)
           funcs.push_back(method);

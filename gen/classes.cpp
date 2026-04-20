@@ -335,7 +335,7 @@ bool DtoIsObjcLinkage(Type *_to) {
     DtoResolveClass(to->sym);
     return to->sym->classKind == ClassKind::objc;
   }
-  
+
   return false;
 }
 
@@ -391,7 +391,7 @@ DValue *DtoDynamicCastInterface(Loc loc, DValue *val, Type *_to) {
   // In this case we want to call the Objective-C runtime to first
   // get a Class object from the `id`.
   // Then check if class_conformsToProtocol returns true,
-  // if it does, then we can cast and return the casted value, 
+  // if it does, then we can cast and return the casted value,
   // otherwise return null.
   if (DtoIsObjcLinkage(_to)) {
     llvm::Function *getClassFunc =
@@ -400,10 +400,10 @@ DValue *DtoDynamicCastInterface(Loc loc, DValue *val, Type *_to) {
     llvm::Function *kindOfProtocolFunc =
       getRuntimeFunction(loc, gIR->module, "class_conformsToProtocol");
 
-    // id -> Class 
+    // id -> Class
     LLValue *obj = DtoRVal(val);
     LLValue *objClass = gIR->CreateCallOrInvoke(getClassFunc, obj);
-    
+
     // Get prototype_t handle
     LLValue *protoTy = getNullPtr();
     if (auto ifhndl = _to->isClassHandle()->isInterfaceDeclaration()) {
@@ -413,7 +413,7 @@ DValue *DtoDynamicCastInterface(Loc loc, DValue *val, Type *_to) {
     // Class && kindOfProtocolFunc(Class) ? id : null
     LLValue *ret = gIR->ir->CreateSelect(
       gIR->CreateCallOrInvoke(kindOfProtocolFunc, objClass, protoTy),
-      obj, 
+      obj,
       getNullPtr()
     );
     return new DImValue(_to, ret);

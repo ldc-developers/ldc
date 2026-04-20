@@ -727,14 +727,29 @@ private:
           //  class pointer
           Type *thistype = gIR->func()->decl->vthis->type;
           if (thistype != iface->type) {
-            DImValue *dthis = new DImValue(thistype, DtoLoad(DtoType(thistype),thisptrLval));
-            thisptrLval = DtoAllocaDump(DtoCastClass(loc, dthis, iface->type));
+            auto thisVal = DtoLoad(DtoType(thistype), thisptrLval);
+            auto thisTypeClass = thistype->toBasetype()->isTypeClass();
+            auto ifaceTypeClass = iface->type->toBasetype()->isTypeClass();
+            const bool sameInterfaceSymbol =
+                thisTypeClass && ifaceTypeClass &&
+                thisTypeClass->sym->isInterfaceDeclaration() &&
+                thisTypeClass->sym == ifaceTypeClass->sym;
+
+            if (sameInterfaceSymbol) {
+              // Qualifier-only interface casts don't require dynamic cast routing.
+              thisptrLval = DtoAllocaDump(
+                  new DImValue(iface->type,
+                               DtoBitCast(thisVal, DtoType(iface->type))));
+            } else {
+              DImValue dthis(thistype, thisVal);
+              thisptrLval = DtoAllocaDump(DtoCastClass(loc, &dthis, iface->type));
+            }
           }
         }
       }
       args.push_back(thisptrLval);
     } else if (thiscall && dfnval && dfnval->vthis) {
-      
+
       if (objccall && directcall) {
 
         // ... or a Objective-c direct call argument
