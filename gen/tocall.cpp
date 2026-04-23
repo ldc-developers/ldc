@@ -727,15 +727,14 @@ private:
           //  class pointer
           Type *thistype = gIR->func()->decl->vthis->type;
           if (thistype != iface->type) {
-            auto thisVal = DtoLoad(DtoType(thistype), thisptrLval);
-            DImValue dthis(thistype, thisVal);
-            thisptrLval = DtoAllocaDump(DtoCastClass(loc, &dthis, iface->type));
+            DImValue *dthis = new DImValue(thistype, DtoLoad(DtoType(thistype),thisptrLval));
+            thisptrLval = DtoAllocaDump(DtoCastClass(loc, dthis, iface->type));
           }
         }
       }
       args.push_back(thisptrLval);
     } else if (thiscall && dfnval && dfnval->vthis) {
-
+      
       if (objccall && directcall) {
 
         // ... or a Objective-c direct call argument
