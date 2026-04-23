@@ -12,6 +12,7 @@
 #include "gen/abi/abi.h"
 #include "gen/abi/generic.h"
 #include "gen/dcompute/druntime.h"
+#include "gen/uda.h"
 #include "ir/irfuncty.h"
 #include "gen/dcompute/abi-rewrites.h"
 #include "mtype.h"
@@ -23,6 +24,7 @@ using namespace dmd;
 
 struct MetalABI : TargetABI {
     DComputePointerRewrite pointerRewite;
+    DcomputeMetalScalarRewrite metalScalarRewrite;
 
     auto returnInArg(TypeFunction *tf, bool needsThis) -> bool override {
         return false;
@@ -30,6 +32,14 @@ struct MetalABI : TargetABI {
 
     auto passByVal(TypeFunction *tf, Type*t) -> bool override {
         return false;
+    }
+
+    void rewriteFunctionType(IrFuncTy &fty) override {
+      for (auto arg : fty.args) {
+        if (!arg->byref) {
+          rewriteArgument(fty, *arg);
+        }
+      }
     }
 
     void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
@@ -46,6 +56,11 @@ struct MetalABI : TargetABI {
             (ptr = toDcomputePointer(static_cast<TypeStruct *>(ty)->sym))) {
                 pointerRewite.applyTo(arg);
             }
+
+        if (ty->isScalar()) {
+          llvm::errs() << "Applying Metal Scalar Rewrite to: " << ty->toChars() << "\n";
+          metalScalarRewrite.applyTo(arg);
+        }
     }
 };
 
