@@ -7,7 +7,6 @@ module tests.codegen.gh5114;
 // True dynamic interface casts (different interface symbols) are still valid
 // and are covered below.
 //
-// RUN: %ldc -c %s
 // RUN: %ldc -unittest -main -run %s
 
 extern (D):
