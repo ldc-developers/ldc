@@ -11,7 +11,7 @@
 #include "driver/cl_options.h"
 #include "driver/cl_helpers.h"
 #include "dmd/errors.h"
-#include "globals.h"
+#include "dmd/globals.h"
 #include "ir/irdsymbol.h"
 #include "llvm/Support/CommandLine.h"
 #include <array>
@@ -45,8 +45,8 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
   }
 
   if (s.substr(0, 6) == "air64-") {
-#if  LDC_LLVM_SUPPORTED_TARGET_AArch64 //&& LDC_LLVM_VER >= 2100 
-    return createMetalTarget(ctx, 64);    
+#if  LDC_LLVM_SUPPORTED_TARGET_AArch64 //&& LDC_LLVM_VER >= 2100
+    return createMetalTarget(ctx, 64);
 #else
     error(Loc(), "LDC was not built with Apple Metal Dcompute support!");
 #endif
@@ -69,7 +69,7 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 #endif
   }
 
-  
+
 #define STR(...) #__VA_ARGS__
 #define XSTR(x) STR(x)
 

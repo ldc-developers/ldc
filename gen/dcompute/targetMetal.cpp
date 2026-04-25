@@ -61,7 +61,7 @@ public:
             "-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-"
             "v512:512:512-v1024:1024:1024-n8:16:32";
 
-        auto floatABI = ::FloatABI::Hard;
+        // auto floatABI = ::FloatABI::Hard;
         // targetMachine = createTargetMachine(
         //         targTriple,
         //         is64 ? "" : "",
@@ -91,7 +91,6 @@ public:
   }
 
   void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf, StructLiteralExp *_unused_) override {
-    llvm::errs() << "\n\nAdding kernel metadata...............\n\n";
     llvm::NamedMDNode *kernels = _ir->module.getOrInsertNamedMetadata("air.kernel");
 
     std::vector<llvm::Metadata *> kernelMetadataArguments;

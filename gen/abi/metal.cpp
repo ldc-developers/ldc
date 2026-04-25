@@ -12,6 +12,7 @@
 #include "gen/abi/abi.h"
 #include "gen/abi/generic.h"
 #include "gen/dcompute/druntime.h"
+#include "gen/logger.h"
 #include "gen/uda.h"
 #include "ir/irfuncty.h"
 #include "gen/dcompute/abi-rewrites.h"
@@ -58,7 +59,6 @@ struct MetalABI : TargetABI {
             }
 
         if (ty->isScalar()) {
-          llvm::errs() << "Applying Metal Scalar Rewrite to: " << ty->toChars() << "\n";
           metalScalarRewrite.applyTo(arg);
         }
     }
