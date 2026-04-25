@@ -22,7 +22,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "globals.h"
+#include "dmd/globals.h"
 #include "ir/irfunction.h"
 #include "ir/irfuncty.h"
 #include "llvm/TargetParser/Triple.h"
