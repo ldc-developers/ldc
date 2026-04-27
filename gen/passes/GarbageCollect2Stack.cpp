@@ -351,13 +351,13 @@ static void RemoveCall(CallBase *CB, const G2StackAnalysis &A) {
   // immediately before it. Ideally, we would find a way to not invalidate
   // the dominator tree here.
   if (auto Invoke = dyn_cast<InvokeInst>(static_cast<Instruction *>(CB))) {
-    BranchInst::Create(Invoke->getNormalDest(),
-#if LLVM_VERSION_MAJOR >= 19
-                       Invoke->getIterator()
+#if   LLVM_VERSION_MAJOR >= 23
+    UncondBrInst::Create(Invoke->getNormalDest(), Invoke->getIterator());
+#elif LLVM_VERSION_MAJOR >= 19
+    BranchInst::Create(Invoke->getNormalDest(), Invoke->getIterator());
 #else
-                       Invoke
+    BranchInst::Create(Invoke->getNormalDest(), Invoke);
 #endif
-    );
     Invoke->getUnwindDest()->removePredecessor(CB->getParent());
   }
 

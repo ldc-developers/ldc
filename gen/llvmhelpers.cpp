@@ -1364,7 +1364,11 @@ void printLabelName(std::ostream &target, const char *func_mangle,
                     const char *label_name) {
   // note: quotes needed for Unicode
   target << '"'
+#if LLVM_VERSION_MAJOR >= 23
+         << gTargetMachine->getMCAsmInfo()->getPrivateLabelPrefix().str()
+#else
          << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix().str()
+#endif
          << func_mangle << "_" << label_name << '"';
 }
 
@@ -1429,6 +1433,24 @@ LLValue *createIPairCmp(EXP op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
                                             : gIR->ir->CreateOr(r1, r2));
 
   return r;
+}
+
+llvm::Instruction *createBranch(LLValue* cond,
+                                llvm::BasicBlock * _if,
+                                llvm::BasicBlock * _else,
+                                llvm::BasicBlock *insertAfter) {
+#if LLVM_VERSION_MAJOR >= 23
+  return llvm::CondBrInst::Create(cond, _if, _else, insertAfter);
+#else
+  return llvm::BranchInst::Create(_if, _else, cond, insertAfter);
+#endif
+}
+llvm::Instruction *createBranch(llvm::BasicBlock *label, llvm::BasicBlock *insertAfter) {
+#if LLVM_VERSION_MAJOR >= 23
+  return llvm::UncondBrInst::Create(label, insertAfter);
+#else
+  return llvm::BranchInst::Create(label, insertAfter);
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////

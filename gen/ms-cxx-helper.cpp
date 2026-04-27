@@ -107,7 +107,7 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
               CInst, llvm::OperandBundleDef("funclet", funclet));
           newInst = call;
         } else if (funclet && llvm::isa<llvm::UnreachableInst>(Inst)) {
-          newInst = llvm::BranchInst::Create(continueWith); // to cleanupret
+          newInst = createBranch(continueWith);
         }
       }
       if (!newInst)

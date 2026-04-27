@@ -1379,19 +1379,19 @@ public:
 
         llvm::Value *fptreqcmp = p->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,
                                                    lfptr, rfptr, ".fptreqcmp");
-        llvm::BranchInst::Create(fptreq, fptrneq, fptreqcmp, p->scopebb());
+        createBranch(fptreqcmp, fptreq, fptrneq, p->scopebb());
 
         p->ir->SetInsertPoint(fptreq);
         llvm::Value *lctx = p->ir->CreateExtractValue(lhs, 0, ".lctx");
         llvm::Value *rctx = p->ir->CreateExtractValue(rhs, 0, ".rctx");
         llvm::Value *ctxcmp =
             p->ir->CreateICmp(icmpPred, lctx, rctx, ".ctxcmp");
-        llvm::BranchInst::Create(dgcmpend, p->scopebb());
+        createBranch(dgcmpend, p->scopebb());
 
         p->ir->SetInsertPoint(fptrneq);
         llvm::Value *fptrcmp =
             p->ir->CreateICmp(icmpPred, lfptr, rfptr, ".fptrcmp");
-        llvm::BranchInst::Create(dgcmpend, p->scopebb());
+        createBranch(dgcmpend, p->scopebb());
 
         p->ir->SetInsertPoint(dgcmpend);
         llvm::PHINode *phi = p->ir->CreatePHI(ctxcmp->getType(), 2, ".dgcmp");
@@ -1784,7 +1784,7 @@ public:
     LLValue *condval = DtoRVal(DtoCast(e->loc, cond, Type::tbool));
 
     // branch
-    llvm::BranchInst::Create(passedbb, failedbb, condval, p->scopebb());
+    createBranch(condval, passedbb, failedbb, p->scopebb());
     // The branch does not need instrumentation for PGO because failedbb
     // terminates in unreachable, which means that LLVM will automatically
     // assign branch weights to this branch instruction.
@@ -1911,7 +1911,7 @@ public:
     }
 
     llvm::BasicBlock *newblock = p->scopebb();
-    llvm::BranchInst::Create(endBB, p->scopebb());
+    createBranch(endBB, p->scopebb());
     p->ir->SetInsertPoint(endBB);
 
     // DMD allows stuff like `x == 0 && assert(false)`
@@ -2138,7 +2138,7 @@ public:
       LLValue *lval = makeLValue(e->loc, u);
       DtoStore(lval, retPtr);
     }
-    llvm::BranchInst::Create(condend, p->scopebb());
+    createBranch(condend, p->scopebb());
 
     p->ir->SetInsertPoint(condfalse);
     DValue *v = toElem(e->e2);
@@ -2146,7 +2146,7 @@ public:
       LLValue *lval = makeLValue(e->loc, v);
       DtoStore(lval, retPtr);
     }
-    llvm::BranchInst::Create(condend, p->scopebb());
+    createBranch(condend, p->scopebb());
 
     p->ir->SetInsertPoint(condend);
     if (retPtr)

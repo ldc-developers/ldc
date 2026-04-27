@@ -221,7 +221,7 @@ void DtoFinalizeScopeClass(Loc loc, DValue *dval,
   const auto hasMonitor =
       gIR->ir->CreateICmp(llvm::CmpInst::ICMP_NE, monitor,
                           getNullValue(monitor->getType()), ".hasMonitor");
-  llvm::BranchInst::Create(ifbb, endbb, hasMonitor, gIR->scopebb());
+  createBranch(hasMonitor, ifbb, endbb, gIR->scopebb());
 
   gIR->ir->SetInsertPoint(ifbb);
   DtoFinalizeClass(loc, inst);
