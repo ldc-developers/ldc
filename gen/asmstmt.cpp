@@ -532,9 +532,14 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       }
       Identifier *const ident = targetLabel->ident;
 
-      // if internal, no special handling is necessary, skip
-      if (llvm::any_of(asmblock->internalLabels,
-                       [ident](Identifier *i) { return i->equals(ident); })) {
+      // if the label is defined in inline asm, we can jump to it directly
+      if (fd->isNaked() // in naked DMD-style inline-asm functions, all D labels
+                        // become assembly labels too (and the extra forwarding
+                        // code would mess with the stack due to an i32 alloca)
+          || (fd->asmLabels &&
+              llvm::any_of(*fd->asmLabels, [ident](Identifier *i) {
+                return i->equals(ident);
+              }))) {
         continue;
       }
 
@@ -783,22 +788,4 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
     p->ir->SetInsertPoint(bb);
   }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-void AsmStatement_toNakedIR(InlineAsmStatement *stmt, IRState *irs) {
-  IF_LOG Logger::println("InlineAsmStatement::toNakedIR(): %s",
-                         stmt->loc.toChars());
-  LOG_SCOPE;
-
-  // is there code?
-  if (!stmt->asmcode) {
-    return;
-  }
-  AsmCode *code = static_cast<AsmCode *>(stmt->asmcode);
-
-  // build asm stmt
-  replace_func_name(irs, code->insnTemplate);
-  irs->nakedAsm << "\t" << code->insnTemplate << std::endl;
 }

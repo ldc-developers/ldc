@@ -94,9 +94,6 @@ struct IRAsmBlock {
   std::set<std::string> clobs;
   size_t outputcount;
 
-  // stores the labels within the asm block
-  std::vector<Identifier *> internalLabels;
-
   CompoundAsmStatement *asmBlock;
   LLType *retty;
   unsigned retn;
@@ -220,7 +217,6 @@ public:
 
   // for inline asm
   IRAsmBlock *asmBlock = nullptr;
-  std::ostringstream nakedAsm;
 
   // Globals to pin in the llvm.used array to make sure they are not
   // eliminated.
