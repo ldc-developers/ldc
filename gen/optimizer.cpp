@@ -194,8 +194,13 @@ static OptimizationLevel getOptimizationLevel(){
     case 3:
     case 4:
     case 5: return OptimizationLevel::O3;
+#if LLVM_VERSION_MAJOR >= 23
+    case -1: return OptimizationLevel::O2;
+    case -2: return OptimizationLevel::O2;
+#else
     case -1: return OptimizationLevel::Os;
     case -2: return OptimizationLevel::Oz;
+#endif
   }
   //This should never be reached
   llvm_unreachable("Unexpected optimizeLevel.");

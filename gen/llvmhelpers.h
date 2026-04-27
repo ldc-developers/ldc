@@ -186,6 +186,11 @@ llvm::ICmpInst::Predicate eqTokToICmpPred(EXP op, bool invert = false);
 /// `(lhs1 != rhs1) | (lhs2 != rhs2)` for inequality/not-identity.
 LLValue *createIPairCmp(EXP op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
                         LLValue *rhs2);
+llvm::Instruction *createBranch(LLValue* cond,
+                                llvm::BasicBlock * _if,
+                                llvm::BasicBlock * _else,
+                                llvm::BasicBlock *insertAfter = nullptr);
+llvm::Instruction *createBranch(llvm::BasicBlock *label, llvm::BasicBlock *insertAfter = nullptr);
 
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below

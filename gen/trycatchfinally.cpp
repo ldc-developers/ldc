@@ -350,7 +350,7 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
     // not done so already.
     if (exitTargets.empty()) {
       exitTargets.emplace_back(continueWith);
-      llvm::BranchInst::Create(continueWith, endBlock());
+      createBranch(continueWith, endBlock());
     }
     exitTargets.front().sourceBlocks.push_back(sourceBlock);
     return beginBlock();
@@ -430,7 +430,8 @@ llvm::BasicBlock *CleanupScope::runCopying(IRState &irs,
   if (exitTargets.empty()) {
     if (!endBlock()->getTerminator())
       // Set up the unconditional branch at the end of the cleanup
-      llvm::BranchInst::Create(continueWith, endBlock());
+      createBranch(continueWith, endBlock());
+
   } else {
     // check whether we have an exit target with the same continuation
     for (CleanupExitTarget &tgt : exitTargets)
@@ -867,7 +868,7 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
   irs.DBuilder.EmitStopPoint(irs.func()->decl->loc);
   auto exec = irs.ir->CreateCall(
       beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
-  llvm::BranchInst::Create(copybb, cleanupret, exec, cleanupbb);
+  createBranch(exec, copybb, cleanupret, cleanupbb);
 
   return cleanupbb;
 }

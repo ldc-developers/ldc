@@ -89,7 +89,7 @@ static void DtoArrayInit(Loc loc, LLValue *ptr, LLValue *length,
 
   // move into the for condition block, ie. start the loop
   assert(!gIR->scopereturned());
-  llvm::BranchInst::Create(condbb, gIR->scopebb());
+  createBranch(condbb, gIR->scopebb());
 
   // replace current scope
   gIR->ir->SetInsertPoint(condbb);
@@ -101,7 +101,7 @@ static void DtoArrayInit(Loc loc, LLValue *ptr, LLValue *length,
 
   // conditional branch
   assert(!gIR->scopereturned());
-  llvm::BranchInst::Create(bodybb, endbb, cond_val, gIR->scopebb());
+  createBranch(cond_val, bodybb, endbb, gIR->scopebb());
 
   // rewrite scope
   gIR->ir->SetInsertPoint(bodybb);
@@ -117,7 +117,7 @@ static void DtoArrayInit(Loc loc, LLValue *ptr, LLValue *length,
            itr);
 
   // loop
-  llvm::BranchInst::Create(condbb, gIR->scopebb());
+  createBranch(condbb, gIR->scopebb());
 
   // rewrite the scope
   gIR->ir->SetInsertPoint(endbb);
