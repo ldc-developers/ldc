@@ -145,7 +145,7 @@ void callForEachMagicAttribute(Dsymbol &sym, const Identifier *id,
 
 sinteger_t getIntElem(StructLiteralExp *sle, size_t idx) {
   auto arg = (*sle->elements)[idx];
-  return arg->toInteger();
+  return toInteger(arg);
 }
 
 llvm::StringRef getStringElem(StructLiteralExp *sle, size_t idx) {
@@ -630,7 +630,7 @@ extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
 
   checkStructElems(sle, {Type::tint32});
 
-  return static_cast<DComputeCompileFor>(1 + (*sle->elements)[0]->toInteger());
+  return static_cast<DComputeCompileFor>(1 + toInteger((*sle->elements)[0]));
 }
 
 /// Returns whether `sym` has the `@ldc.dcompute._kernel()` UDA applied.

@@ -3,7 +3,7 @@
  *
  * Specification: ($LINK2 https://dlang.org/spec/function.html#interpretation, Compile Time Function Execution (CTFE))
  *
- * Copyright:   Copyright (C) 1999-2025 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2026 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/compiler/src/dmd/dinterpret.d, _dinterpret.d)
@@ -51,7 +51,7 @@ import dmd.root.utf;
 import dmd.statement;
 import dmd.semantic2 : findFunc;
 import dmd.tokens;
-import dmd.typesem : mutableOf, equivalent, pointerTo, sarrayOf, arrayOf, size, merge, defaultInitLiteral;
+import dmd.typesem;
 import dmd.utils : arrayCastBigEndian;
 import dmd.visitor;
 
@@ -4700,34 +4700,6 @@ public:
                     result = evaluateDtor(istate, result);
                 if (!result)
                     result = CTFEExp.voidexp;
-                return;
-            }
-            else if (isArrayConstruction(fd.ident))
-            {
-                // In expressionsem.d, `T[x] ea = eb;` was lowered to:
-                // `_d_array{,set}ctor(ea[], eb[]);`.
-                // The following code will rewrite it back to `ea = eb` and
-                // then interpret that expression.
-
-                if (fd.ident == Id._d_arrayctor)
-                    assert(e.arguments.length == 3);
-                else
-                    assert(e.arguments.length == 2);
-
-                Expression ea = (*e.arguments)[0];
-                if (ea.isCastExp)
-                    ea = ea.isCastExp.e1;
-
-                Expression eb = (*e.arguments)[1];
-                if (eb.isCastExp() && fd.ident == Id._d_arrayctor)
-                    eb = eb.isCastExp.e1;
-
-                ConstructExp ce = new ConstructExp(e.loc, ea, eb);
-                ce.type = ea.type;
-
-                ce.type = ea.type;
-                result = interpret(ce, istate);
-
                 return;
             }
         }

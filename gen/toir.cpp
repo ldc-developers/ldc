@@ -182,7 +182,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
         // try to construct it in-place
         if (!toInPlaceConstruction(field, expr)) {
           DtoAssign(loc, field, toElem(expr), EXP::blit);
-          if (expr->isLvalue())
+          if (isLvalue(expr))
             callPostblit(loc, expr, DtoLVal(field));
         }
       } else {
@@ -435,7 +435,7 @@ public:
     const auto stringLength = e->len;
 
     if (auto tsa = dtype->isTypeSArray()) {
-      const auto arrayLength = tsa->dim->toInteger();
+      const auto arrayLength = toInteger(tsa->dim);
       assert(arrayLength >= stringLength);
       // ImportC: static array length may exceed string length incl. null
       // terminator - bypass string-literal cache and create a separate constant
@@ -478,6 +478,13 @@ public:
                          e->e1->type->toChars(),
                          e->e2->type ? e->e2->type->toChars() : nullptr);
     LOG_SCOPE;
+
+    if (auto ce = e->isConstructExp()) {
+      if (ce->lowering) {
+        result = toElem(ce->lowering);
+        return;
+      }
+    }
 
     // Initialization of ref variable?
     // Can't just override ConstructExp::toElem because not all EXP::construct
@@ -567,7 +574,7 @@ public:
     if (e->e1->type->toBasetype()->ty == TY::Tstruct &&
         e->e2->op == EXP::int64) {
       Logger::println("performing aggregate zero initialization");
-      assert(e->e2->toInteger() == 0);
+      assert(toInteger(e->e2) == 0);
       LLValue *lval = DtoLVal(lhs);
       DtoMemSetZero(DtoType(lhs->type), lval);
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
@@ -581,10 +588,10 @@ public:
     // getting out of sync?
     bool lvalueElem = false;
     if ((e->e2->op == EXP::slice &&
-         static_cast<UnaExp *>(e->e2)->e1->isLvalue()) ||
+         isLvalue(static_cast<UnaExp *>(e->e2)->e1)) ||
         (e->e2->op == EXP::cast_ &&
-         static_cast<UnaExp *>(e->e2)->e1->isLvalue()) ||
-        (e->e2->op != EXP::slice && e->e2->isLvalue())) {
+         isLvalue(static_cast<UnaExp *>(e->e2)->e1)) ||
+        (e->e2->op != EXP::slice && isLvalue(e->e2))) {
       lvalueElem = true;
     }
 
@@ -929,9 +936,9 @@ public:
     }
 
     // Casts are also "optimized into" SymOffExp by the frontend.
-    LLValue *llVal = (e->type->toBasetype()->isIntegral()
-                          ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
-                          : DtoBitCast(offsetValue, DtoType(e->type)));
+    LLValue *llVal = isIntegral(e->type->toBasetype())
+                         ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
+                         : DtoBitCast(offsetValue, DtoType(e->type));
     result = new DImValue(e->type, llVal);
   }
 
@@ -1286,7 +1293,7 @@ public:
       // (namely default initialization, int[16][16] arr; -> int[256] arr = 0;)
       if (etype->ty == TY::Tsarray) {
         TypeSArray *tsa = static_cast<TypeSArray *>(etype);
-        elen = DtoConstSize_t(tsa->dim->toUInteger());
+        elen = DtoConstSize_t(toUInteger(tsa->dim));
       }
     }
 
@@ -1322,7 +1329,7 @@ public:
 
     LLValue *eval = nullptr;
 
-    if (t->isIntegral() || t->ty == TY::Tpointer || t->ty == TY::Tnull) {
+    if (isIntegral(t) || t->ty == TY::Tpointer || t->ty == TY::Tnull) {
       llvm::ICmpInst::Predicate icmpPred;
       tokToICmpPred(e->op, isLLVMUnsigned(t), &icmpPred, &eval);
 
@@ -1338,7 +1345,7 @@ public:
         }
         eval = p->ir->CreateICmp(icmpPred, a, b);
       }
-    } else if (t->isFloating()) {
+    } else if (isFloating(t)) {
       llvm::FCmpInst::Predicate cmpop;
       switch (e->op) {
       case EXP::lessThan:
@@ -1430,7 +1437,7 @@ public:
 
     // the Tclass catches interface comparisons, regular
     // class equality should be rewritten as a.opEquals(b) by this time
-    if (t->isIntegral() || t->ty == TY::Tpointer || t->ty == TY::Tclass ||
+    if (isIntegral(t) || t->ty == TY::Tpointer || t->ty == TY::Tclass ||
         t->ty == TY::Tnull) {
       Logger::println("integral or pointer or interface");
       llvm::ICmpInst::Predicate cmpop;
@@ -1454,7 +1461,7 @@ public:
         Logger::cout() << "rv: " << *rv << '\n';
       }
       eval = p->ir->CreateICmp(cmpop, lv, rv);
-    } else if (t->isFloating()) { // includes iscomplex
+    } else if (isFloating(t)) { // includes iscomplex
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t->ty == TY::Tsarray || t->ty == TY::Tarray) {
       Logger::println("static or dynamic array");
@@ -1495,10 +1502,10 @@ public:
     Type *e1type = e->e1->type->toBasetype();
     Type *e2type = e->e2->type->toBasetype();
 
-    if (e1type->isIntegral()) {
-      assert(e2type->isIntegral());
+    if (isIntegral(e1type)) {
+      assert(isIntegral(e2type));
       LLValue *one =
-          LLConstantInt::get(val->getType(), 1, !e2type->isUnsigned());
+          LLConstantInt::get(val->getType(), 1, !isUnsigned(e2type));
       if (e->op == EXP::plusPlus) {
         post = llvm::BinaryOperator::CreateAdd(val, one, "", p->scopebb());
       } else if (e->op == EXP::minusMinus) {
@@ -1509,8 +1516,8 @@ public:
       LLConstant *offset =
           e->op == EXP::plusPlus ? DtoConstUint(1) : DtoConstInt(-1);
       post = DtoGEP1(DtoMemType(dv->type->nextOf()), val, offset, "", p->scopebb());
-    } else if (e1type->isComplex()) {
-      assert(e2type->isComplex());
+    } else if (isComplex(e1type)) {
+      assert(isComplex(e2type));
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
       LLValue *re, *im;
       DtoGetComplexParts(e->loc, e1type, dv, re, im);
@@ -1520,8 +1527,8 @@ public:
         re = llvm::BinaryOperator::CreateFSub(re, one, "", p->scopebb());
       }
       DtoComplexSet(DtoType(dv->type), lval, re, im);
-    } else if (e1type->isFloating()) {
-      assert(e2type->isFloating());
+    } else if (isFloating(e1type)) {
+      assert(isFloating(e2type));
       LLValue *one = DtoConstFP(e1type, ldouble(1.0));
       if (e->op == EXP::plusPlus) {
         post = llvm::BinaryOperator::CreateFAdd(val, one, "", p->scopebb());
@@ -1534,7 +1541,7 @@ public:
 
     // The real part of the complex number has already been updated, skip the
     // store
-    if (!e1type->isComplex()) {
+    if (!isComplex(e1type)) {
       DtoStore(post, lval);
     }
     result = new DImValue(e->type, val);
@@ -1686,7 +1693,7 @@ public:
     // pointer
     if (et->ty == TY::Tpointer) {
       Type *elementType = et->nextOf()->toBasetype();
-      if (elementType->ty == TY::Tstruct && elementType->needsDestruction()) {
+      if (elementType->ty == TY::Tstruct && needsDestruction(elementType)) {
         DtoDeleteStruct(e->loc, dval);
       } else {
         DtoDeleteMemory(e->loc, dval);
@@ -2054,7 +2061,7 @@ public:
         assert(lv->getType() == rv->getType());
       }
       eval = DtoDelegateEquals(e->op, lv, rv);
-    } else if (t1->isFloating()) { // includes iscomplex
+    } else if (isFloating(t1)) { // includes iscomplex
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t1->ty == TY::Tpointer || t1->ty == TY::Tclass) {
       LLValue *lv = DtoRVal(l);
@@ -2178,14 +2185,14 @@ public:
 
     DRValue *dval = toElem(e->e1)->getRVal();
 
-    if (e->type->isComplex()) {
+    if (isComplex(e->type)) {
       result = DtoComplexNeg(e->loc, e->type, dval);
       return;
     }
 
     LLValue *val = DtoRVal(dval);
 
-    if (e->type->isIntegral()) {
+    if (isIntegral(e->type)) {
       val = p->ir->CreateNeg(val, "negval");
     } else {
       val = p->ir->CreateFNeg(val, "negval");
@@ -2602,7 +2609,7 @@ public:
       if (auto ts = tsrc->isTypeSArray()) {
         Logger::println("static array expression");
         (void)ts;
-        assert(ts->dim->toInteger() == N &&
+        assert(toInteger(ts->dim) == N &&
                "Static array vector initializer length mismatch, should have "
                "been handled in frontend.");
       } else {

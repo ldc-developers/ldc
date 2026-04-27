@@ -12,6 +12,7 @@ import dmd.location;
 import dmd.visitor;
 import dmd.declaration;
 import dmd.dsymbol;
+import dmd.typesem;
 
 extern(C++) class MyVisitor : SemanticTimeTransitiveVisitor {
     alias visit = SemanticTimeTransitiveVisitor.visit;

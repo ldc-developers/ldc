@@ -118,7 +118,7 @@ public:
     } else {
       assert(llvm::isa<LLIntegerType>(t));
       result = LLConstantInt::get(t, static_cast<uint64_t>(e->getInteger()),
-                                  !e->type->isUnsigned());
+                                  !isUnsigned(e->type));
       assert(result);
       IF_LOG Logger::cout() << "value = " << *result << '\n';
     }
@@ -168,7 +168,7 @@ public:
     Type *const t = e->type->toBasetype();
 
     if (auto ts = t->isTypeSArray()) {
-      const auto arrayLength = ts->dim->toInteger();
+      const auto arrayLength = toInteger(ts->dim);
       assert(arrayLength >= e->len);
       result = buildStringLiteralConstant(e, arrayLength);
       return;
@@ -190,13 +190,13 @@ public:
   // very similar to emitPointerOffset() in binops.cpp
   LLConstant *tryEmitPointerOffset(BinExp *e, bool negateOffset) {
     Type *t1b = e->e1->type->toBasetype();
-    if (t1b->ty != TY::Tpointer || !e->e2->type->isIntegral())
+    if (t1b->ty != TY::Tpointer || !isIntegral(e->e2->type))
       return nullptr;
 
     Type *const pointeeType = t1b->nextOf();
 
     LLConstant *llBase = toConstElem(e->e1, p);
-    const dinteger_t byteOffset = e->e2->toInteger();
+    const dinteger_t byteOffset = toInteger(e->e2);
 
     LLConstant *llResult = nullptr;
     const auto pointeeSize = size(pointeeType, e->loc);
@@ -260,7 +260,7 @@ public:
       if (auto se = e->e1->isStringExp())
         if (auto lwr = e->lwr->isIntegerExp())
           if (auto upr = e->upr->isIntegerExp())
-            if (lwr->toInteger() == 0 && upr->toInteger() == se->len) {
+            if (toInteger(lwr) == 0 && toInteger(upr) == se->len) {
               result = toConstElem(se, p);
               return;
             }
@@ -625,7 +625,7 @@ public:
     assert(tv->ty == TY::Tvector);
 
     const auto elemCount =
-        static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
+        toInteger(static_cast<TypeSArray *>(tv->basetype)->dim);
 
     // Array literals are assigned element-for-element; other expressions splat
     // across the whole vector.

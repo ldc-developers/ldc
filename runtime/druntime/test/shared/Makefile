@@ -73,7 +73,8 @@ $(OBJDIR)/dll_gc_proxy_teardown_nounload$(DOTEXE): dll_gc_proxy_teardown.d
 	$(LINK.d) $< $(extra_sources) $(extra_ldlibs.d) $(LDLIBS.d) $(OUTPUT_OPTION.d)
 
 $(ROOT)/dllgc$(DOTEXE): $(ROOT)/dllgc$(DOTDLL)
-$(ROOT)/dllgc$(DOTDLL): private extra_dflags += -version=DLL -od=$(ROOT)/dll
+$(ROOT)/dllgc$(DOTDLL): private extra_dflags += -version=DLL -od=$(ROOT)/dll -L/PDB:$(ROOT)/dllgc_dll.pdb
+$(ROOT)/dynamiccast$(DOTDLL): private extra_dflags += -L/PDB:$(ROOT)/dynamiccast_dll.pdb
 endif # Windows
 
 $(ROOT)/dynamiccast.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE) $(ROOT)/%$(DOTDLL)

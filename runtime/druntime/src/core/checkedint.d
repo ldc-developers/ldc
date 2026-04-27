@@ -970,20 +970,18 @@ ulong mulu()(ulong x, uint y, ref bool overflow)
 {
     version (LDC_HasNativeI64Mul)
     {
-        if (!__ctfe)
-            return mulu(x, ulong(y), overflow);
+        return __ctfe ? mulu_generic(x, y, overflow)
+            : mulu(x, ulong(y), overflow);
     }
     else version (D_InlineAsm_X86_64)
     {
-        if (!__ctfe)
-            return mulu(x, ulong(y), overflow);
+        return __ctfe ? mulu_generic(x, y, overflow)
+            : mulu(x, ulong(y), overflow);
     }
-
-    ulong r = x * y;
-    if (x >> 32 &&
-            r / x != y)
-        overflow = true;
-    return r;
+    else
+    {
+        return mulu_generic(x, y, overflow);
+    }
 }
 
 /// ditto
@@ -1021,6 +1019,16 @@ ulong mulu()(ulong x, ulong y, ref bool overflow)
     if ((x | y) >> 32 &&
             x &&
             r / x != y)
+        overflow = true;
+    return r;
+}
+
+private ulong mulu_generic()(ulong x, uint y, ref bool overflow)
+{
+    pragma(inline, true)
+    ulong r = x * y;
+    if (x >> 32 &&
+        r / x != y)
         overflow = true;
     return r;
 }

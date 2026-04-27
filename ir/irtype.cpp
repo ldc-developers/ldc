@@ -143,7 +143,7 @@ IrTypeSArray *IrTypeSArray::get(Type *dt) {
   // forward reference in a struct.
   if (!ctype) {
     TypeSArray *tsa = static_cast<TypeSArray *>(dt);
-    uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
+    uint64_t dim = static_cast<uint64_t>(dmd::toUInteger(tsa->dim));
     ctype = new IrTypeSArray(dt, llvm::ArrayType::get(elemType, dim));
   }
 
@@ -185,7 +185,7 @@ IrTypeVector *IrTypeVector::get(Type *dt) {
   // Could have already built the type as part of a struct forward reference,
   // just as for pointers and arrays.
   if (!ctype) {
-    LLType *lt = llvm::VectorType::get(elemType, tsa->dim->toUInteger(),
+    LLType *lt = llvm::VectorType::get(elemType, dmd::toUInteger(tsa->dim),
                                        /*Scalable=*/false);
     ctype = new IrTypeVector(dt, lt);
   }

@@ -29,7 +29,10 @@ struct ll_ThreadData
 {
     ThreadID tid;
     version (Windows)
+    {
         void delegate() nothrow cbDllUnload;
+        void* hMod; // HMODULE containing the unload callback
+    }
 }
 
 version (GNU)
@@ -47,12 +50,13 @@ else version (LDC)
     // core.thread.fiber.
     enum isStackGrowingDown = true;
 }
-else
+else version (DigitalMars)
 {
-    version (X86) enum isStackGrowingDown = true;
-    else version (X86_64) enum isStackGrowingDown = true;
-    else static assert(0, "It is undefined how the stack grows on this architecture.");
+    // All dmd targets grow down
+    enum isStackGrowingDown = true;
 }
+else
+    static assert(0, "It is undefined how the stack grows on this architecture.");
 
 package
 {

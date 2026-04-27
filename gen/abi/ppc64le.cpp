@@ -55,9 +55,9 @@ struct PPC64LETargetABI : TargetABI {
       } else {
         compositeToArray64.applyTo(arg);
       }
-    } else if (ty->isIntegral() && !ty->isTypeVector()) {
-      arg.attrs.addAttribute(ty->isUnsigned() ? LLAttribute::ZExt
-                                              : LLAttribute::SExt);
+    } else if (isIntegral(ty) && !ty->isTypeVector()) {
+      arg.attrs.addAttribute(isUnsigned(ty) ? LLAttribute::ZExt
+                                            : LLAttribute::SExt);
     }
   }
 };

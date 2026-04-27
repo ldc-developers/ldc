@@ -391,7 +391,7 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
 
   // just emit a typedef for non-integral base types
   auto tb = type->toBasetype();
-  if (!tb->isIntegral()) {
+  if (!isIntegral(tb)) {
     auto tbase = CreateTypeDescription(tb);
     return DBuilder.createTypedef(tbase, name, file, lineNumber, scope);
   }
@@ -402,7 +402,7 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
       EnumMember *em = m->isEnumMember();
       if (auto ie = em->value()->isIntegerExp()) {
         subscripts.push_back(
-            DBuilder.createEnumerator(em->toChars(), ie->toInteger()));
+            DBuilder.createEnumerator(em->toChars(), toInteger(ie)));
       }
     }
   }
@@ -431,7 +431,7 @@ DIType DIBuilder::CreatePointerType(TypePointer *type) {
 DIType DIBuilder::CreateVectorType(TypeVector *type) {
   LLType *T = DtoType(type);
 
-  const auto dim = type->basetype->isTypeSArray()->dim->toInteger();
+  const auto dim = toInteger(type->basetype->isTypeSArray()->dim);
   const auto Dim = llvm::ConstantAsMetadata::get(DtoConstSize_t(dim));
   auto subscript = DBuilder.getOrCreateSubrange(Dim, nullptr, nullptr, nullptr);
 
@@ -711,7 +711,7 @@ DIType DIBuilder::CreateSArrayType(TypeSArray *type) {
   llvm::SmallVector<LLMetadata *, 8> subscripts;
   for (; te->ty == TY::Tsarray; te = te->nextOf()) {
     TypeSArray *tsa = static_cast<TypeSArray *>(te);
-    const auto count = tsa->dim->toInteger();
+    const auto count = toInteger(tsa->dim);
     const auto Count = llvm::ConstantAsMetadata::get(DtoConstSize_t(count));
     const auto subscript =
         DBuilder.getOrCreateSubrange(Count, nullptr, nullptr, nullptr);
@@ -861,7 +861,7 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     return CreateEnumType(te);
   if (auto tv = t->isTypeVector())
     return CreateVectorType(tv);
-  if (t->isIntegral() || t->isFloating())
+  if (isIntegral(t) || isFloating(t))
     return CreateBasicType(t);
   if (auto tp = t->isTypePointer())
     return CreatePointerType(tp);
