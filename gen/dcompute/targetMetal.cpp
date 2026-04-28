@@ -6,6 +6,7 @@
 // file for details.
 //
 //===----------------------------------------------------------------------===//
+#if LDC_LLVM_SUPPORTED_TARGET_AArch64
 
 #include "declaration.h"
 #include "gen/dcompute/druntime.h"
@@ -21,9 +22,6 @@
 #include <string>
 #include <vector>
 #include "dmd/identifier.h"
-
-#if LDC_LLVM_SUPPORTED_TARGET_AArch64
-
 #include "gen/dcompute/target.h"
 #include "gen/abi/targets.h"
 #include "gen/logger.h"
@@ -49,25 +47,16 @@ public:
     // TODO: need to find 32-bit triple
     llvm::StringRef tripleString = "air64_v28-apple-macosx26.0.0";
 
-    _ir->module.setTargetTriple(llvm::Triple(tripleString));
+    #if LLVM_VERSION_MAJOR>= 21
+        _ir->module.setTargetTriple(llvm::Triple(tripleString));
+    #else
+        _ir->module.setTargetTriple(tripleString);
+    #endif
 
-
-    // #if LDC_LLVM_VER >= 2100
-    //     _ir->module.setTargetTriple(llvm::Triple(tripleString));
-    // #else
-        // _ir->module.setTargetTriple(tripleString);
-    // #endif
         llvm::StringRef dataLayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64"
             "-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-"
             "v512:512:512-v1024:1024:1024-n8:16:32";
 
-        // auto floatABI = ::FloatABI::Hard;
-        // targetMachine = createTargetMachine(
-        //         targTriple,
-        //         is64 ? "" : "",
-        //         "", {},
-        //         is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, floatABI,
-        //         llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false);
         _ir->module.setDataLayout(is64 ? dataLayout: /* TODO: need to find 32-bit data layout */dataLayout);
         _ir->dcomputetarget = this;
   }
