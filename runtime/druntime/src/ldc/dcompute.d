@@ -14,6 +14,7 @@ enum ReflectTarget : uint
     Host = 0,
     OpenCL = 1,
     CUDA = 2,
+    Metal = 3,
 }
 /**
  * The pseudo conditional compilation function.
@@ -24,14 +25,13 @@ enum ReflectTarget : uint
  * valid values of _version are for OpenCL 100 110 120 200 210
  * and for CUDA are x*100 + y*10 for x any valid values of sm x.y
  * use 0 as a wildcard to match any version.
- 
  * This is mostly used for selecting the correct intrinsic for the
  * given target and version, but could also be used to tailor for
  * performance characteristics. See dcompute.std.index for an example
  * of how to select intrinsics.
  */
 pure nothrow @nogc
-extern(C) bool __dcompute_reflect(ReflectTarget t, uint _version = 0);
+extern (C) bool __dcompute_reflect(ReflectTarget t, uint _version = 0);
 
 ///Readability aliases for compute
 enum CompileFor : int
@@ -71,10 +71,12 @@ struct compute
 + }
 + ---
 +/
-private struct _kernel {
+private struct _kernel
+{
     size_t[3] bounds;
 }
-_kernel kernel(size_t[3] a = [1,1,1]) => _kernel(a);
+
+_kernel kernel(size_t[3] a = [1, 1, 1]) => _kernel(a);
 
 /++
  + DCompute has the notion of adress spaces, provide by the magic structs below.
@@ -103,18 +105,18 @@ struct Variable(AddrSpace as, T)
 
 enum AddrSpace : uint
 {
-    Private  = 0,
-    Global   = 1,
-    Shared   = 2,
+    Private = 0,
+    Global = 1,
+    Shared = 2,
     Constant = 3,
-    Generic  = 4,
+    Generic = 4,
 }
 
-alias PrivatePointer(T)  = Pointer!(AddrSpace.Private,  T);
-alias GlobalPointer(T)   = Pointer!(AddrSpace.Global,   T);
-alias SharedPointer(T)   = Pointer!(AddrSpace.Shared,   T);
+alias PrivatePointer(T) = Pointer!(AddrSpace.Private, T);
+alias GlobalPointer(T) = Pointer!(AddrSpace.Global, T);
+alias SharedPointer(T) = Pointer!(AddrSpace.Shared, T);
 alias ConstantPointer(T) = Pointer!(AddrSpace.Constant, immutable(T));
-alias GenericPointer(T)  = Pointer!(AddrSpace.Generic,  T);
+alias GenericPointer(T) = Pointer!(AddrSpace.Generic, T);
 
 // N.B private variables are declared on the stack and so cannot be declared
 // at module scope.
@@ -123,6 +125,6 @@ alias GenericPointer(T)  = Pointer!(AddrSpace.Generic,  T);
 //
 // The __gshared below does not work. It is kludged into place in `DtoResolveVariable`
 
-alias Global(T)   = /*__gshared*/ Variable!(AddrSpace.Global,   T);
-alias Shared(T)   = shared        Variable!(AddrSpace.Shared,   T);
-alias Constant(T) = immutable     Variable!(AddrSpace.Constant, T);
+alias Global(T) =  /*__gshared*/ Variable!(AddrSpace.Global, T);
+alias Shared(T) = shared Variable!(AddrSpace.Shared, T);
+alias Constant(T) = immutable Variable!(AddrSpace.Constant, T);

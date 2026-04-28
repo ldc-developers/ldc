@@ -13,7 +13,16 @@
 
 #pragma once
 
+#include "gen/abi/abi.h"
 #include "gen/abi/generic.h"
+#include "gen/dcompute/druntime.h"
+#include "gen/dvalue.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/tollvm.h"
+#include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/raw_ostream.h"
 
 struct DComputePointerRewrite : ABIRewrite {
   LLValue *put(DValue *v, bool isLValueExp, bool) override {
@@ -30,5 +39,21 @@ struct DComputePointerRewrite : ABIRewrite {
   LLType *type(Type *t) override {
     auto ptr = toDcomputePointer(static_cast<TypeStruct *>(t)->sym);
     return ptr->toLLVMType(true);
+  }
+};
+
+struct DcomputeMetalScalarRewrite : ABIRewrite {
+  LLType *type(Type* t) override {
+    // XXXX: Scalar variables are stored in the constant memory space for Metal GPU
+    return llvm::PointerType::get(gIR->context(), 2/*Constant Memory space*/);
+  }
+
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    return v;
+  }
+
+  LLValue *put(DValue *v, bool isLValueExp, bool) override {
+    auto value = DtoRVal(v);
+    return value;
   }
 };
