@@ -22,7 +22,6 @@
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irfuncty.h"
-// #include <algorithm>
 
 using namespace dmd;
 
