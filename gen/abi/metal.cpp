@@ -7,17 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dmd/identifier.h"
-#include "dmd/nspace.h"
 #include "gen/abi/abi.h"
-#include "gen/abi/generic.h"
 #include "gen/dcompute/druntime.h"
-#include "gen/logger.h"
-#include "gen/uda.h"
-#include "ir/irfuncty.h"
 #include "gen/dcompute/abi-rewrites.h"
-#include "mtype.h"
-#include "llvm/Support/raw_ostream.h"
+#include "ir/irfuncty.h"
+#include "dmd/mtype.h"
 #include <optional>
 
 
@@ -64,4 +58,4 @@ struct MetalABI : TargetABI {
     }
 };
 
-auto createMetalABI() -> TargetABI* { return new MetalABI(); }
+TargetABI* createMetalABI() { return new MetalABI(); }

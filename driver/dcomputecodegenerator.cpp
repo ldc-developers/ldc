@@ -11,14 +11,13 @@
 #include "driver/cl_options.h"
 #include "driver/cl_helpers.h"
 #include "dmd/errors.h"
-#include "dmd/globals.h"
 #include "ir/irdsymbol.h"
 #include "llvm/Support/CommandLine.h"
 #include <array>
 #include <string>
 #include <algorithm>
 
-#if !(LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX)
+#if !(LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64)
 
 DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {}
 void DComputeCodeGenManager::emit(Module *) {}
@@ -117,4 +116,4 @@ DComputeCodeGenManager::~DComputeCodeGenManager() {
   gTargetMachine = oldGTargetMachine;
 }
 
-#endif // LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+#endif // LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64
