@@ -25,7 +25,6 @@ enum ReflectTarget : uint
  * valid values of _version are for OpenCL 100 110 120 200 210
  * and for CUDA are x*100 + y*10 for x any valid values of sm x.y
  * use 0 as a wildcard to match any version.
-
  * This is mostly used for selecting the correct intrinsic for the
  * given target and version, but could also be used to tailor for
  * performance characteristics. See dcompute.std.index for an example

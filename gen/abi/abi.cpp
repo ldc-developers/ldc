@@ -288,11 +288,7 @@ TargetABI *TargetABI::getTarget() {
     if (global.params.targetTriple->getArchName() == "air64") {
       return createMetalABI();
     }
-
-    warning(Loc(),
-            "unknown target ABI, falling back to generic implementation. C/C++ "
-            "interop will almost certainly NOT work.");
-    return new TargetABI;
+    // fallthrough
 
   default:
     warning(Loc(),
