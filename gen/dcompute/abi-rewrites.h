@@ -13,16 +13,8 @@
 
 #pragma once
 
-#include "gen/abi/abi.h"
 #include "gen/abi/generic.h"
 #include "gen/dcompute/druntime.h"
-#include "gen/dvalue.h"
-#include "gen/irstate.h"
-#include "gen/llvm.h"
-#include "gen/tollvm.h"
-#include "llvm/IR/AssemblyAnnotationWriter.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/Support/raw_ostream.h"
 
 struct DComputePointerRewrite : ABIRewrite {
   LLValue *put(DValue *v, bool isLValueExp, bool) override {

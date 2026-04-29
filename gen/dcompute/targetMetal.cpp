@@ -97,21 +97,23 @@ public:
       std::vector<llvm::Metadata *> argumentMetadata;
 
       argumentMetadata.push_back(
-          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
-              llvm::IntegerType::get(ctx, 32), locationIndex)));
+          metaInt(locationIndex));
 
-      argumentMetadata.push_back(metaString("air.buffer"));
+      argumentMetadata.push_back(
+        metaString("air.buffer"));
       argumentMetadata.push_back(
           metaString("air.location_index"));
       argumentMetadata.push_back(
           metaInt(locationIndex));
 
       // XXX: unknown, not sure why we need this, Metal backend expects it
-      argumentMetadata.push_back(metaInt(1));
+      argumentMetadata.push_back(
+        metaInt(1));
 
-      argumentMetadata.push_back(metaString("air.read_write"));
-
-      argumentMetadata.push_back(metaString("air.address_space"));
+      argumentMetadata.push_back(
+        metaString("air.read_write"));
+      argumentMetadata.push_back(
+        metaString("air.address_space"));
 
       if (arg.getType()->isPointerTy()) {
         unsigned addressSpace = arg.getType()->getPointerAddressSpace();
@@ -136,8 +138,7 @@ public:
     return kernelMetadataArguments;
   }
 
-  void
-  addArgumentTypeInformation(VarDeclaration *vd,
+  void addArgumentTypeInformation(VarDeclaration *vd,
                              std::vector<llvm::Metadata *> &argumentMetadata) {
     Type *type = nullptr;
     std::optional<DcomputePointer> ptr;
@@ -148,23 +149,26 @@ public:
       type = vd->type;
     }
 
-    argumentMetadata.push_back(metaString("air.arg_type_size"));
+    argumentMetadata.push_back(
+      metaString("air.arg_type_size"));
     argumentMetadata.push_back(
       metaInt(dmd::size(type, vd->loc)));
 
     argumentMetadata.push_back(
-      metaString("air.arg_type_align_size"))
-    ;
+      metaString("air.arg_type_align_size"));
     argumentMetadata.push_back(
       metaInt(type->alignsize()));
 
-    argumentMetadata.push_back(metaString("air.arg_type_name"));
+    argumentMetadata.push_back(
+      metaString("air.arg_type_name"));
     // TODO: check if using char needed instead of int8 as in ocl target implementation
     argumentMetadata.push_back(
         metaString(basicTypeToString(type)));
 
-    argumentMetadata.push_back(metaString("air.arg_name"));
-    argumentMetadata.push_back(metaString(vd->ident->toChars()));
+    argumentMetadata.push_back(
+      metaString("air.arg_name"));
+    argumentMetadata.push_back(
+      metaString(vd->ident->toChars()));
   }
 
   llvm::Metadata *metaInt(int n) {
