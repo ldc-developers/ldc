@@ -401,7 +401,7 @@ Expression *Target::getTargetInfo(const char *name_, Loc loc) {
     return IntegerExp::create(loc, static_cast<unsigned>(cet), Type::tint32);
   }
 
-#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64
   if (name == "dcomputeTargets") {
     Expressions* exps = createExpressions();
     for (auto &targ : opts::dcomputeTargets) {

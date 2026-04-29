@@ -41,4 +41,4 @@ TargetABI *getLoongArch64TargetABI();
 
 TargetABI *getWasmTargetABI();
 
-auto createMetalABI() -> TargetABI*;
+TargetABI* createMetalABI();

@@ -11,8 +11,6 @@
 
 #include "dmd/argtypes.h"
 #include "dmd/expression.h"
-#include "dmd/id.h"
-#include "dmd/identifier.h"
 #include "dmd/target.h"
 #include "gen/abi/targets.h"
 #include "gen/abi/generic.h"
@@ -22,11 +20,9 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "dmd/globals.h"
 #include "ir/irfunction.h"
 #include "ir/irfuncty.h"
-#include "llvm/TargetParser/Triple.h"
-#include <algorithm>
+// #include <algorithm>
 
 using namespace dmd;
 
