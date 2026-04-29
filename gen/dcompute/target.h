@@ -65,7 +65,7 @@ DComputeTarget *createCUDATarget(llvm::LLVMContext &c, int sm);
 #endif
 
 #if LDC_LLVM_SUPPORTED_TARGET_AArch64
-auto createMetalTarget(llvm::LLVMContext &c, int version) -> DComputeTarget *;
+DComputeTarget* createMetalTarget(llvm::LLVMContext &c, int version);
 #endif
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
