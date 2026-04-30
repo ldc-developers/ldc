@@ -197,7 +197,7 @@ public:
 };
 } // anonymous namespace.
 
-auto createMetalTarget(llvm::LLVMContext &c, int version) -> DComputeTarget * {
+DComputeTarget* createMetalTarget(llvm::LLVMContext &c, int version) {
   return new TargetMetal(c, version);
 };
 

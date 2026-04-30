@@ -14,7 +14,6 @@
 #pragma once
 
 #include "gen/abi/generic.h"
-#include "gen/dcompute/druntime.h"
 
 #include "ir/irfuncty.h"
 
