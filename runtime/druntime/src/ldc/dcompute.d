@@ -24,7 +24,7 @@ enum ReflectTarget : uint
  * arguments MUST be compiletime constants
  * valid values of _version are for OpenCL 100 110 120 200 210
  * and for CUDA are x*100 + y*10 for x any valid values of sm x.y
- * and for Metal is 4.0.0
+ * and for Metal is 400
  * use 0 as a wildcard to match any version.
 
  * This is mostly used for selecting the correct intrinsic for the
