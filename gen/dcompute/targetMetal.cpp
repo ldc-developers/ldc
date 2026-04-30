@@ -56,11 +56,12 @@ public:
 
     llvm::NamedMDNode *airLangVersion =
         _ir->module.getOrInsertNamedMetadata("air.language_version");
+    
     std::array<llvm::Metadata *, 4> langArr = {
         metaString("Metal"),
-        metaInt(4),
-        metaInt(0),
-        metaInt(0),
+        metaInt(tversion / 100),
+        metaInt((tversion / 10) % 10),
+        metaInt(tversion % 10),
     };
 
     airLangVersion->addOperand(llvm::MDTuple::get(ctx, langArr));

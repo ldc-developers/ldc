@@ -43,9 +43,15 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 #endif
   }
 
-  if (s.substr(0, 6) == "air64-") {
+  if (s.substr(0, 6) == "metal-") {
 #if  LDC_LLVM_SUPPORTED_TARGET_AArch64 //&& LDC_LLVM_VER >= 2100
-    return createMetalTarget(ctx, 64);
+#define METAL_VALID_VER_INIT 400
+    const std::array<int, 6> valid_metal_versions = {{METAL_VALID_VER_INIT}};
+   const int v = atoi(s.c_str() + 6);
+   if (std::find(valid_metal_versions.begin(), valid_metal_versions.end(), v) !=
+        valid_metal_versions.end()) {
+      return createMetalTarget(ctx, v);
+    } 
 #else
     error(Loc(), "LDC was not built with Apple Metal Dcompute support!");
 #endif
@@ -72,14 +78,18 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 
   error(Loc(),
         "Unrecognised or invalid DCompute targets: the format is ocl-xy0 "
-        "for OpenCl x.y and cuda-xy0 for CUDA CC x.y."
+        "for OpenCl x.y and cuda-xy0 for CUDA CC x.y and metal-xy0 for Metal x.y."
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
         " Valid version strings for OpenCl are ocl-{" XSTR(OCL_VALID_VER_INIT) "}."
 #endif
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
         " Valid version strings for CUDA are cuda-{" XSTR(CUDA_VALID_VER_INIT) "}."
 #endif
+#if LDC_LLVM_SUPPORTED_TARGET_AArch64
+        "Valid version strings for Metal are metal-{" XSTR(METAL_VALID_VER_INIT) "}"
+#endif
   );
+ 
 
 #undef XSTR
 #undef STR
