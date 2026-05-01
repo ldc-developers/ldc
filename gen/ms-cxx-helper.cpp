@@ -85,11 +85,13 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
   llvm::ValueToValueMapTy VMap;
   // map the terminal branch to the new target
   if (continueWith) {
-    if (auto term = srcblocks.back()->getTerminator()) {
-      // FIX: Ensure it is actually a terminator before checking successors
-      if (term->isTerminator() && term->getNumSuccessors() > 0) {
-        VMap[term->getSuccessor(0)] = continueWith;
-      }
+#if LLVM_VERSION_MAJOR >= 23
+    auto term = srcblocks.back()->getTerminatorOrNull();
+#else
+    auto term = srcblocks.back()->getTerminator();
+#endif
+    if (term && term->getNumSuccessors() > 0) {
+      VMap[term->getSuccessor(0)] = continueWith;
     }
   }
 
