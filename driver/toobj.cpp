@@ -38,7 +38,6 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 #include <cstddef>
-#include <fstream>
 
 namespace llvm {
 namespace codegen {
@@ -72,6 +71,62 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
     return;
 #endif
   }
+
+#ifdef LDC_LLVM_SUPPORTED_TARGET_AArch64
+  if (cb == ComputeBackend::METAL) {
+   
+    // Terminate upon errors during the LLVM passes.
+    if (global.errors || global.warnings) {
+      Logger::println("Aborting because of errors/warnings during LLVM passes");
+      fatal();
+    }
+
+    {
+      std::error_code errinfo;
+      llvm::ToolOutputFile out(filename, errinfo, llvm::sys::fs::OF_None);
+      if (errinfo) {
+        error(Loc(), "cannot write file '%s': %s", filename,
+              errinfo.message().c_str());
+        fatal();
+      }
+      
+      llvm::WriteBitcodeToFile(m, out.os());
+
+      out.keep();
+    }
+
+    uint64_t fileSize = 0;
+    llvm::sys::fs::file_size(filename, fileSize);
+
+    auto xcrunpath = llvm::sys::findProgramByName("xcrun");
+    if (!xcrunpath) {
+      error(Loc(), "xcrun not found - XCode should be installed first!");
+      fatal();
+    }
+
+    llvm::SmallString<256> metallibOutPath;
+    llvm::sys::fs::current_path(metallibOutPath);
+    llvm::sys::path::append(metallibOutPath, llvm::sys::path::filename(filename));
+    llvm::sys::path::replace_extension(metallibOutPath, "metallib");
+ 
+
+    std::vector<std::string> args = {
+      xcrunpath.get(), "-sdk", "macosx", "metallib", filename, "-o", metallibOutPath.c_str()
+    };
+
+    std::string errorMsg;
+
+    int status =  executeToolAndWait(Loc(), args[0], args);
+
+    if (status < 0) {
+      error(Loc(), "program received signal %d (%s)", -status,
+          strsignal(-status));
+      fatal();
+    }
+
+    return;
+  }
+#endif
 
   std::error_code errinfo;
   llvm::ToolOutputFile out(filename, errinfo, llvm::sys::fs::OF_None);
@@ -468,5 +523,5 @@ void writeModule(llvm::Module *m, const char *filename) {
     if (useIR2ObjCache) {
       cache::cacheObjectFile(filename, moduleHash);
     }
-  }
+  }   
 }
