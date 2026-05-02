@@ -94,9 +94,6 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
       }
     }
 
-    uint64_t fileSize = 0;
-    llvm::sys::fs::file_size(filename, fileSize);
-
     auto xcrunpath = llvm::sys::findProgramByName("xcrun");
     if (!xcrunpath) {
       error(Loc(), "xcrun not found - XCode should be installed first!");
