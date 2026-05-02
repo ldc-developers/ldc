@@ -393,6 +393,7 @@ const DString ll_ext = "ll";
 const DString mlir_ext = "mlir";
 const DString bc_ext = "bc";
 const DString s_ext = "s";
+const DString metallib_ext = "metallib";
 #endif
 
 struct CompileEnv
