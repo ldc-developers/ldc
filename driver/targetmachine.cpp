@@ -655,7 +655,6 @@ ComputeBackend::Type getComputeTargetType(llvm::Module* m) {
     return ComputeBackend::NVPTX;
 
   llvm::StringRef tripleString = m->getTargetTriple();
-
       
   if (tripleString.starts_with("air64"))
     return ComputeBackend::METAL; 
