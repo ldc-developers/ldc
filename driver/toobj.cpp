@@ -105,7 +105,6 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
     llvm::sys::path::append(metallibOutPath, llvm::sys::path::filename(filename));
     llvm::sys::path::replace_extension(metallibOutPath, "metallib");
  
-
     std::vector<std::string> args = {
       xcrunpath.get(), "-sdk", "macosx", "metallib", filename, "-o", metallibOutPath.c_str()
     };
