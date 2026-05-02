@@ -14,7 +14,6 @@
 #include "dmd/mtype.h"
 #include <optional>
 
-
 using namespace dmd;
 
 struct MetalABI : TargetABI {

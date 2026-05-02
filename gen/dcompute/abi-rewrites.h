@@ -35,7 +35,7 @@ struct DComputePointerRewrite : ABIRewrite {
 
 struct DcomputeMetalScalarRewrite : ABIRewrite {
   LLType *type(Type* t) override {
-    // XXXX: Scalar variables are stored in the constant memory space for Metal GPU
+    // XXX: Scalar variables are stored in the constant memory space for Metal GPU
     return llvm::PointerType::get(gIR->context(), 2/*Constant Memory space*/);
   }
 
