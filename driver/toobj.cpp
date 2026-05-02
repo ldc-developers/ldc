@@ -74,13 +74,6 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
 #ifdef LDC_LLVM_SUPPORTED_TARGET_AArch64
   if (cb == ComputeBackend::METAL) {
-   
-    // Terminate upon errors during the LLVM passes.
-    if (global.errors || global.warnings) {
-      Logger::println("Aborting because of errors/warnings during LLVM passes");
-      fatal();
-    }
-
     {
       std::error_code errinfo;
       llvm::ToolOutputFile out(filename, errinfo, llvm::sys::fs::OF_None);
@@ -93,6 +86,12 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
       llvm::WriteBitcodeToFile(m, out.os());
 
       out.keep();
+
+      // Terminate upon errors during the LLVM passes.
+      if (global.errors || global.warnings) {
+        Logger::println("Aborting because of errors/warnings during LLVM passes");
+        fatal();
+      }
     }
 
     uint64_t fileSize = 0;
