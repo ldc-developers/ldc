@@ -98,9 +98,9 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
 #else
     auto term = srcblocks.back()->getTerminator();
 #endif
-    if (term && term->getNumSuccessors() > 0) {
-      VMap[term->getSuccessor(0)] = continueWith;
-    }
+    if (term)  
+      if (auto succ = term->getSuccessor(0))  
+            VMap[succ] = continueWith;  
   }
 
   for (auto bb : srcblocks) {

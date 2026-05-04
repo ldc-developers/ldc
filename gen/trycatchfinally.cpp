@@ -331,11 +331,7 @@ llvm::BasicBlock::iterator getTerminatorPos(llvm::BasicBlock *bb) {
 }
 #else
 llvm::Instruction *getTerminatorPos(llvm::BasicBlock *bb) {
-#if LLVM_VERSION_MAJOR >= 23
-  return bb->getTerminatorOrNull();
-#else
   return bb->getTerminator();
-#endif
 }
 #endif
 } // anonymous namespace
