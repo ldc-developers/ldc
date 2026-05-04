@@ -199,6 +199,11 @@ public:
   /// be passed correctly in registers.
   static llvm::Type *getRewrittenArgType(Type *t);
 
+  /// True if LLVM `b8` should be used for 8-bit extern-interop parameter/return
+  /// types (experimental). Requires a new enough LLVM, `-fc-interop-llvm-byte`,
+  /// and C-family linkage on `tf` (not `extern(D)`).
+  static bool shouldUseLLVMByteInExternSignature(TypeFunction *tf);
+
 protected:
 
   /// Returns true if the D type is an aggregate:

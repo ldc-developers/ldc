@@ -18,6 +18,7 @@
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/port.h"
+#include "driver/cl_options.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -253,6 +254,14 @@ public:
         }
         // do abi specific transformations on the return value
         returnValue = getIrFunc(fd)->irFty.putRet(dval);
+
+#if LLVM_VERSION_MAJOR >= 23
+        if (opts::fCInteropLLVMByte &&
+            funcType->getReturnType()->isByteTy(8) &&
+            returnValue->getType()->isIntegerTy(8)) {
+            returnValue = DtoBitCast(returnValue, funcType->getReturnType());
+        }
+#endif
 
         // Hack around LDC assuming structs and static arrays are in memory:
         // If the function returns a struct or a static array, and the return

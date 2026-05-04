@@ -14,6 +14,7 @@
 
 #include "dmd/identifier.h"
 #include "dmd/nspace.h"
+#include "driver/cl_options.h"
 #include "gen/abi/abi.h"
 #include "gen/abi/generic.h"
 
@@ -113,6 +114,17 @@ public:
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *t = arg.type->toBasetype();
 
+  #if LLVM_VERSION_MAJOR >= 23
+    // ignore byte(TY::Tint8) here, because mostle i8 is used for arithemtic purposes
+    if ((t->ty == TY::Tuns8 || t->ty == TY::Tchar) &&
+        opts::fCInteropLLVMByte &&
+        TargetABI::shouldUseLLVMByteInExternSignature(fty.type)) {
+        arg.ltype = llvm::Type::getByte8Ty(gIR->context());
+        arg.attrs.addAttribute(llvm::Attribute::ZExt);
+        return;
+    }
+  #endif
+
     if (!isAggregate(t))
       return;
 
@@ -164,7 +176,7 @@ public:
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) override {
     assert(isDarwin());
-    
+
     // see objc/message.h for objc_msgSend selection rules
     return directcall ? "objc_msgSendSuper" : "objc_msgSend";
   }

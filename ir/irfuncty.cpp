@@ -10,8 +10,10 @@
 #include "ir/irfuncty.h"
 
 #include "dmd/mtype.h"
+#include "driver/cl_options.h"
 #include "gen/abi/abi.h"
 #include "gen/dvalue.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
@@ -116,6 +118,14 @@ LLValue *IrFuncTy::getParamLVal(Type *dty, size_t idx, LLValue *val) {
     LOG_SCOPE
     return args[idx]->rewrite->getLVal(dty, val);
   }
+
+  LLType *dLLTy = DtoType(dty);
+#if LLVM_VERSION_MAJOR >= 23
+  if (opts::fCInteropLLVMByte && dLLTy->isIntegerTy(8) && val->getType()->isByteTy(8)) {
+    IF_LOG Logger::println("getParamLVal: bitcast b8 param to i8");
+    val = DtoBitCast(val, dLLTy);
+  }
+#endif
 
   return DtoAllocaDump(val, dty);
 }
