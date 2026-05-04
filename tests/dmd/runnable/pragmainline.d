@@ -43,12 +43,18 @@ auto testAlwaysInline()
     assert(var == 0);
 }
 
+// LDC: inlining an *indirect* call (of the function pointer returned by `bar()`)
+//      requires enabled optimizations
+version (LDC) version (D_Optimized) version = LDC_Optimized;
+
 void main()
 {
     immutable baz = () => 1;
-    assert(foo() == bar()());
+    version (LDC_Optimized)
+        assert(foo() == bar()());
     assert(foo() == baz());
-    assert(bar()() == baz());
+    version (LDC_Optimized)
+        assert(bar()() == baz());
 
     testAlwaysInline();
 
