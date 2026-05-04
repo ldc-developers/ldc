@@ -1767,7 +1767,8 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(AssertExp *e) override {
-    IF_LOG Logger::print("AssertExp::toElem: %s\n", e->toChars());
+    IF_LOG Logger::print("AssertExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
     LOG_SCOPE;
 
     auto &PGO = gIR->funcGen().pgo;
@@ -1777,11 +1778,15 @@ public:
       return;
 
     // condition
-    DValue *cond;
-    Type *condty;
+    DValue *cond = toElem(e->e1);
+    Type *condty = e->e1->type->toBasetype();
 
-    cond = toElem(e->e1);
-    condty = e->e1->type->toBasetype();
+    if (!cond) {
+      // This can happen for e.g. the outer assert in `assert(assert(0, …), …)`.
+      // Skip remaining codegen if the condition doesn't return.
+      assert(condty->isTypeNoreturn());
+      return;
+    }
 
     // create basic blocks
     llvm::BasicBlock *passedbb = p->insertBB("assertPassed");
