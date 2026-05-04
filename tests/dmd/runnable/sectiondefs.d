@@ -12,8 +12,13 @@ version (ELFv1)
 else version (ELFv2)
     version = ELF;
 
+version (OSX)
+    enum Segment = "__DATA";
+
 version(Windows)
     enum PlatformEntryName(string Name) = "." ~ Name ~ "$N";
+else version (OSX)
+    enum PlatformEntryName(string Name) = Segment ~ "," ~ Name;
 else
     enum PlatformEntryName(string Name) = Name;
 
@@ -21,13 +26,11 @@ mixin template SectionRange(string SectionName, Type)
 {
     version (OSX)
     {
-        enum Segment = (is(Type == const) || is(Type == immutable)) ? "__TEXT" : "__DATA";
-
         extern(C) extern __gshared
         {
-            pragma(mangle, "section$start$" ~ Segment ~ "$" ~ SectionName)
+            pragma(mangle, "\1section$start$" ~ Segment ~ "$" ~ SectionName)
             Type start;
-            pragma(mangle, "section$end$" ~ Segment ~ "$" ~ SectionName)
+            pragma(mangle, "\1section$end$" ~ Segment ~ "$" ~ SectionName)
             Type end;
         }
     }
@@ -75,10 +78,10 @@ mixin template SectionRange(string SectionName, Type)
 mixin SectionRange!("myInts", int) myIntsSection;
 mixin SectionRange!("my8Ints", int[8]) my8IntsSection;
 
-@section(PlatformEntryName!"myInts")
+@section(PlatformEntryName!"myInts") @assumeUsed
 __gshared int anInt = 2;
 
-@section(PlatformEntryName!"my8Ints")
+@section(PlatformEntryName!"my8Ints") @assumeUsed
 __gshared int[8] an8Int = [46, 92, 11, 7, 2, 55, 33, 22];
 
 void main()
