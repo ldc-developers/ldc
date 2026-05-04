@@ -36,10 +36,18 @@ void findSuccessors(std::vector<llvm::BasicBlock *> &blocks,
                     llvm::BasicBlock *bb, llvm::BasicBlock *ebb) {
   blocks.push_back(bb);
   if (bb != ebb) {
+#if LLVM_VERSION_MAJOR >= 23
+    assert(bb->getTerminatorOrNull());
+#else
     assert(bb->getTerminator());
+#endif
     for (size_t pos = 0; pos < blocks.size(); ++pos) {
       bb = blocks[pos];
+#if LLVM_VERSION_MAJOR >= 23
+      if (auto term = bb->getTerminatorOrNull()) {
+#else
       if (auto term = bb->getTerminator()) {
+#endif
         llvm::BasicBlock *unwindDest = getUnwindDest(term);
         unsigned cnt = term->getNumSuccessors();
         for (unsigned s = 0; s < cnt; s++) {
