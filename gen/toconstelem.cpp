@@ -174,7 +174,16 @@ public:
       return;
     }
 
-    llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
+    llvm::GlobalVariable *gvar = nullptr;
+    if (t->nextOf()->isMutable()) {
+      // through CTFE, a mutable char[] might be initialized with a StringExp
+      auto initializer = buildStringLiteralConstant(e, e->len);
+      gvar = new LLGlobalVariable(p->module, initializer->getType(), false,
+                                  LLGlobalValue::PrivateLinkage, initializer,
+                                  ".mutable_string");
+    } else {
+      gvar = p->getCachedStringLiteral(e);
+    }
 
     if (t->ty == TY::Tpointer) {
       result = gvar;
