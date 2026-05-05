@@ -12661,8 +12661,6 @@ version (IN_LLVM)
         }
         else if (t1.ty == Tsarray)
         {
-            // SliceExp cannot have static array type without context inference.
-            assert(exp.e1.op != EXP.slice);
             Expression e1x = exp.e1;
             Expression e2x = exp.e2;
 

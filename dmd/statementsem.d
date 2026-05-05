@@ -1904,8 +1904,8 @@ Statement statementSemanticVisit(Statement s, Scope* sc)
             ss.condition = ErrorExp.get();
         ss.condition = ss.condition.optimize(WANTvalue);
         ss.condition = ss.condition.checkGC(sc);
-        if (ss.condition.op == EXP.error)
-            conditionError = true;
+        if (conditionError || ss.condition.op == EXP.error)
+            return setError();
 
         bool needswitcherror = false;
 
@@ -1921,7 +1921,7 @@ Statement statementSemanticVisit(Statement s, Scope* sc)
         ss._body = ss._body.statementSemantic(sc);
         sc.inLoop = inLoopSave;
 
-        if (conditionError || (ss._body && ss._body.isErrorStatement()))
+        if (ss._body && ss._body.isErrorStatement())
         {
             sc.pop();
             return setError();
@@ -2377,6 +2377,13 @@ version (IN_LLVM)
             error(crs.loc, "had %llu cases which is more than 257 cases in case range", 1 + lval - fval);
             errors = true;
             lval = fval + 256;
+        }
+
+        // If the first and last values aren't integer types, then the toInteger()
+        // call above would have resulted in an error.
+        if  (!crs.first.type.isIntegral() || !crs.last.type.isIntegral())
+        {
+            errors = true;
         }
 
         if (errors)
