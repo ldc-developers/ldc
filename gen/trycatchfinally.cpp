@@ -374,7 +374,11 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
 
     // And convert the BranchInst to the existing branch target to a
     // SelectInst so we can append the other cases to it.
+#if LLVM_VERSION_MAJOR >= 23
+    endBlock()->getTerminatorOrNull()->eraseFromParent();
+#else
     endBlock()->getTerminator()->eraseFromParent();
+#endif
     llvm::Value *sel =
         new llvm::LoadInst(branchSelectorType, branchSelector, "", endBlock());
     llvm::SwitchInst::Create(
@@ -405,7 +409,11 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
 
   // We don't know this branch target yet, so add it to the SwitchInst...
   llvm::ConstantInt *const selectorVal = DtoConstUint(exitTargets.size());
+#if LLVM_VERSION_MAJOR >= 23
+  llvm::cast<llvm::SwitchInst>(endBlock()->getTerminatorOrNull())
+#else
   llvm::cast<llvm::SwitchInst>(endBlock()->getTerminator())
+#endif 
       ->addCase(selectorVal, continueWith);
 
   // ... insert the store into the source block...
@@ -428,7 +436,11 @@ llvm::BasicBlock *CleanupScope::runCopying(IRState &irs,
   if (isCatchSwitchBlock(beginBlock()))
     return continueWith;
   if (exitTargets.empty()) {
+#if LLVM_VERSION_MAJOR >= 23
+    if (!endBlock()->getTerminatorOrNull())
+#else
     if (!endBlock()->getTerminator())
+#endif
       // Set up the unconditional branch at the end of the cleanup
       createBranch(continueWith, endBlock());
 
@@ -459,7 +471,11 @@ llvm::BasicBlock *CleanupScope::runCopying(IRState &irs,
     // change the continuation target if the initial branch was created
     // by another instance with unwinding
     if (continueWith)
+#if LLVM_VERSION_MAJOR >= 23
+      if (auto term = endBlock()->getTerminatorOrNull())
+#else
       if (auto term = endBlock()->getTerminator())
+#endif
         if (auto succ = term->getSuccessor(0))
           if (succ != continueWith)
             remapBlocksValue(blocks, succ, continueWith);
