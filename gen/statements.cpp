@@ -18,7 +18,6 @@
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/port.h"
-#include "driver/cl_options.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -256,10 +255,12 @@ public:
         returnValue = getIrFunc(fd)->irFty.putRet(dval);
 
 #if LLVM_VERSION_MAJOR >= 23
-        if (opts::fCInteropLLVMByte &&
-            funcType->getReturnType()->isByteTy(8) &&
+        // b8 in the LLVM signature only comes from ABI lowering gated on
+        // -fc-interop-llvm-byte (see TargetABI::shouldUseLLVMByteInExternSignature),
+        // so no separate opts::fCInteropLLVMByte check here.
+        if (funcType->getReturnType()->isByteTy(8) &&
             returnValue->getType()->isIntegerTy(8)) {
-            returnValue = DtoBitCast(returnValue, funcType->getReturnType());
+          returnValue = DtoBitCast(returnValue, funcType->getReturnType());
         }
 #endif
 

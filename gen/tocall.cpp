@@ -946,8 +946,9 @@ DValue *DtoCallFunction(Loc loc, Type *resulttype, DValue *fnval,
   }
 
 #if LLVM_VERSION_MAJOR >= 23
-  if (TargetABI::shouldUseLLVMByteInExternSignature(tf) && !retValIsLVal &&
-      returnTy != TY::Tvoid && returnTy != TY::Tnoreturn) {
+  // A b8 LLVM callee return type only appears when byte-interop ABI lowering
+  // ran (see TargetABI::shouldUseLLVMByteInExternSignature).
+  if (!retValIsLVal && returnTy != TY::Tvoid && returnTy != TY::Tnoreturn) {
     LLType *callRetTy = callableTy->getReturnType();
     LLType *dRetTy = DtoType(returntype->toBasetype());
     if (callRetTy != dRetTy && dRetTy->isIntegerTy(8) &&

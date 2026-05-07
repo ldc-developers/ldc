@@ -121,7 +121,7 @@ LLValue *IrFuncTy::getParamLVal(Type *dty, size_t idx, LLValue *val) {
 
   LLType *dLLTy = DtoType(dty);
 #if LLVM_VERSION_MAJOR >= 23
-  if (opts::fCInteropLLVMByte && dLLTy->isIntegerTy(8) && val->getType()->isByteTy(8)) {
+  if ( val->getType()->isByteTy(8) && dLLTy->isIntegerTy(8)) {
     IF_LOG Logger::println("getParamLVal: bitcast b8 param to i8");
     val = DtoBitCast(val, dLLTy);
   }

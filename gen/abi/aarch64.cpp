@@ -117,7 +117,6 @@ public:
   #if LLVM_VERSION_MAJOR >= 23
     // ignore byte(TY::Tint8) here, because mostle i8 is used for arithemtic purposes
     if ((t->ty == TY::Tuns8 || t->ty == TY::Tchar) &&
-        opts::fCInteropLLVMByte &&
         TargetABI::shouldUseLLVMByteInExternSignature(fty.type)) {
         arg.ltype = llvm::Type::getByte8Ty(gIR->context());
         arg.attrs.addAttribute(llvm::Attribute::ZExt);
