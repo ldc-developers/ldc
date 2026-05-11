@@ -139,6 +139,7 @@ public:
     LINK _linkage() const;
     LINK _linkage(LINK v);
     bool noUnderscore() const;
+    bool nrvo() const;
 
     const char *kind() const override;
 

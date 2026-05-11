@@ -887,16 +887,19 @@ void DtoVarDeclaration(VarDeclaration *vd) {
   } else if (gIR->func()->sretArg &&
              ((gIR->func()->decl->isNRVO() &&
                gIR->func()->decl->nrvo_var == vd) ||
-              (vd->isResult() && !isSpecialRefVar(vd)))) {
+              (vd->isResult() && vd->nrvo()))) {
     // Named Return Value Optimization (NRVO):
     // T f() {
     //   T ret;        // &ret == hidden pointer
     //   ret = ...
     //   return ret;    // NRVO.
     // }
+    IF_LOG Logger::println("is an NRVO alias for the hidden return value");
     assert(!isSpecialRefVar(vd) && "Can this happen?");
-    getIrLocal(vd, true)->value = gIR->func()->sretArg;
-    gIR->DBuilder.EmitLocalVariable(gIR->func()->sretArg, vd);
+    IrLocal *irLocal = getIrLocal(vd, true);
+    // use the hidden sret pointer directly as lvalue
+    irLocal->value = gIR->func()->sretArg;
+    gIR->DBuilder.EmitLocalVariable(irLocal->value, vd);
   } else {
     // normal stack variable, allocate storage on the stack if it has not
     // already been done
