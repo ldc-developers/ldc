@@ -35,6 +35,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 #include <cstddef>
@@ -57,6 +58,40 @@ void runDLLImportRelocationPass(llvm::TargetMachine &Target, llvm::Module &m) {
   pm.run(m);
 }
 
+void inlineDComputeKernelFunctions(llvm::Module *m) {
+  // Create a PassManager to hold and optimize the collection of passes we are
+  // about to build.
+  llvm::legacy::PassManager Passes;
+
+  llvm::SmallPtrSet<llvm::Function*, 8> kernelFunctions;
+
+  // Extract all the kernel functions
+  if (auto *kernelMetadata = m->getNamedMetadata("air.kernel")) {
+    for(auto *op: kernelMetadata->operands()) {
+      if (auto *F = llvm::mdconst::dyn_extract<llvm::Function>(op->getOperand(0))) {
+        kernelFunctions.insert(F);
+      }
+    }
+  }
+
+  // Prepare non-kernel functions to be inlined
+  for(auto& F: *m) {
+    if (!F.isDeclaration() && !kernelFunctions.contains(&F)) {
+     F.addFnAttr(llvm::Attribute::AlwaysInline);
+    }
+  }
+
+  Passes.add(llvm::createAlwaysInlinerLegacyPass());
+
+  Passes.run(*m);
+
+  // Terminate upon errors during the LLVM passes.
+  if (global.errors || global.warnings) {
+  error(Loc(), "Aborting because of errors/warnings during LLVM passes");
+    fatal();
+  }
+}
+
 // based on llc code, University of Illinois Open Source License
 void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
                    const char *filename,
@@ -75,6 +110,9 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #ifdef LDC_LLVM_SUPPORTED_TARGET_AArch64
   if (cb == ComputeBackend::METAL) {
     {
+      // Inline non-kernel functions for Metal dcompute target
+      inlineDComputeKernelFunctions(&m);
+
       std::error_code errinfo;
       llvm::ToolOutputFile out(filename, errinfo, llvm::sys::fs::OF_None);
       if (errinfo) {
@@ -82,14 +120,14 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
               errinfo.message().c_str());
         fatal();
       }
-      
+
       llvm::WriteBitcodeToFile(m, out.os());
 
       out.keep();
 
       // Terminate upon errors during the LLVM passes.
       if (global.errors || global.warnings) {
-        Logger::println("Aborting because of errors/warnings during LLVM passes");
+        error(Loc(), "Aborting because of errors/warnings during LLVM passes!");
         fatal();
       }
     }
@@ -104,7 +142,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
     llvm::sys::fs::current_path(metallibOutPath);
     llvm::sys::path::append(metallibOutPath, llvm::sys::path::filename(filename));
     llvm::sys::path::replace_extension(metallibOutPath, "metallib");
- 
+
     std::vector<std::string> args = {
       xcrunpath.get(), "-sdk", "macosx", "metallib", filename, "-o", metallibOutPath.c_str()
     };
@@ -353,6 +391,15 @@ std::string replaceExtensionWith(const DArray<const char> &ext,
 }
 
 void writeModule(llvm::Module *m, const char *filename) {
+// Inline non-kernel functions for Metal dcompute target
+#ifdef LDC_LLVM_SUPPORTED_TARGET_AArch64
+  const ComputeBackend::Type cb = getComputeTargetType(m);
+
+  if (cb == ComputeBackend::METAL) {
+    inlineDComputeKernelFunctions(m);
+  }
+#endif
+
   const bool doLTO = opts::isUsingLTO();
   const bool outputObj = shouldOutputObjectFile();
   const bool assembleExternally = shouldAssembleExternally();
@@ -518,5 +565,5 @@ void writeModule(llvm::Module *m, const char *filename) {
     if (useIR2ObjCache) {
       cache::cacheObjectFile(filename, moduleHash);
     }
-  }   
+  }
 }
