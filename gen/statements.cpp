@@ -239,17 +239,9 @@ public:
         if (stmt->exp->op == EXP::null_) {
           stmt->exp->type = rt;
         }
-        DValue *dval = nullptr;
-        // call postblit if necessary
-        if (!f->type->isRef()) {
-          dval = toElem(stmt->exp);
-          LLValue *vthis =
-              (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval) : DtoRVal(dval));
-          callPostblit(stmt->loc, stmt->exp, vthis);
-        } else {
-          Expression *ae = stmt->exp;
-          dval = toElem(ae);
-        }
+
+        DValue *dval = toElem(stmt->exp);
+
         // do abi specific transformations on the return value
         returnValue = getIrFunc(fd)->irFty.putRet(dval);
 

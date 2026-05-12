@@ -182,8 +182,6 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
         // try to construct it in-place
         if (!toInPlaceConstruction(field, expr)) {
           DtoAssign(loc, field, toElem(expr), EXP::blit);
-          if (isLvalue(expr))
-            callPostblit(loc, expr, DtoLVal(field));
         }
       } else {
         assert(vd == sd->vthis);

@@ -156,8 +156,6 @@ llvm::CallInst *DtoInlineAsmExpr(Loc loc, llvm::StringRef code,
 /// functions without problems.
 LLValue *makeLValue(Loc loc, DValue *value);
 
-void callPostblit(Loc loc, Expression *exp, LLValue *val);
-
 /// Returns whether the given variable is a DMD-internal "ref variable".
 ///
 /// D doesn't have reference variables (the ref keyword is only usable in

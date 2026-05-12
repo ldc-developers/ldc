@@ -1328,29 +1328,6 @@ LLValue *makeLValue(Loc loc, DValue *value) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void callPostblit(Loc loc, Expression *exp, LLValue *val) {
-  Type *tb = exp->type->toBasetype();
-  if ((exp->op == EXP::variable || exp->op == EXP::dotVariable ||
-       exp->op == EXP::star || exp->op == EXP::this_ ||
-       exp->op == EXP::index) &&
-      tb->ty == TY::Tstruct) {
-    StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
-    if (sd->postblit) {
-      FuncDeclaration *fd = sd->postblit;
-      if (fd->storage_class & STCdisable) {
-        error(loc,
-              "%s `%s` is not copyable because it is annotated with `@disable`",
-              sd->kind(), sd->toPrettyChars());
-      }
-      Expressions args;
-      DFuncValue dfn(fd, DtoCallee(fd), val);
-      DtoCallFunction(loc, Type::tvoid, &dfn, &args);
-    }
-  }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 bool isSpecialRefVar(VarDeclaration *vd) {
   return (vd->storage_class & (STCref | STCparameter)) == STCref;
 }
