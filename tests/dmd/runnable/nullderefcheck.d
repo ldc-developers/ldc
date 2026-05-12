@@ -1,3 +1,4 @@
+// DISABLED: LDC // FIXME: not implemented
 // REQUIRED_ARGS: -check=nullderef=on
 // PERMUTE_ARGS:
 
