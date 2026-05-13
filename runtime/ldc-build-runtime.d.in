@@ -77,6 +77,14 @@ void prepareBuildDir() {
     if (config.buildDir is null)
         config.buildDir = "ldc-build-runtime.tmp";
 
+    if (config.resetBuildDir && !config.buildDir.isAbsolute) {
+        writefln(".: Error: --reset / --resetOnly requires --buildDir to be an absolute path (got %s)",
+            config.buildDir);
+        exit(1);
+    }
+
+    config.buildDir = config.buildDir.absolutePath;
+
     if (config.buildDir.exists) {
         if (!config.resetBuildDir) {
             writefln(".: Warning: build directory already exists: %s", config.buildDir);
@@ -96,8 +104,6 @@ void prepareBuildDir() {
         writefln(".: Creating build directory: %s", config.buildDir);
         mkdirRecurse(config.buildDir);
     }
-
-    config.buildDir = config.buildDir.absolutePath;
 }
 
 void prepareLdcSource() {
