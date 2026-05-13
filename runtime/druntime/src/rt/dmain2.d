@@ -144,6 +144,14 @@ extern (C) int rt_init()
     return 0;
 }
 
+version (Emscripten)
+{
+    private extern (C) void rt_term_atexit()
+    {
+        rt_term();
+    }
+}
+
 /**********************************************
  * Terminate use of druntime.
  */
@@ -547,7 +555,12 @@ private extern (C) int _d_run_main2(char[][] args, size_t totalArgsLength, MainF
         else
             result = EXIT_FAILURE;
 
-        if (!rt_term())
+        version (Emscripten)
+        {
+            import core.stdc.stdlib : atexit;
+            atexit(&rt_term_atexit);
+        }
+        else if (!rt_term())
             result = (result == EXIT_SUCCESS) ? EXIT_FAILURE : result;
     }
 
