@@ -496,6 +496,21 @@ extern (C++) struct structalign_t
     void setPack()         { flags |= PACK; }
     bool fromAlignas() const { return !!(flags & ALIGNAS); }
     void setAlignas()      { flags |= ALIGNAS; }
+
+    version (IN_LLVM) version (CRuntime_Microsoft)
+    {
+        /* Make sure the D host compiler treats this struct as a non-POD for
+         * MSVC++, exploiting the MSVC++ special case that any constructor makes
+         * a struct a non-POD.
+         * The *private* fields in the C++ header apparently make it a non-POD
+         * too, but LDC host compilers don't handle that special case yet.
+         */
+        this(ushort value, ubyte flags = 0)
+        {
+            this.value = value;
+            this.flags = flags;
+        }
+    }
 }
 
 /// Use to return D arrays from C++ functions
