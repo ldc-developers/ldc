@@ -212,6 +212,11 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     }
   }
   void visit(CallExp *e) override {
+    // Indirect calls via function pointers / delegates have no associated
+    // FuncDeclaration, so there is no module to check.
+    if (!e->f)
+      return;
+
     // SynchronizedStatement is lowered to
     //    Critsec __critsec105; // 105 == line number
     //    _d_criticalenter(& __critsec105); <--
@@ -246,6 +251,16 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       return;
     }
 
+    // Skip compiler-generated struct support functions (e.g. __xopEquals,
+    // __xopCmp, postblit, destructor). Their bodies may reference non-@compute
+    // templates (such as __equals for static array comparison) that are outside
+    // of user control. They are only codegenerated if actually referenced by
+    // user code, at which point the codegen layer will report any issues.
+    if (fd->isGenerated()) {
+      stop = true;
+      return;
+    }
+
     IF_LOG Logger::println("current function = %s", fd->toChars());
     currentFunction = fd;
   }
@@ -260,6 +275,20 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // as they contain unsupported global variables.
     if (ti->tempdecl == Type::rtinfo || ti->tempdecl == Type::rtinfoImpl) {
       stop = true;
+      return;
+    }
+
+    // Template instantiations for templates declared in non-@compute modules
+    // (e.g. __equals and isEqual from core.internal.array.equality) are
+    // created as a side effect of compiler-generated support functions. They
+    // contain calls back into their declaring (non-@compute) module, which
+    // would produce spurious errors. Skip them.
+    if (ti->tempdecl) {
+      Module *m = ti->tempdecl->getModule();
+      if (m && hasComputeAttr(m) == DComputeCompileFor::hostOnly) {
+        stop = true;
+        return;
+      }
     }
   }
 
