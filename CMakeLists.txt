@@ -150,9 +150,7 @@ if(MSVC)
         endif()
     endif()
 
-    if(${D_COMPILER_ID} STREQUAL "DigitalMars" AND (MSVC_VERSION GREATER 1800)) # VS 2015+
-        append("-Llegacy_stdio_definitions.lib" DFLAGS_BASE)
-    endif()
+    append("-L/NODEFAULTLIB:libucrt -L/NODEFAULTLIB:libcmt -L/NODEFAULTLIB:libvcruntime -Lmsvcrt.lib -Lucrt.lib -Lvcruntime.lib -Llegacy_stdio_definitions.lib" DFLAGS_BASE)
 
     set(llvm_ob_flag)
     string(REGEX MATCH "/Ob[0-2]" llvm_ob_flag "${LLVM_CXXFLAGS}")
@@ -1077,3 +1075,4 @@ install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 
 include (CMakeCPack.cmake)
 include (CPack)
+ 

@@ -756,7 +756,7 @@ cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
                     cl::desc("Generates code for the specified DCompute target"
                              " list. Use 'ocl-xy0' for OpenCL x.y, and "
-                             "'cuda-xy0' for CUDA CC x.y"),
+                             "'cuda-xy0' for CUDA CC x.y, and 'vulkan-xy0' for Vulkan x.y"),
                      cl::value_desc("targets"));
 cl::opt<std::string>
     dcomputeFilePrefix("mdcompute-file-prefix",

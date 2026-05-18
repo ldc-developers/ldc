@@ -1,4 +1,4 @@
-//===-- gen/dcomputetargetOCL.cpp -----------------------------------------===//
+//===-- gen/dcompute/targetVulkan.cpp -----------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -7,8 +7,7 @@
 // See the LICENSE file for details.
 //===----------------------------------------------------------------------===//
 
-#if LDC_LLVM_SUPPORTED_TARGET_SPIRV && LDC_LLVM_VER >= 2100
-
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV && LLVM_VERSION_MAJOR >= 23
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/template.h"
