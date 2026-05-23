@@ -7,6 +7,8 @@
 // See the LICENSE file for details.
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Config/llvm-config.h"
+
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV && LLVM_VERSION_MAJOR >= 23
 #include "dmd/id.h"
 #include "dmd/identifier.h"
@@ -80,8 +82,10 @@ public:
     llvm::FunctionType *tf = llf->getFunctionType();
     for (unsigned int i = 0; i < tf->getNumParams(); i++) {
       llvm::Type *t = tf->getParamType(i);
-      if (t->isPointerTy())
-        t = getI64Type(); // FIXME: 32 bit pointers on 32 but systems?
+      if (t->isPointerTy()){
+        unsigned ptrSize = _ir->module.getDataLayout().getPointerSizeInBits();
+        t = (ptrSize == 32)?getI32Type():getI64Type();
+      }
       args[i] = t;
     }
 
