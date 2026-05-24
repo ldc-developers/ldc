@@ -1,10 +1,8 @@
-// Regression test for issue #5116: defining a struct with a static array
-// field in a @compute module previously caused a spurious semantic error
-// ("can only call functions from other `@compute` modules") followed by a
-// null-pointer dereference crash in DComputeSemanticAnalyser::visit(CallExp*).
-// The crash happened because compiler-generated support functions (__xopEquals)
-// triggered instantiation of __equals templates from core.internal.array.equality,
-// whose body contains an indirect call through a function pointer (e->f == null).
+// Issue #5116: defining a struct with a static array field in a @compute
+// module caused DMD to generate __xopEquals, dragging in template
+// instantiations from core.internal.array.equality. The semantic walker
+// then either reported spurious errors on the nested __equals calls or
+// crashed on a null function pointer inside the instantiated body.
 
 // REQUIRES: target_NVPTX
 // RUN: %ldc -mdcompute-targets=cuda-350 %s
@@ -16,4 +14,14 @@ private enum N = 16u;
 
 struct S {
     float[N] data;
+}
+
+@kernel void testEqualExp() {
+    float[N] a, b;
+    bool c = (a == b);
+}
+
+@kernel void testExplicitEquals() {
+    float[N] a, b;
+    bool c = __equals(a, b);
 }

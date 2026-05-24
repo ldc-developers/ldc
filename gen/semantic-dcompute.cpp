@@ -236,7 +236,13 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     }
       
     Module *m = e->f->getModule();
-    if ((m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly)) &&
+    // Template-instantiated functions are cross-module by nature: the template
+    // declaration and the instantiated function live in different modules.
+    // getModule() returns the *declaration* module, which says nothing about
+    // whether the generated code can run on GPU. Skip the module check for them.
+    const bool isTemplateFunc = e->f->isInstantiated() != nullptr;
+    if (!isTemplateFunc &&
+        (m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly)) &&
         !isNonComputeCallExpVaild(e)) {
       error(e->loc, "can only call functions from other `@compute` modules in "
                     "`@compute` code");
@@ -247,16 +253,6 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   void visit(FuncDeclaration *fd) override {
     if (getKernelAttr(fd) && fd->vthis) {
       error(fd->loc, "`@kernel` functions must not require `this`");
-      stop = true;
-      return;
-    }
-
-    // Skip compiler-generated struct support functions (e.g. __xopEquals,
-    // __xopCmp, postblit, destructor). Their bodies may reference non-@compute
-    // templates (such as __equals for static array comparison) that are outside
-    // of user control. They are only codegenerated if actually referenced by
-    // user code, at which point the codegen layer will report any issues.
-    if (fd->isGenerated()) {
       stop = true;
       return;
     }
@@ -275,20 +271,6 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // as they contain unsupported global variables.
     if (ti->tempdecl == Type::rtinfo || ti->tempdecl == Type::rtinfoImpl) {
       stop = true;
-      return;
-    }
-
-    // Template instantiations for templates declared in non-@compute modules
-    // (e.g. __equals and isEqual from core.internal.array.equality) are
-    // created as a side effect of compiler-generated support functions. They
-    // contain calls back into their declaring (non-@compute) module, which
-    // would produce spurious errors. Skip them.
-    if (ti->tempdecl) {
-      Module *m = ti->tempdecl->getModule();
-      if (m && hasComputeAttr(m) == DComputeCompileFor::hostOnly) {
-        stop = true;
-        return;
-      }
     }
   }
 
