@@ -101,9 +101,20 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
 
       // propagate all enabled/disabled features to the preprocessor
       const auto &subTarget = gTargetMachine->getMCSubtargetInfo();
+#if LLVM_VERSION_MAJOR >= 23
+      const auto &featureBits = subTarget.getFeatureBits();
+#else
       const auto &featureBits = subTarget->getFeatureBits();
+#endif
+      
       llvm::SmallString<64> featureString;
-      for (const auto &feature : subTarget->getAllProcessorFeatures()) {
+      for (const auto &feature :
+#if LLVM_VERSION_MAJOR >= 23
+           subTarget.getAllProcessorFeatures()
+#else
+           subTarget->getAllProcessorFeatures()
+#endif
+           ) {
         args.push_back("-Xclang");
         args.push_back("-target-feature");
         args.push_back("-Xclang");
