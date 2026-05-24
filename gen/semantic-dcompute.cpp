@@ -234,7 +234,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       stop = true;
       return;
     }
-      
+
     Module *m = e->f->getModule();
     // Template-instantiated functions are cross-module by nature: the template
     // declaration and the instantiated function live in different modules.
