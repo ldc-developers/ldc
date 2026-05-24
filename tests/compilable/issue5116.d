@@ -1,8 +1,7 @@
-// Issue #5116: defining a struct with a static array field in a @compute
-// module caused DMD to generate __xopEquals, dragging in template
-// instantiations from core.internal.array.equality. The semantic walker
-// then either reported spurious errors on the nested __equals calls or
-// crashed on a null function pointer inside the instantiated body.
+// Without this patch, template instantiations from non-@compute modules (e.g.
+// __equals from core.internal.array.equality) were walked, producing spurious errors.
+// And indirect calls via function pointers inside those bodies additionally caused a
+// null-pointer dereference crash.
 
 // REQUIRES: target_NVPTX
 // RUN: %ldc -mdcompute-targets=cuda-350 %s
