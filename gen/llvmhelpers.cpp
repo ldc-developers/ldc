@@ -1365,7 +1365,7 @@ void printLabelName(std::ostream &target, const char *func_mangle,
   // note: quotes needed for Unicode
   target << '"'
 #if LLVM_VERSION_MAJOR >= 23
-         << gTargetMachine->getMCAsmInfo()->getPrivateLabelPrefix().str()
+         << gTargetMachine->getMCAsmInfo().getPrivateLabelPrefix().str()
 #else
          << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix().str()
 #endif
