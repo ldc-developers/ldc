@@ -31,7 +31,7 @@ include(BuildDExecutable)
 
 find_package(LLVM 18.0 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
-    debuginfodwarf debuginfomsf debuginfopdb demangle frontendhlsl
+    debuginfodwarf debuginfomsf debuginfopdb demangle
     instcombine ipo instrumentation irreader libdriver linker lto mc
     mcdisassembler mcparser objcarcopts object option profiledata scalaropts
     selectiondag support tablegen target transformutils vectorize
@@ -150,7 +150,9 @@ if(MSVC)
         endif()
     endif()
 
-    append("-L/NODEFAULTLIB:libucrt -L/NODEFAULTLIB:libcmt -L/NODEFAULTLIB:libvcruntime -Lmsvcrt.lib -Lucrt.lib -Lvcruntime.lib -Llegacy_stdio_definitions.lib" DFLAGS_BASE)
+    if(${D_COMPILER_ID} STREQUAL "DigitalMars" AND (MSVC_VERSION GREATER 1800)) # VS 2015+
+        append("-Llegacy_stdio_definitions.lib" DFLAGS_BASE)
+    endif()
 
     set(llvm_ob_flag)
     string(REGEX MATCH "/Ob[0-2]" llvm_ob_flag "${LLVM_CXXFLAGS}")
