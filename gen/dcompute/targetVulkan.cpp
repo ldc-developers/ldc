@@ -149,10 +149,10 @@ public:
     // FIXME: call should have `notnull` attribute on pointer?
     auto *handle = buildIntrinsicCall(builder, "handle","llvm.spv.resource.handlefrombinding",
                                       {targetType},
-                                      {i32zero, i32zero, i32one, i32zero, i1false, _ir->getCachedStringLiteral(name.str(), 0) });
+                                      {i32zero, i32zero, i32one, i32zero, _ir->getCachedStringLiteral(name.str(), 0) });
     auto *p11 = llvm::PointerType::get(ctx, 11);
     auto *pointer = buildIntrinsicCall(builder, "pointer", "llvm.spv.resource.getpointer",
-                                       {p11, targetType}, {handle, i32one});
+                                       {p11, targetType, i32zero->getType()}, {handle, i32zero});
     llvm::FunctionType *tf = llf->getFunctionType();
     IF_LOG  {
       Logger::cout() << "load pointer: " << *pointer << std::endl;
@@ -163,13 +163,12 @@ public:
     LOG_SCOPE
     llvm::SmallVector<llvm::Value *, 8> args(tf->getNumParams());
 
-    auto *arg = builder.CreateAlignedLoad(argType, pointer, _ir->module.getDataLayout().getABITypeAlign(argType), false);
-    IF_LOG {
-    //  Logger::cout() << "load elements from " << *arg << std::endl;
-    //  Logger::cout() << "of type " << *argType << std::endl;
-    }
     for (unsigned int i = 0; i < tf->getNumParams(); i++) {
-      args[i] = builder.CreateExtractValue(arg, {i});
+      llvm::Value *gep = builder.CreateStructGEP(argType, pointer, i);
+      llvm::Type *fieldTy = argType->getStructElementType(i);
+      
+      args[i] = builder.CreateAlignedLoad(fieldTy, gep, _ir->module.getDataLayout().getABITypeAlign(fieldTy), false);
+      
       llvm::Type *t = tf->getParamType(i);
       if (t->isPointerTy())
         args[i] = builder.CreateIntToPtr(args[i],t);

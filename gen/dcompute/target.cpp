@@ -59,7 +59,9 @@ void DComputeTarget::emit(Module *m) {
 
 void DComputeTarget::writeModule(llvm::Module *hostModule) {
   addMetadata();
-
+  gABI = abi;
+  gIR = _ir;
+  gTargetMachine = targetMachine;
   std::string filename;
   llvm::raw_string_ostream os(filename);
   const bool is64 = global.params.targetTriple->isArch64Bit();
