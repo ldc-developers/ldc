@@ -173,10 +173,6 @@ runs:
         cd ..
 
         url='https://curl.se/windows/latest.cgi?p=win64-mingw.zip'
-        if [[ '${{ inputs.arch }}' == x86 ]]; then
-          # this is the latest *official* 32-bit build
-          url='https://curl.se/windows/dl-8.15.0_5/curl-8.15.0_5-win32-mingw.zip'
-        fi
 
         curl -fL --retry 3 --max-time 60 -o libcurl.zip "$url"
         mkdir libcurl
@@ -184,10 +180,17 @@ runs:
         7z x ../libcurl.zip >/dev/null
         rm ../libcurl.zip
         mkdir ldc2
-        cp curl-*/bin/{libcurl*.dll,curl-ca-bundle.crt} ldc2/
-        if [[ '${{ inputs.arch }}' != x86 ]]; then
-          mv ldc2/libcurl*.dll ldc2/libcurl.dll
+        if [[ '${{ inputs.arch }}' == x86 ]]; then
+          # The official 32-bit builds were dropped at one point in 2026.
+          # Resort to the 32-bit DLL bundled with LDC v1.42.0.
+          curl -fL --retry 3 --max-time 120 -o ldc32.7z https://github.com/ldc-developers/ldc/releases/download/v1.42.0/ldc2-1.42.0-windows-x86.7z
+          7z x ldc32.7z >/dev/null
+          cp ldc2-1.42.0-windows-x86/bin/libcurl.dll ldc2/
+          rm -rf ldc2-1.42.0-windows-x86 ldc32.7z
+        else
+          cp curl-*/bin/libcurl*.dll ldc2/libcurl.dll
         fi
+        cp curl-*/bin/curl-ca-bundle.crt ldc2/
         ls -lh ldc2/
 
     - name: 'Windows: Set LDC_VSDIR env variable' # to somewhat speed-up MSVC auto-detection
