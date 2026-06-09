@@ -727,12 +727,6 @@ static void buildRuntimeModule() {
   }
 
   if (useMSVCEH()) {
-    // _d_enter_cleanup(ptr frame)
-    createFwdDecl(LINK::c, boolTy, {"_d_enter_cleanup"}, {voidPtrTy});
-
-    // _d_leave_cleanup(ptr frame)
-    createFwdDecl(LINK::c, voidTy, {"_d_leave_cleanup"}, {voidPtrTy});
-
     // Throwable _d_eh_enter_catch(ptr exception, ClassInfo catchType)
     createFwdDecl(LINK::c, throwableTy, {"_d_eh_enter_catch"},
                   {voidPtrTy, classInfoTy}, {});
