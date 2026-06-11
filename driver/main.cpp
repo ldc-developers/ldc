@@ -1218,6 +1218,7 @@ void codegenModules(Modules &modules) {
   if (global.params.obj && !modules.empty()) {
     dmd::TimeTraceScope timeScope(TimeTraceEventType::codegenGlobal);
 
+    DComputeCodeGenManager dccg(getGlobalContext());
 #if LDC_MLIR_ENABLED
     mlir::MLIRContext mlircontext;
     ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
@@ -1225,7 +1226,6 @@ void codegenModules(Modules &modules) {
 #else
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
 #endif
-    DComputeCodeGenManager dccg(getGlobalContext());
     std::vector<Module *> computeModules;
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
@@ -1241,23 +1241,7 @@ void codegenModules(Modules &modules) {
       if (m->filetype == FileType::dhdr)
         continue;
 
-      if (global.params.v.verbose)
-        message("code      %s", m->toChars());
-
       const auto atCompute = hasComputeAttr(m);
-      if (atCompute == DComputeCompileFor::hostOnly ||
-          atCompute == DComputeCompileFor::hostAndDevice) {
-        dmd::TimeTraceScope timeScope(
-            TimeTraceEventType::codegenModule,
-            (llvm::Twine("Codegen: module ") + m->toChars()).str().c_str(),
-            m->toChars(), m->loc);
-#if LDC_MLIR_ENABLED
-        if (global.params.output_mlir == OUTPUTFLAGset)
-          cg.emitMLIR(m);
-        else
-#endif
-          cg.emit(m);
-      }
       if (atCompute != DComputeCompileFor::hostOnly) {
         computeModules.push_back(m);
         if (atCompute == DComputeCompileFor::deviceOnly) {
@@ -1271,10 +1255,9 @@ void codegenModules(Modules &modules) {
           }
         }
       }
-      if (global.errors)
-        fatal();
     }
 
+    bool dcomputeWritten = false;
     if (!computeModules.empty()) {
       dmd::TimeTraceScope timeScope("Codegen DCompute device modules");
       for (auto &mod : computeModules) {
@@ -1286,8 +1269,46 @@ void codegenModules(Modules &modules) {
             mod->toChars(), mod->loc);
         dccg.emit(mod);
       }
+      cg.setDComputeHook([&](llvm::Module *m) {
+        if (!dcomputeWritten) {
+          dccg.writeModules(m);
+          dcomputeWritten = true;
+        }
+      });
     }
-    dccg.writeModules();
+
+    bool hasHostModules = false;
+    for (d_size_t i = modules.length; i-- > 0;) {
+      Module *const m = modules[i];
+
+      if (m->filetype == FileType::dhdr)
+        continue;
+
+      if (global.params.v.verbose)
+        message("code      %s", m->toChars());
+
+      const auto atCompute = hasComputeAttr(m);
+      if (atCompute == DComputeCompileFor::hostOnly ||
+          atCompute == DComputeCompileFor::hostAndDevice) {
+        hasHostModules = true;
+        dmd::TimeTraceScope timeScope(
+            TimeTraceEventType::codegenModule,
+            (llvm::Twine("Codegen: module ") + m->toChars()).str().c_str(),
+            m->toChars(), m->loc);
+#if LDC_MLIR_ENABLED
+        if (global.params.output_mlir == OUTPUTFLAGset)
+          cg.emitMLIR(m);
+        else
+#endif
+          cg.emit(m);
+      }
+      if (global.errors)
+        fatal();
+    }
+
+    if (!computeModules.empty() && !hasHostModules) {
+      dccg.writeModules(nullptr);
+    }
 
     // We may have removed all object files, if so don't link.
     if (global.params.objfiles.length == 0)
