@@ -15,6 +15,7 @@
 #include "dmd/id.h"
 #include "dmd/import.h"
 #include "dmd/init.h"
+#include "dmd/module.h"
 #include "dmd/nspace.h"
 #include "dmd/root/rmem.h"
 #include "dmd/target.h"
@@ -353,13 +354,20 @@ public:
       return;
     }
 
-    if (irs->dcomputetarget && (decl->tempdecl == Type::rtinfo ||
-                                decl->tempdecl == Type::rtinfoImpl)) {
-      // Emitting object.RTInfo(Impl) template instantiations in dcompute
-      // modules would require dcompute support for global variables.
-      Logger::println("Skipping object.RTInfo(Impl) template instantiations "
-                      "in dcompute modules.");
-      return;
+    if (irs->dcomputetarget && decl->tempdecl) {
+      if (decl->tempdecl == Type::rtinfo || decl->tempdecl == Type::rtinfoImpl) {
+        // Emitting object.RTInfo(Impl) template instantiations in dcompute
+        // modules would require dcompute support for global variables.
+        Logger::println("Skipping object.RTInfo(Impl) template instantiations "
+                        "in dcompute modules.");
+        return;
+      }
+      Module *m = decl->tempdecl->getModule();
+      if (m && hasComputeAttr(m) == DComputeCompileFor::hostOnly) {
+        Logger::println("Skipping host-side template instantiations "
+                        "in dcompute modules.");
+        return;
+      }
     }
 
     for (auto &m : *decl->members) {
