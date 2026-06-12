@@ -70,50 +70,52 @@ void DComputeTarget::writeModule(llvm::Module *hostModule) {
       FileName::combine(global.params.objdir.ptr, os.str().c_str());
 
   ::writeModule(&_ir->module, path);
-
-  if (hostModule) {
-    auto bufferOrErr = llvm::MemoryBuffer::getFile(path);
-    if (bufferOrErr) {
-      llvm::StringRef ptxString = bufferOrErr.get()->getBuffer();
-      llvm::Constant *ptxConst = llvm::ConstantDataArray::getString(
-          ctx, ptxString, true);
-
-      std::string internalName = "__dcompute_ptx_internal_" + std::string(short_name) + std::to_string(tversion) + "_" + opts::dcomputeFilePrefix;
-      
-      auto *gv = new llvm::GlobalVariable(
-          *hostModule,
-          ptxConst->getType(),
-          true, // isConstant
-          llvm::GlobalValue::PrivateLinkage,
-          ptxConst,
-          internalName);
-
-      for (auto *m : modules) {
-        std::string modName = m->toPrettyChars();
-        std::replace(modName.begin(), modName.end(), '.', '_');
-        std::string symName = "__dcompute_ptx_" + std::string(short_name) + std::to_string(tversion) + "_" + modName;
-
-        auto *alias = llvm::GlobalAlias::create(
-            ptxConst->getType(),
-            0, // address space
-            llvm::GlobalValue::ExternalLinkage,
-            symName,
-            gv,
-            hostModule);
-
-        if (alias->getName() != symName) {
-          if (auto *existing = hostModule->getNamedValue(symName)) {
-            existing->replaceAllUsesWith(alias);
-            existing->eraseFromParent();
-          }
-          alias->setName(symName);
-        }
-      }
-    }
-  }
-
+  
   delete _ir;
   _ir = nullptr;
+
+  if (!hostModule)
+    return;
+
+  auto bufferOrErr = llvm::MemoryBuffer::getFile(path);
+  if (!bufferOrErr)
+    return;
+
+  llvm::StringRef ptxString = bufferOrErr.get()->getBuffer();
+  llvm::Constant *ptxConst = llvm::ConstantDataArray::getString(
+      ctx, ptxString, true);
+
+  std::string internalName = "__dcompute_ptx_internal_" + std::string(short_name) + std::to_string(tversion) + "_" + opts::dcomputeFilePrefix;
+  
+  auto *gv = new llvm::GlobalVariable(
+      *hostModule,
+      ptxConst->getType(),
+      true, // isConstant
+      llvm::GlobalValue::PrivateLinkage,
+      ptxConst,
+      internalName);
+
+  for (auto *m : modules) {
+    std::string modName = m->toPrettyChars();
+    std::replace(modName.begin(), modName.end(), '.', '_');
+    std::string symName = "__dcompute_ptx_" + std::string(short_name) + std::to_string(tversion) + "_" + modName;
+
+    auto *alias = llvm::GlobalAlias::create(
+        ptxConst->getType(),
+        0, // address space
+        llvm::GlobalValue::ExternalLinkage,
+        symName,
+        gv,
+        hostModule);
+
+    if (alias->getName() != symName) {
+      if (auto *existing = hostModule->getNamedValue(symName)) {
+        existing->replaceAllUsesWith(alias);
+        existing->eraseFromParent();
+      }
+      alias->setName(symName);
+    }
+  }
 }
 
 #endif
