@@ -260,6 +260,16 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // as they contain unsupported global variables.
     if (ti->tempdecl == Type::rtinfo || ti->tempdecl == Type::rtinfoImpl) {
       stop = true;
+      return;
+    }
+    
+    // Skip host-side template instantiations (like TypeInfo or std.stdio)
+    if (ti->tempdecl) {
+      Module *m = ti->tempdecl->getModule();
+      if (m && hasComputeAttr(m) == DComputeCompileFor::hostOnly) {
+        stop = true;
+        return;
+      }
     }
   }
 
