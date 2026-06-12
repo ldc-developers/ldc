@@ -111,6 +111,9 @@ void DComputeCodeGenManager::writeModules(llvm::Module *hostModule) {
 }
 
 DComputeCodeGenManager::~DComputeCodeGenManager() {
+  for (auto t : targets) {
+    delete t;
+  }
   gIR = oldGIR;
   gTargetMachine = oldGTargetMachine;
   gABI = oldGABI;

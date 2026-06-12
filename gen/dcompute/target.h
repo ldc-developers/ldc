@@ -46,6 +46,10 @@ public:
       : ctx(c), tversion(v), target(id), short_name(_short_name),
         binSuffix(suffix), abi(a), mapping(map), _ir(nullptr) {}
 
+  virtual ~DComputeTarget() {
+    delete _ir;
+  }
+
   void emit(Module *m);
   void doCodeGen(Module *m);
   void writeModule(llvm::Module *hostModule);
