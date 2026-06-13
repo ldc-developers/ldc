@@ -212,6 +212,12 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     }
   }
   void visit(CallExp *e) override {
+    if (!e->f) {
+      error(e->loc, "function pointers and delegates are not allowed in `@compute` code");
+      stop = true;
+      return;
+    }
+
     // SynchronizedStatement is lowered to
     //    Critsec __critsec105; // 105 == line number
     //    _d_criticalenter(& __critsec105); <--
