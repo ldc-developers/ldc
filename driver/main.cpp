@@ -38,6 +38,7 @@
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
 #include "gen/abi/abi.h"
+#include "ir/irtypestruct.h"
 #include "gen/irstate.h"
 #include "gen/ldctraits.h"
 #include "gen/linkage.h"
@@ -1275,6 +1276,7 @@ void codegenModules(Modules &modules) {
           dcomputeWritten = true;
         }
       });
+      IrTypeStruct::resetDComputeTypes();
     }
 
     bool hasHostModules = false;
