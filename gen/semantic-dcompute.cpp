@@ -266,7 +266,6 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // as they contain unsupported global variables.
     if (ti->tempdecl == Type::rtinfo || ti->tempdecl == Type::rtinfoImpl) {
       stop = true;
-      return;
     }
   }
 
