@@ -525,10 +525,21 @@ static void buildRuntimeModule() {
     auto addCold = [&](AttrSet& a) {
       llvm::AttrBuilder ab(context);
       ab.addAttribute(llvm::Attribute::Cold);
+      a.addToFunction(ab);
     };
     addCold(Attr_Cold);
     addCold(Attr_Cold_NoReturn);
     addCold(Attr_Cold_NoReturn_NoUnwind);
+  }
+  // `noreturn`
+  {
+    auto addNoReturn = [&](AttrSet& a) {
+      llvm::AttrBuilder ab(context);
+      ab.addAttribute(llvm::Attribute::NoReturn);
+      a.addToFunction(ab);
+    };
+    addNoReturn(Attr_Cold_NoReturn);
+    addNoReturn(Attr_Cold_NoReturn_NoUnwind);
   }
   // `nocapture`/ `captures(none)`
   {
