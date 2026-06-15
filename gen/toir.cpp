@@ -2113,10 +2113,12 @@ public:
     PGO.setCurrentStmt(e);
 
     Type *dtype = e->type->toBasetype();
+    const bool isLvalue = e->isLvalue();
     LLValue *retPtr = nullptr;
     if (!(dtype->ty == TY::Tvoid || dtype->ty == TY::Tnoreturn)) {
-      // allocate a temporary for pointer to the final result.
-      retPtr = DtoAlloca(pointerTo(dtype), "condtmp");
+      if (!isLvalue) {
+        retPtr = DtoAlloca(dtype, "condtmp");
+      }
     }
 
     llvm::BasicBlock *condtrue = p->insertBB("condtrue");
@@ -2131,26 +2133,60 @@ public:
     auto branchweights = PGO.createProfileWeights(truecount, falsecount);
     p->ir->CreateCondBr(cond_val, condtrue, condfalse, branchweights);
 
+    LLValue *u_val = nullptr;
+    llvm::BasicBlock *u_bb = nullptr;
     p->ir->SetInsertPoint(condtrue);
     PGO.emitCounterIncrement(e);
     DValue *u = toElem(e->e1);
-    if (retPtr && u->type->toBasetype()->ty != TY::Tnoreturn) {
-      LLValue *lval = makeLValue(e->loc, u);
-      DtoStore(lval, retPtr);
+    if (u->type->toBasetype()->ty != TY::Tnoreturn) {
+      if (isLvalue) {
+        u_val = makeLValue(e->loc, u);
+      } else if (retPtr) {
+        LLValue *rval = DtoRVal(u);
+        DtoStoreZextI8(rval, retPtr);
+      }
+    }
+    if (!p->scopebb()->getTerminator()) {
+      u_bb = p->scopebb();
     }
     createBranch(condend, p->scopebb());
 
+    LLValue *v_val = nullptr;
+    llvm::BasicBlock *v_bb = nullptr;
     p->ir->SetInsertPoint(condfalse);
     DValue *v = toElem(e->e2);
-    if (retPtr && v->type->toBasetype()->ty != TY::Tnoreturn) {
-      LLValue *lval = makeLValue(e->loc, v);
-      DtoStore(lval, retPtr);
+    if (v->type->toBasetype()->ty != TY::Tnoreturn) {
+      if (isLvalue) {
+        v_val = makeLValue(e->loc, v);
+      } else if (retPtr) {
+        LLValue *rval = DtoRVal(v);
+        DtoStoreZextI8(rval, retPtr);
+      }
+    }
+    if (!p->scopebb()->getTerminator()) {
+      v_bb = p->scopebb();
     }
     createBranch(condend, p->scopebb());
 
     p->ir->SetInsertPoint(condend);
-    if (retPtr)
-      result = new DSpecialRefValue(e->type, retPtr);
+    if (isLvalue) {
+      if (u_bb && v_bb && u_val && v_val) {
+        llvm::Type *phiType = u_val->getType();
+        llvm::PHINode *phi = p->ir->CreatePHI(phiType, 2, "condtmp");
+        phi->addIncoming(u_val, u_bb);
+        if (v_val->getType() != phiType) {
+          v_val = DtoBitCast(v_val, phiType);
+        }
+        phi->addIncoming(v_val, v_bb);
+        result = new DLValue(e->type, phi);
+      } else if (u_bb && u_val) {
+        result = new DLValue(e->type, u_val);
+      } else if (v_bb && v_val) {
+        result = new DLValue(e->type, v_val);
+      }
+    } else if (retPtr) {
+      result = new DLValue(e->type, retPtr);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
