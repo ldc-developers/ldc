@@ -1272,7 +1272,7 @@ void codegenModules(Modules &modules) {
       }
       cg.setDComputeHook([&](llvm::Module *m) {
         if (!dcomputeWritten) {
-          dccg.writeModules(m);
+          dccg.writeModules(opts::fembedDCompute ? m : nullptr);
           dcomputeWritten = true;
         }
       });

@@ -143,6 +143,7 @@ extern cl::opt<unsigned> fWarnStackSize;
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 extern cl::list<std::string> dcomputeTargets;
 extern cl::opt<std::string> dcomputeFilePrefix;
+extern cl::opt<bool> fembedDCompute;
 #endif
 
 #if defined(LDC_DYNAMIC_COMPILE)
