@@ -2170,19 +2170,26 @@ public:
 
     p->ir->SetInsertPoint(condend);
     if (isLvalue) {
-      if (u_bb && v_bb && u_val && v_val) {
-        llvm::Type *phiType = u_val->getType();
-        llvm::PHINode *phi = p->ir->CreatePHI(phiType, 2, "condtmp");
-        phi->addIncoming(u_val, u_bb);
-        if (v_val->getType() != phiType) {
-          v_val = DtoBitCast(v_val, phiType);
+      llvm::Type *ptrType = nullptr;
+      if (u_val) ptrType = u_val->getType();
+      else if (v_val) ptrType = v_val->getType();
+      else ptrType = DtoPtrToType(dtype);
+
+      if (u_bb && v_bb) {
+        llvm::PHINode *phi = p->ir->CreatePHI(ptrType, 2, "condtmp");
+        phi->addIncoming(u_val ? u_val : llvm::UndefValue::get(ptrType), u_bb);
+        LLValue *v_inc = v_val ? v_val : llvm::UndefValue::get(ptrType);
+        if (v_inc->getType() != ptrType) {
+          v_inc = DtoBitCast(v_inc, ptrType);
         }
-        phi->addIncoming(v_val, v_bb);
+        phi->addIncoming(v_inc, v_bb);
         result = new DLValue(e->type, phi);
-      } else if (u_bb && u_val) {
-        result = new DLValue(e->type, u_val);
-      } else if (v_bb && v_val) {
-        result = new DLValue(e->type, v_val);
+      } else if (u_bb) {
+        result = new DLValue(e->type, u_val ? u_val : llvm::UndefValue::get(ptrType));
+      } else if (v_bb) {
+        result = new DLValue(e->type, v_val ? v_val : llvm::UndefValue::get(ptrType));
+      } else {
+        result = new DLValue(e->type, llvm::UndefValue::get(ptrType));
       }
     } else if (retPtr) {
       result = new DLValue(e->type, retPtr);
