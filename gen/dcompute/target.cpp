@@ -81,28 +81,30 @@ void DComputeTarget::writeModule(llvm::Module *hostModule) {
   if (!bufferOrErr)
     return;
 
-  llvm::StringRef ptxString = bufferOrErr.get()->getBuffer();
-  llvm::Constant *ptxConst = llvm::ConstantDataArray::getString(
-      ctx, ptxString, true);
+  llvm::StringRef deviceString = bufferOrErr.get()->getBuffer();
+  llvm::Constant *deviceConst = llvm::ConstantDataArray::getString(
+      ctx, deviceString, true);
 
-  std::string internalName = "__dcompute_" + std::string(binSuffix) + "_internal_" + std::string(short_name) + std::to_string(tversion) + "_" + opts::dcomputeFilePrefix;
+  std::string prefix = "__dcompute_" + std::string(binSuffix) + "_" +
+                       std::string(short_name) + std::to_string(tversion);
+  std::string internalName = prefix + "_internal_" + opts::dcomputeFilePrefix;
   
   auto *gv = new llvm::GlobalVariable(
       *hostModule,
-      ptxConst->getType(),
+      deviceConst->getType(),
       true, // isConstant
       llvm::GlobalValue::PrivateLinkage,
-      ptxConst,
+      deviceConst,
       internalName);
   gv->setAlignment(llvm::Align(4));
 
   for (auto *m : modules) {
     std::string modName = m->toPrettyChars();
     std::replace(modName.begin(), modName.end(), '.', '_');
-    std::string symName = "__dcompute_" + std::string(binSuffix) + "_" + std::string(short_name) + std::to_string(tversion) + "_" + modName;
+    std::string symName = prefix + "_" + modName;
 
     auto *alias = llvm::GlobalAlias::create(
-        ptxConst->getType(),
+        deviceConst->getType(),
         0, // address space
         llvm::GlobalValue::ExternalLinkage,
         symName,
