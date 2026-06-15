@@ -16,11 +16,11 @@ void main(string[] args)
     foo(global_x);
 }
 
-// LL: __dcompute_ptx_internal_{{.*}} align 4
-// LL: __dcompute_ptx_{{.*}} ={{.*}}alias
+// LL-DAG: __dcompute_ptx_internal_{{.*}} align 4
+// LL-DAG: __dcompute_ptx_{{.*}} ={{.*}}alias
 
-// LL: __dcompute_spv_internal_{{.*}} align 4
-// LL: __dcompute_spv_{{.*}} ={{.*}}alias
+// LL-DAG: __dcompute_spv_internal_{{.*}} align 4
+// LL-DAG: __dcompute_spv_{{.*}} ={{.*}}alias
 
 void foo(GlobalPointer!float x_in) {
     SharedPointer!float shared_x;
