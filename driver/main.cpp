@@ -1283,7 +1283,7 @@ void codegenModules(Modules &modules) {
     for (d_size_t i = modules.length; i-- > 0;) {
       Module *const m = modules[i];
 
-      if (m->filetype != FileType::d)
+      if (m->filetype != FileType::d && m->filetype != FileType::c)
         continue;
 
       if (global.params.v.verbose)
