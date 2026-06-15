@@ -2173,7 +2173,7 @@ public:
       llvm::Type *ptrType = nullptr;
       if (u_val) ptrType = u_val->getType();
       else if (v_val) ptrType = v_val->getType();
-      else ptrType = DtoPtrToType(dtype);
+      else ptrType = getOpaquePtrType();
 
       if (u_bb && v_bb) {
         llvm::PHINode *phi = p->ir->CreatePHI(ptrType, 2, "condtmp");
