@@ -144,6 +144,8 @@ extern cl::opt<unsigned> fWarnStackSize;
 extern cl::list<std::string> dcomputeTargets;
 extern cl::opt<std::string> dcomputeFilePrefix;
 extern cl::opt<bool> fembedDCompute;
+#else
+constexpr bool fembedDCompute = false;
 #endif
 
 #if defined(LDC_DYNAMIC_COMPILE)
