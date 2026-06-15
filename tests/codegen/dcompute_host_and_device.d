@@ -22,7 +22,7 @@ void main(string[] args)
     foo(global_x);
 }
 
-// LL: __dcompute_ptx_internal_
+// LL: __dcompute_ptx_{{.*}}_internal_
 // LL: __dcompute_ptx_{{.*}} ={{.*}}alias
 
 void foo(GlobalPointer!float x_in) {

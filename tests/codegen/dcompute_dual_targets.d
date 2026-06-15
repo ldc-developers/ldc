@@ -16,10 +16,10 @@ void main(string[] args)
     foo(global_x);
 }
 
-// LL-DAG: __dcompute_ptx_internal_{{.*}} align 4
+// LL-DAG: __dcompute_ptx_{{.*}}_internal_{{.*}} align 4
 // LL-DAG: __dcompute_ptx_{{.*}} ={{.*}}alias
 
-// LL-DAG: __dcompute_spv_internal_{{.*}} align 4
+// LL-DAG: __dcompute_spv_{{.*}}_internal_{{.*}} align 4
 // LL-DAG: __dcompute_spv_{{.*}} ={{.*}}alias
 
 void foo(GlobalPointer!float x_in) {
