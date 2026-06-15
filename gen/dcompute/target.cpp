@@ -85,7 +85,7 @@ void DComputeTarget::writeModule(llvm::Module *hostModule) {
   llvm::Constant *ptxConst = llvm::ConstantDataArray::getString(
       ctx, ptxString, true);
 
-  std::string internalName = "__dcompute_ptx_internal_" + std::string(short_name) + std::to_string(tversion) + "_" + opts::dcomputeFilePrefix;
+  std::string internalName = "__dcompute_" + std::string(binSuffix) + "_internal_" + std::string(short_name) + std::to_string(tversion) + "_" + opts::dcomputeFilePrefix;
   
   auto *gv = new llvm::GlobalVariable(
       *hostModule,
@@ -94,11 +94,12 @@ void DComputeTarget::writeModule(llvm::Module *hostModule) {
       llvm::GlobalValue::PrivateLinkage,
       ptxConst,
       internalName);
+  gv->setAlignment(llvm::Align(4));
 
   for (auto *m : modules) {
     std::string modName = m->toPrettyChars();
     std::replace(modName.begin(), modName.end(), '.', '_');
-    std::string symName = "__dcompute_ptx_" + std::string(short_name) + std::to_string(tversion) + "_" + modName;
+    std::string symName = "__dcompute_" + std::string(binSuffix) + "_" + std::string(short_name) + std::to_string(tversion) + "_" + modName;
 
     auto *alias = llvm::GlobalAlias::create(
         ptxConst->getType(),
