@@ -16,6 +16,9 @@ namespace llvm {
   class TargetMachine;
 }
 
+class DComputeTarget;
+class TargetABI;
+
 // gets run on modules marked @compute
 // All @compute D modules are emitted into one LLVM module once per target.
 class DComputeCodeGenManager {
@@ -25,9 +28,10 @@ class DComputeCodeGenManager {
   DComputeTarget *createComputeTarget(const std::string &s);
   IRState *oldGIR = nullptr;
   llvm::TargetMachine *oldGTargetMachine = nullptr;
+  TargetABI *oldGABI = nullptr;
 public:
   void emit(Module *m);
-  void writeModules();
+  void writeModules(llvm::Module *hostModule);
 
   DComputeCodeGenManager(llvm::LLVMContext &c);
   ~DComputeCodeGenManager();

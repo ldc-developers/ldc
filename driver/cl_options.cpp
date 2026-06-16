@@ -763,6 +763,10 @@ cl::opt<std::string>
                        cl::desc("Prefix to prepend to the generated kernel files."),
                        cl::init("kernels"),
                        cl::value_desc("prefix"));
+cl::opt<bool>
+    fembedDCompute("fembed-dcompute",
+                   cl::desc("Embed DCompute target code into host module (default: true)"),
+                   cl::init(true));
 #endif
 
 #if defined(LDC_DYNAMIC_COMPILE)

@@ -16,6 +16,7 @@
 #include "ir/irvar.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include <stdio.h>
 
 using namespace dmd;
 
@@ -84,22 +85,32 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
 }
 
 /// Returns the StructLiteralExp magic attribute with identifier `id` from
-/// the ldc magic module with identifier `from` (attributes or dcompute)
+/// the ldc magic module with identifier `module_id` (attributes or dcompute)
 /// if it is applied to `sym`, otherwise returns nullptr.
 StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
-                                    const Identifier *from) {
+                                    const Identifier *module_id) {
   if (!sym->userAttribDecl())
     return nullptr;
-
-  // Loop over all UDAs and early return the expression if a match was found.
+  
   Expressions *attrs = getAttributes(sym->userAttribDecl());
   expandTuples(attrs);
-  for (auto attr : *attrs) {
-    if (auto sle = attr->isStructLiteralExp())
-      if (isFromMagicModule(sle, from) && id == sle->sd->ident)
-        return sle;
-  }
 
+  if (!attrs)
+    return nullptr;
+  for (auto exp : *attrs) {
+    unsigned prevErrors = global.startGagging();
+    auto e = ctfeInterpret(exp);
+    if (global.endGagging(prevErrors))
+      continue;
+
+    if (e->op == EXP::structLiteral) {
+      auto sle = e->isStructLiteralExp();
+      
+      if (sle->sd->ident == id && isFromMagicModule(sle, module_id)) {
+        return sle;
+      }
+    }
+  }
   return nullptr;
 }
 
