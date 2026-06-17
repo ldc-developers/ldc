@@ -2142,8 +2142,8 @@ public:
       if (isLvalue) {
         u_val = makeLValue(e->loc, u);
       } else if (retPtr) {
-        LLValue *rval = DtoRVal(u);
-        DtoStoreZextI8(rval, retPtr);
+        DLValue dst(dtype, retPtr);
+        DtoAssign(e->loc, &dst, u, EXP::blit);
       }
     }
     if (!p->scopebb()->getTerminator()) {
@@ -2159,8 +2159,8 @@ public:
       if (isLvalue) {
         v_val = makeLValue(e->loc, v);
       } else if (retPtr) {
-        LLValue *rval = DtoRVal(v);
-        DtoStoreZextI8(rval, retPtr);
+        DLValue dst(dtype, retPtr);
+        DtoAssign(e->loc, &dst, v, EXP::blit);
       }
     }
     if (!p->scopebb()->getTerminator()) {
