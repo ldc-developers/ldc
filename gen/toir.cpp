@@ -2170,24 +2170,43 @@ public:
 
     p->ir->SetInsertPoint(condend);
     if (isLvalue) {
-      llvm::Type *ptrType = nullptr;
-      if (u_val) ptrType = u_val->getType();
-      else if (v_val) ptrType = v_val->getType();
-      else ptrType = getOpaquePtrType();
+      llvm::Type *ptrType = getOpaquePtrType();
+      if (u_val && v_val && u_val->getType() == v_val->getType()) {
+        ptrType = u_val->getType();
+      } else if (u_val && !v_val) {
+        ptrType = u_val->getType();
+      } else if (v_val && !u_val) {
+        ptrType = v_val->getType();
+      }
 
       if (u_bb && v_bb) {
         llvm::PHINode *phi = p->ir->CreatePHI(ptrType, 2, "condtmp");
-        phi->addIncoming(u_val ? u_val : llvm::UndefValue::get(ptrType), u_bb);
+        
+        LLValue *u_inc = u_val ? u_val : llvm::UndefValue::get(ptrType);
+        if (u_inc->getType() != ptrType) {
+          u_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(u_inc, ptrType);
+        }
+        phi->addIncoming(u_inc, u_bb);
+        
         LLValue *v_inc = v_val ? v_val : llvm::UndefValue::get(ptrType);
         if (v_inc->getType() != ptrType) {
           v_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(v_inc, ptrType);
         }
         phi->addIncoming(v_inc, v_bb);
+        
         result = new DLValue(e->type, phi);
       } else if (u_bb) {
-        result = new DLValue(e->type, u_val ? u_val : llvm::UndefValue::get(ptrType));
+        LLValue *u_inc = u_val ? u_val : llvm::UndefValue::get(ptrType);
+        if (u_inc->getType() != ptrType) {
+          u_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(u_inc, ptrType);
+        }
+        result = new DLValue(e->type, u_inc);
       } else if (v_bb) {
-        result = new DLValue(e->type, v_val ? v_val : llvm::UndefValue::get(ptrType));
+        LLValue *v_inc = v_val ? v_val : llvm::UndefValue::get(ptrType);
+        if (v_inc->getType() != ptrType) {
+          v_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(v_inc, ptrType);
+        }
+        result = new DLValue(e->type, v_inc);
       } else {
         result = new DLValue(e->type, llvm::UndefValue::get(ptrType));
       }
