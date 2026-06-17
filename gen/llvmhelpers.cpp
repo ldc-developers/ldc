@@ -289,7 +289,7 @@ void DtoCAssert(Module *M, Loc loc, LLValue *msg) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);
-  } else if (triple.isOSSolaris() || triple.isMusl() ||
+  } else if (triple.isOSSolaris() || triple.isMusl() || triple.isOSWASI() ||
              global.params.isUClibcEnvironment ||
              triple.isGNUEnvironment()) {
     const auto irFunc = gIR->func();
@@ -1365,7 +1365,7 @@ void printLabelName(std::ostream &target, const char *func_mangle,
   // note: quotes needed for Unicode
   target << '"'
 #if LLVM_VERSION_MAJOR >= 23
-         << gTargetMachine->getMCAsmInfo().getPrivateLabelPrefix().str()
+         << gTargetMachine->getMCAsmInfo().getInternalSymbolPrefix().str()
 #else
          << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix().str()
 #endif

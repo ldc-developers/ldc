@@ -450,6 +450,16 @@ else version (CRuntime_Musl)
         static assert(false, "Architecture not supported.");
     }
 }
+else version (CRuntime_WASI)
+{
+    import core.stdc.config : c_ulong;
+    struct fenv_t
+    {
+        c_ulong __cw;
+    }
+
+    alias c_ulong fexcept_t;
+}
 else version (CRuntime_Newlib)
 {
     version (AArch64)
@@ -578,6 +588,14 @@ version (CRuntime_Microsoft)
         FE_UPWARD       = 0x100, ///
         FE_DOWNWARD     = 0x200, ///
         FE_TOWARDZERO   = 0x300, ///
+    }
+}
+version (CRuntime_WASI)
+{
+    enum
+    {
+        FE_ALL_EXCEPT      = 0, ///
+        FE_TONEAREST       = 0, ///
     }
 }
 else version (Solaris)
@@ -923,6 +941,11 @@ else version (Solaris)
     enum FE_DFL_ENV = &__fenv_def_env;
 }
 else version (CRuntime_Musl)
+{
+    ///
+    enum FE_DFL_ENV = cast(fenv_t*)(-1);
+}
+else version (CRuntime_WASI)
 {
     ///
     enum FE_DFL_ENV = cast(fenv_t*)(-1);

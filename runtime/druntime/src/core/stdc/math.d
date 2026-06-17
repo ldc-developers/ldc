@@ -736,6 +736,47 @@ else version (CRuntime_Musl)
     pragma(mangle, real.sizeof == double.sizeof ? "__signbit" : "__signbitl")
     pure int signbit(real x);
 }
+else version (CRuntime_WASI)
+{
+    enum
+    {
+        ///
+        FP_NAN,
+        ///
+        FP_INFINITE,
+        ///
+        FP_ZERO,
+        ///
+        FP_SUBNORMAL,
+        ///
+        FP_NORMAL,
+    }
+
+    enum
+    {
+        ///
+        FP_FAST_FMA  = 0,
+        ///
+        FP_FAST_FMAF = 0,
+        ///
+        FP_FAST_FMAL = 0,
+    }
+
+    extern (D) {
+        pragma(LDC_intrinsic, "llvm.is.fpclass.f#")
+        private bool llvm_is_fpclass(T)(T val, uint fpclass) pure if (__traits(isFloating, T));
+
+
+        bool isinf(T)(T val) pure => llvm_is_fpclass(val, (1 << 2) | (1 << 9));
+        bool isnan(T)(T val) pure => llvm_is_fpclass(val, (1 << 0) | (1 << 1));
+        bool isnormal(T)(T val) pure => llvm_is_fpclass(val, (1 << 3) | (1 << 8));
+        bool isfinite(T)(T val) pure => llvm_is_fpclass(val, (1 << 3) | (1 << 4) | (1 << 5)| (1 << 6) | (1 << 7)| (1 << 8));
+
+        bool signbit(float val) pure => cast(int)val < 0;
+        bool signbit(double val) pure => cast(long)val < 0;
+        bool signbit(real val) pure => (*(cast(long[2]*)&(val)))[1] < 0;
+    }
+}
 else version (CRuntime_UClibc)
 {
     enum

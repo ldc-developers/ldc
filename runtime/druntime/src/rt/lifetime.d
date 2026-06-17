@@ -659,6 +659,8 @@ extern (C) void[] _d_arrayappendcd(ref byte[] x, dchar c) @weak
     return x;
 }
 
+version(WebAssembly) {} // No EH support yet
+else
 unittest
 {
     import core.exception : UnicodeException;
@@ -735,7 +737,8 @@ extern (C) void[] _d_arrayappendwd(ref byte[] x, dchar c) @weak
     return x;
 }
 
-
+version(WASI) {} // No real GC support
+else
 unittest
 {
     int[] a;
@@ -822,6 +825,8 @@ unittest
     testPostBlit!(const(S))();
 }
 
+version(WASI) {} // No real GC support
+else
 unittest
 {
     // Bugzilla 3454 - Inconsistent flag setting in GC.realloc()
@@ -847,6 +852,8 @@ unittest
     test(1024 * 1024);
 }
 
+version(WASI) {} // No real GC support
+else
 unittest
 {
     import core.exception;
@@ -860,6 +867,8 @@ unittest
     }
 }
 
+version(WASI) {} // No real GC support
+else
 unittest
 {
     // https://issues.dlang.org/show_bug.cgi?id=13854
@@ -903,6 +912,8 @@ unittest
     assert(info2.base is carr2.ptr); // no offset, the capacity is small.
 }
 
+version(WASI) {} // No real GC support
+else
 unittest
 {
     // https://issues.dlang.org/show_bug.cgi?id=13878
@@ -959,6 +970,8 @@ unittest
 }
 
 // test struct finalizers
+version(WASI) {} // No real GC support
+else
 debug(SENTINEL) {} else
 deprecated unittest
 {
@@ -1041,6 +1054,8 @@ deprecated unittest
 }
 
 // test struct dtor handling not causing false pointers
+version(WASI) {} // No real GC support
+else
 unittest
 {
     // for 64-bit, allocate a struct of size 40
@@ -1113,6 +1128,8 @@ unittest
 }
 
 // test class finalizers exception handling
+version(WebAssembly) {} // No EH support yet
+else
 unittest
 {
     bool test(E)()

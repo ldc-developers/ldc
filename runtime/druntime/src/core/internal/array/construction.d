@@ -158,6 +158,8 @@ Tarr _d_arrayctor(Tarr : T[], T)(return scope Tarr to, scope Tarr from, char* ma
     assert(arr1 == arr2);
 }
 
+version (WebAssembly) {} // no EH support yet
+else
 @safe nothrow unittest
 {
     // Test that throwing works
@@ -290,6 +292,8 @@ void _d_arraysetctor(Tarr : T[], T)(scope Tarr p, scope ref T value) @trusted
     assert(arr == [S(1234), S(1234), S(1234), S(1234)]);
 }
 
+version (WebAssembly) {} // no EH support yet
+else
 @safe nothrow unittest
 {
     // Test that throwing works

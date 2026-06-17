@@ -223,6 +223,10 @@ private extern (C) void _initialize() @system
         GetSystemInfo(&si);
         (cast() pageSize) = cast(size_t) si.dwPageSize;
     }
+    else version (WebAssembly)
+    {
+        (cast() pageSize) = cast(size_t) 65536;
+    }
     else
         static assert(false, __FUNCTION__ ~ " is not implemented on this platform");
 }
@@ -585,6 +589,8 @@ extern(C):
 
     // https://issues.dlang.org/show_bug.cgi?id=13111
     ///
+    version (WASI) {} // no real GC support yet
+    else
     version (OnlyLowMemUnittests) {} else // Test needs a lot of RAM
     unittest
     {
@@ -743,6 +749,8 @@ extern(D):
     }
 
     // verify that the reallocation doesn't leave the size cache in a wrong state
+    version (WASI) {} // no real GC support yet
+    else
     unittest
     {
         auto data = cast(int*)realloc(null, 4096);
@@ -937,6 +945,8 @@ extern(C):
     }
 
     ///
+    version (WebAssembly) {} // no EH support yet
+    else
     unittest
     {
         enum Outcome
@@ -1027,6 +1037,8 @@ extern(C):
     pragma(mangle, "gc_allocatedInCurrentThread") static ulong allocatedInCurrentThread() nothrow;
 
     /// Using allocatedInCurrentThread
+    version (WASI) {} // no real GC support
+    else
     nothrow unittest
     {
         ulong currentlyAllocated = GC.allocatedInCurrentThread();
@@ -1297,6 +1309,8 @@ void __delete(T)(ref T x) @system
 }
 
 /// Deleting classes
+version (WASI) {} // no real GC support
+else
 unittest
 {
     bool dtorCalled;
@@ -1323,6 +1337,8 @@ unittest
 }
 
 /// Deleting interfaces
+version (WASI) {} // no real GC support
+else
 unittest
 {
     bool dtorCalled;
@@ -1354,6 +1370,8 @@ unittest
 }
 
 /// Deleting structs
+version (WASI) {} // no real GC support
+else
 unittest
 {
     bool dtorCalled;
@@ -1379,6 +1397,8 @@ unittest
 }
 
 /// Deleting arrays
+version (WASI) {} // no real GC support
+else
 unittest
 {
     int[] a = [1, 2, 3];
@@ -1394,6 +1414,8 @@ unittest
 }
 
 /// Deleting arrays of structs
+version (WASI) {} // no real GC support
+else
 unittest
 {
     int dtorCalled;
@@ -1418,6 +1440,8 @@ unittest
 }
 
 // Deleting raw memory
+version (WASI) {} // no real GC support
+else
 unittest
 {
     import core.memory : GC;
@@ -1449,6 +1473,8 @@ unittest
 }
 
 // https://issues.dlang.org/show_bug.cgi?id=19092
+version (WASI) {} // no real GC support
+else
 unittest
 {
     const(int)[] x = [1, 2, 3];
@@ -1465,6 +1491,8 @@ unittest
 }
 
 // test realloc behaviour
+version (WASI) {} // no real GC support
+else
 unittest
 {
     static void set(int* p, size_t size)
@@ -1515,6 +1543,8 @@ unittest
 }
 
 // test GC.profileStats
+version (WASI) {} // no real GC support
+else
 unittest
 {
     auto stats = GC.profileStats();

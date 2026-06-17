@@ -140,6 +140,8 @@ Tarr _d_arrayassign_l(Tarr : T[], T)(return scope Tarr to, scope Tarr from) @tru
     assert(arr1 == arr2);
 }
 
+version (WebAssembly) {} // no EH support yet
+else
 @safe nothrow unittest
 {
     // Test that throwing works
@@ -409,6 +411,8 @@ Tarr _d_arraysetassign(Tarr : T[], T)(return scope Tarr to, scope ref T value) @
     assert(arr[0].val == 1234);
 }
 
+version (WebAssembly) {} // no EH support yet
+else
 // throwing and `nothrow`
 @safe nothrow unittest
 {

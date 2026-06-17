@@ -306,6 +306,8 @@ unittest
     assert(cnt == 0);
 }
 
+version (WebAssembly) {} // no EH support yet
+else
 unittest
 {
     import core.exception;

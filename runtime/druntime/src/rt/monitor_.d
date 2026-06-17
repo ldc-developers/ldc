@@ -24,6 +24,10 @@ else version (Posix)
         pthread_mutexattr_settype;
     import core.sys.posix.sys.types : pthread_mutex_t, pthread_mutexattr_t;
 }
+else version (WASI)
+{
+// dummy no-op
+}
 else
 {
     static assert(0, "Unsupported platform");
@@ -225,6 +229,26 @@ else version (Posix)
         pthread_mutex_unlock(mtx) && assert(0);
     }
 }
+else version (WASI) {
+@nogc:
+    alias Mutex = ubyte;
+
+    void initMutex(Mutex* mtx)
+    {
+    }
+
+    void destroyMutex(Mutex* mtx)
+    {
+    }
+
+    void lockMutex(Mutex* mtx)
+    {
+    }
+
+    void unlockMutex(Mutex* mtx)
+    {
+    }
+}
 
 struct Monitor
 {
@@ -306,6 +330,8 @@ void disposeEvent(Monitor* m, Object h)
 }
 
 // Bugzilla 14573
+version(WASI) {} // No real GC support
+else
 unittest
 {
     import core.memory : GC;

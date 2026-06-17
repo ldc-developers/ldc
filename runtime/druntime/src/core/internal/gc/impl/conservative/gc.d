@@ -7,6 +7,17 @@
  */
 module core.internal.gc.impl.conservative.gc;
 
+version (WASI) {
+enum PAGESIZE = 65536;
+
+extern(C) void _d_register_conservative_gc()
+{
+    // no-op
+}
+
+}
+else:
+
 // D Programming Language Garbage Collector implementation
 
 /************** Debugging ***************************/

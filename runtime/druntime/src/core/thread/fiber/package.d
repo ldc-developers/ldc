@@ -11,6 +11,8 @@
 
 module core.thread.fiber;
 
+version(WASI) {} else:
+
 import core.thread.context;
 import core.thread.fiber.base : fiber_entryPoint, FiberBase;
 import core.thread.threadbase;

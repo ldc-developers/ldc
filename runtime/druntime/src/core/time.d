@@ -92,6 +92,10 @@ else version (Posix)
     import core.sys.posix.sys.time : gettimeofday, timeval;
     import core.sys.posix.time : clock_getres, clock_gettime, CLOCK_MONOTONIC, timespec;
 }
+else version (WASI)
+{
+    import core.sys.wasi.posix.time : clock_getres, clock_gettime, CLOCK_MONOTONIC, timespec;
+}
 
 version (unittest) import core.stdc.stdio : printf;
 
@@ -337,6 +341,13 @@ else version (Solaris) enum ClockType
     second = 6,
     threadCPUTime = 7,
 }
+else version (WASI) enum ClockType
+{
+    normal = 0,
+    coarse = 2,
+    precise = 3,
+    second = 6
+}
 else
 {
     // It needs to be decided (and implemented in an appropriate version branch
@@ -443,6 +454,20 @@ version (Posix)
             // mention it if a new platform uses anything that's not supported
             // on all platforms..
             assert(0, "What are the monotonic clock types supported by this system?");
+    }
+}
+version (WASI)
+{
+    private auto _posixClock(ClockType clockType)
+    {
+        import core.sys.wasi.posix.time;
+        with(ClockType) final switch (clockType)
+        {
+            case coarse: return CLOCK_MONOTONIC;
+            case normal: return CLOCK_MONOTONIC;
+            case precise: return CLOCK_MONOTONIC;
+            case second: assert(0);
+        }
     }
 }
 
@@ -2132,6 +2157,10 @@ struct MonoTimeImpl(ClockType clockType)
     {
         enum clockArg = _posixClock(clockType);
     }
+    else version (WASI)
+    {
+        enum clockArg = _posixClock(clockType);
+    }
     else
         static assert(0, "Unsupported platform");
 
@@ -2180,6 +2209,24 @@ struct MonoTimeImpl(ClockType clockType)
         else version (Darwin)
             return MonoTimeImpl(mach_absolute_time());
         else version (Posix)
+        {
+            timespec ts = void;
+            immutable error = clock_gettime(clockArg, &ts);
+            // clockArg is supported and if tv_sec is long or larger
+            // overflow won't happen before 292 billion years A.D.
+            static if (ts.tv_sec.max < long.max)
+            {
+                if (error)
+                {
+                    import core.internal.abort : abort;
+                    abort("Call to clock_gettime failed.");
+                }
+            }
+            return MonoTimeImpl(convClockFreq(ts.tv_sec * 1_000_000_000L + ts.tv_nsec,
+                                              1_000_000_000L,
+                                              ticksPerSecond));
+        }
+        else version (WASI)
         {
             timespec ts = void;
             immutable error = clock_gettime(clockArg, &ts);
@@ -2592,6 +2639,34 @@ extern(C) void _d_initMonoTime() @nogc nothrow
             }
         }
     }
+    else version (WASI)
+    {
+        timespec ts;
+        foreach (i, typeStr; __traits(allMembers, ClockType))
+        {
+            static if (typeStr != "second")
+            {
+                enum clockArg = _posixClock(__traits(getMember, ClockType, typeStr));
+                if (clock_getres(clockArg, &ts) == 0)
+                {
+                    // ensure we are only writing immutable data once
+                    if (tps[i] != 0)
+                        // should only be called once
+                        assert(0);
+
+                    // For some reason, on some systems, clock_getres returns
+                    // a resolution which is clearly wrong:
+                    //  - it's a millisecond or worse, but the time is updated
+                    //    much more frequently than that.
+                    //  - it's negative
+                    //  - it's zero
+                    // In such cases, we'll just use nanosecond resolution.
+                    tps[i] = ts.tv_sec != 0 || ts.tv_nsec <= 0 || ts.tv_nsec >= 1000
+                        ? 1_000_000_000L : 1_000_000_000L / ts.tv_nsec;
+                }
+            }
+        }
+    }
     else
         static assert(0, "Unsupported platform");
 }
@@ -2892,6 +2967,23 @@ deprecated:
             }
             else
                 ticksPerSec = 1_000_000;
+        }
+        else version (WASI)
+        {
+            timespec ts;
+
+            if (clock_getres(CLOCK_MONOTONIC, &ts) != 0)
+                ticksPerSec = 0;
+            else
+            {
+                //For some reason, on some systems, clock_getres returns
+                //a resolution which is clearly wrong (it's a millisecond
+                //or worse, but the time is updated much more frequently
+                //than that). In such cases, we'll just use nanosecond
+                //resolution.
+                ticksPerSec = ts.tv_nsec >= 1000 ? 1_000_000_000
+                                                    : 1_000_000_000 / ts.tv_nsec;
+            }
         }
         else
             static assert(0, "Unsupported platform");
@@ -3271,6 +3363,8 @@ deprecated:
         length = cast(long)(length / value);
     }
 
+    version (WebAssembly) {} // no EH support yet
+    else
     version (CoreUnittest) unittest
     {
         immutable curr = TickDuration.currSystemTick;
@@ -3357,6 +3451,8 @@ deprecated:
         return TickDuration(cast(long)(length / value));
     }
 
+    version (WebAssembly) {} // no EH support yet
+    else
     version (CoreUnittest) unittest
     {
         foreach (T; AliasSeq!(TickDuration, const TickDuration, immutable TickDuration))
@@ -3461,6 +3557,23 @@ deprecated:
                 return TickDuration(tv.tv_sec * TickDuration.ticksPerSec +
                                     tv.tv_usec * TickDuration.ticksPerSec / 1000 / 1000);
             }
+        }
+        else version (WASI)
+        {
+            timespec ts = void;
+            immutable error = clock_gettime(CLOCK_MONOTONIC, &ts);
+            // CLOCK_MONOTONIC is supported and if tv_sec is long or larger
+            // overflow won't happen before 292 billion years A.D.
+            static if (ts.tv_sec.max < long.max)
+            {
+                if (error)
+                {
+                    import core.internal.abort : abort;
+                    abort("Call to clock_gettime failed.");
+                }
+            }
+            return TickDuration(ts.tv_sec * TickDuration.ticksPerSec +
+                                ts.tv_nsec * TickDuration.ticksPerSec / 1000 / 1000 / 1000);
         }
     }
 
@@ -3964,6 +4077,8 @@ version (CoreUnittest) void _assertThrown(T : Throwable = Exception, E)
     }
 }
 
+version (WebAssembly) {} // no EH support yet
+else
 unittest
 {
 

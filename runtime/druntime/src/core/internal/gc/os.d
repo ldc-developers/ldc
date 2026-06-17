@@ -215,7 +215,6 @@ else static if (is(typeof(malloc))) // else version (GC_Use_Alloc_Malloc)
     //       (req_size + PAGESIZE) is allocated, and the pointer is rounded up
     //       to PAGESIZE alignment, there will be space for a void* at the end
     //       after PAGESIZE bytes used by the GC.
-
     import core.internal.gc.impl.conservative.gc;
 
 

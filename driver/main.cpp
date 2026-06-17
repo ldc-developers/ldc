@@ -907,6 +907,17 @@ void registerPredefinedTargetVersions() {
     break;
   case llvm::Triple::WASI:
     VersionCondition::addPredefinedGlobalIdent("WASI");
+    VersionCondition::addPredefinedGlobalIdent("WASIp1");
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
+    break;
+  case llvm::Triple::WASIp1:
+    VersionCondition::addPredefinedGlobalIdent("WASI");
+    VersionCondition::addPredefinedGlobalIdent("WASIp1");
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
+    break;
+  case llvm::Triple::WASIp2:
+    VersionCondition::addPredefinedGlobalIdent("WASI");
+    VersionCondition::addPredefinedGlobalIdent("WASIp2");
     VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
     break;
   case llvm::Triple::Emscripten:

@@ -196,6 +196,8 @@ class Object
         //return this !is o;
     }
 
+    version (WebAssembly) {} // no EH support yet
+    else
     @system unittest
     {
         Object obj = new Object;
@@ -807,6 +809,8 @@ version (LDC) unittest
     auto t = new TypeInfo; // test that TypeInfo is not an abstract class. Needed for instantiating typeof(null).
 }
 
+version(WebAssembly) {} // No EH support yet
+else
 @system unittest
 {
     class _TypeInfo_Dummy : TypeInfo
@@ -2879,6 +2883,8 @@ class Exception : Throwable
 }
 
 ///
+version(WebAssembly) {} // No EH support yet
+else
 @safe unittest
 {
     bool gotCaught;
@@ -2962,6 +2968,8 @@ class Error : Throwable
 }
 
 ///
+version(WebAssembly) {} // No EH support yet
+else
 @system unittest
 {
     bool gotCaught;
@@ -3979,6 +3987,8 @@ Note: The _capacity of a slice may be impacted by operations on other slices.
 }
 
 ///
+version(WASI) {} // No real GC support
+else
 @safe unittest
 {
     //Static array slice: no capacity
@@ -4023,6 +4033,8 @@ size_t reserve(T)(ref T[] arr, size_t newcapacity) pure nothrow @trusted
 }
 
 ///
+version(WASI) {} // No real GC support
+else
 @safe unittest
 {
     //Static array slice: no capacity. Reserve relocates.
@@ -4044,6 +4056,8 @@ size_t reserve(T)(ref T[] arr, size_t newcapacity) pure nothrow @trusted
 }
 
 // https://issues.dlang.org/show_bug.cgi?id=12330, reserve() at CTFE time
+version(WASI) {} // No real GC support
+else
 @safe unittest
 {
     int[] foo() {
@@ -4056,6 +4070,8 @@ size_t reserve(T)(ref T[] arr, size_t newcapacity) pure nothrow @trusted
 }
 
 // Issue 6646: should be possible to use array.reserve from SafeD.
+version(WASI) {} // No real GC support
+else
 @safe unittest
 {
     int[] a;
@@ -4090,6 +4106,8 @@ auto ref inout(T[]) assumeSafeAppend(T)(auto ref inout(T[]) arr) nothrow @system
 }
 
 ///
+version(WASI) {} // No real GC support
+else
 @system unittest
 {
     int[] a = [1, 2, 3, 4];
@@ -4108,6 +4126,8 @@ auto ref inout(T[]) assumeSafeAppend(T)(auto ref inout(T[]) arr) nothrow @system
     }
 }
 
+version(WASI) {} // No real GC support
+else
 @system unittest
 {
     int[] arr;

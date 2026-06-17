@@ -110,6 +110,8 @@ class ArrayIndexError : RangeError
     assert(new ArrayIndexError(size_t.max, size_t.max-1).msg);
 }
 
+version (WebAssembly) {} // no EH support yet
+else
 unittest
 {
     try
@@ -178,6 +180,9 @@ class ArraySliceError : RangeError
     assert(new ArraySliceError(size_t.max, size_t.max, size_t.max-1).msg);
 }
 
+
+version (WebAssembly) {} // no EH support yet
+else
 unittest
 {
     try

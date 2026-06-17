@@ -22,6 +22,8 @@ public import core.thread.context;
 
 // this test is here to avoid a cyclic dependency between
 // core.thread and core.atomic
+version (WASI) {} // no threading
+else
 unittest
 {
     import core.atomic;

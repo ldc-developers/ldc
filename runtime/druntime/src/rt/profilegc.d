@@ -13,6 +13,9 @@
 
 module rt.profilegc;
 
+version (WASI) {}
+else:
+
 private:
 
 import core.stdc.errno : errno;

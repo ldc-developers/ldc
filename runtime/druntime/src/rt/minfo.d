@@ -683,6 +683,8 @@ void runModuleFuncsRev(alias getfp)(const(immutable(ModuleInfo)*)[] modules)
     }
 }
 
+version(WebAssembly) {} // No EH support yet
+else
 unittest
 {
     static void assertThrown(T : Throwable, E)(lazy E expr, string msg)

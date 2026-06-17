@@ -989,6 +989,8 @@ void _aaRangePopFront(K, V)(ref AARange!(K, V) r)
 }
 
 // test postblit for AA literals
+version (WASI) {} // no real GC support yet
+else
 unittest
 {
     import core.memory;

@@ -1516,6 +1516,8 @@ version (CoreUnittest)
 }
 
 // destruction of partially copied static array
+version (WebAssembly) {} // no EH support yet
+else
 @system unittest
 {
     static struct S
@@ -2926,6 +2928,9 @@ version (CoreUnittest)
     }
 
 }
+
+version (WASI) {} // no real GC support yet
+else
 @system unittest
 {
     import core.memory : GC;
@@ -2950,6 +2955,8 @@ version (CoreUnittest)
 }
 
 // Test struct finalizers exception handling
+version (WebAssembly) {} // no EH support yet
+else
 debug(SENTINEL) {} else
 @system unittest
 {

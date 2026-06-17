@@ -11,6 +11,8 @@
 
 module core.thread.fiber.base;
 
+version(WASI) {} else:
+
 package:
 
 import core.thread.fiber;

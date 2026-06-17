@@ -43,6 +43,10 @@ else version (Posix)
 {
     import core.stdc.string : strlen;
 }
+else version (WASI)
+{
+    import core.stdc.string : strlen;
+}
 
 // not sure why we can't define this in one place, but this is to keep this
 // module from importing core.runtime.
@@ -311,6 +315,18 @@ extern (C) int _d_run_main(int argc, char** argv, MainFunc mainFunc)
         wargc = 0;
     }
     else version (Posix)
+    {
+        // Allocate args[] on the stack
+        char[][] args = (cast(char[]*) alloca(argc * (char[]).sizeof))[0 .. argc];
+
+        size_t totalArgsLength = 0;
+        foreach (i, ref arg; args)
+        {
+            arg = argv[i][0 .. strlen(argv[i])];
+            totalArgsLength += arg.length;
+        }
+    }
+    else version (WASI)
     {
         // Allocate args[] on the stack
         char[][] args = (cast(char[]*) alloca(argc * (char[]).sizeof))[0 .. argc];

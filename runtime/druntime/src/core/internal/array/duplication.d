@@ -238,6 +238,8 @@ U[] _dup(T, U)(T[] a) if (!__traits(isPOD, T))
     { immutable x = pureFoo().dup; }
 }
 
+version (WASI) {} // no real GC support yet
+else
 @safe unittest
 {
     auto a = [1, 2, 3];
@@ -296,6 +298,8 @@ U[] _dup(T, U)(T[] a) if (!__traits(isPOD, T))
 
 // https://issues.dlang.org/show_bug.cgi?id=21983
 // dup/idup destroys partially constructed arrays on failure
+version (WebAssembly) {} // no EH support yet
+else
 @safe unittest
 {
     static struct SImpl(bool postblit)

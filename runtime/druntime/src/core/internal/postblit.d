@@ -196,6 +196,8 @@ package void postblitRecurse(E, size_t n)(ref E[n] arr)
 
 // Test handling of failed postblit
 // Not nothrow or @safe because of https://issues.dlang.org/show_bug.cgi?id=14242
+version (WebAssembly) {} // no EH support yet
+else
 /+ nothrow @safe +/ unittest
 {
     static class FailedPostblitException : Exception { this() nothrow @safe { super(null); } }

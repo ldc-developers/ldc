@@ -134,6 +134,8 @@ Tret _d_arraycatnTX(Tret: Tret_El[], Tret_El, Tarr...)(auto ref Tarr froms) @tru
 }
 
 // throwing
+version (WebAssembly) {} // no EH support yet
+else
 @safe unittest
 {
     int counter;

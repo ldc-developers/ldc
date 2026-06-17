@@ -1,5 +1,68 @@
 module core.internal.abort;
 
+version (WASIp1) {
+extern(C):
+@nogc:
+nothrow:
+alias ushort __wasi_errno_t;
+alias int __wasi_fd_t;
+alias size_t __wasi_size_t;
+
+extern(C) struct __wasi_ciovec_t {
+  const(ubyte)* buf;
+  __wasi_size_t buf_len;
+
+}
+
+extern(C) __wasi_errno_t
+__wasi_fd_write(__wasi_fd_t fd,
+                const __wasi_ciovec_t *iovs,
+                size_t iovs_len, __wasi_size_t *retptr0) @nogc nothrow;
+} else version (WASIp2) {
+extern(C):
+@nogc:
+nothrow:
+private:
+
+struct streams_own_output_stream_t {
+  int __handle;
+}
+struct streams_borrow_output_stream_t {
+  int __handle;
+}
+void streams_output_stream_drop_own(streams_own_output_stream_t handle);
+streams_borrow_output_stream_t streams_borrow_output_stream(streams_own_output_stream_t handle);
+
+alias streams_own_output_stream_t stderr_own_output_stream_t;
+stderr_own_output_stream_t stderr_get_stderr();
+
+struct wasip2_list_u8_t {
+  ubyte* ptr;
+  size_t len;
+}
+
+struct io_error_own_error_t {
+  int __handle;
+}
+void io_error_error_drop_own(io_error_own_error_t handle);
+
+
+alias io_error_own_error_t streams_own_error_t;
+
+struct streams_stream_error_t {
+  ubyte tag;
+
+  union Val {
+    streams_own_error_t     last_operation_failed;
+  }
+  Val val;
+}
+void streams_stream_error_free(streams_stream_error_t *ptr);
+
+bool streams_method_output_stream_blocking_write_and_flush(streams_borrow_output_stream_t self, wasip2_list_u8_t *contents, streams_stream_error_t *err);
+}
+
+
 /*
  * Use instead of assert(0, msg), since this does not print a message for -release compiled
  * code, and druntime is -release compiled.
@@ -15,6 +78,40 @@ void abort(scope string msg, scope string filename = __FILE__, size_t line = __L
         {
             foreach (s; m)
                 write(2, s.ptr, s.length);
+        }
+    }
+    else version (WASIp1)
+    {
+        static void writeStr(scope const(char)[][] m...) @nogc nothrow @trusted
+        {
+            foreach (s; m) {
+                __wasi_ciovec_t iovec;
+                __wasi_size_t ret;
+                iovec.buf = cast(const(ubyte)*)s.ptr;
+                iovec.buf_len = s.length;
+                cast(void)__wasi_fd_write(2, &iovec, 1, &ret);
+            }
+        }
+    }
+    else version (WASIp2)
+    {
+        static void writeStr(scope const(char)[][] m...) @nogc nothrow @trusted
+        {
+            auto stderr_own = stderr_get_stderr();
+            scope(exit) stderr_own.streams_output_stream_drop_own;
+
+            auto stderr = stderr_own.streams_borrow_output_stream;
+
+            foreach (s; m) {
+                wasip2_list_u8_t contents;
+                contents.ptr = cast(ubyte*)s.ptr;
+                contents.len = s.length;
+                streams_stream_error_t err;
+                bool success = stderr.streams_method_output_stream_blocking_write_and_flush(&contents, &err);
+                if (!success) {
+                    (&err).streams_stream_error_free();
+                }
+            }
         }
     }
     else version (Windows)

@@ -120,6 +120,8 @@ TTo[] __ArrayCast(TFrom, TTo)(return scope TFrom[] from) @nogc pure @trusted
         assert(v == cast(short) 0xabab);
 }
 
+version (WebAssembly) {} // no EH support yet
+else
 @system nothrow unittest
 {
     string msg;

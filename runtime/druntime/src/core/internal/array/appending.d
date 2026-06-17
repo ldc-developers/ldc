@@ -293,6 +293,8 @@ version (D_ProfileGC)
     assert(str == "abc");
 }
 
+version (WebAssembly) {} // no EH support yet
+else
 @safe nothrow unittest
 {
     static class FailedPostblitException : Exception { this() nothrow @safe { super(null); } }
