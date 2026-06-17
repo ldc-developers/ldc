@@ -862,7 +862,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
 // For @restrict slice parameters, emit llvm.assume["separate_storage"]
 // to indicate the slice data pointers do not alias.
 void emitRestrictSeparateStorage(FuncDeclaration *fd, IrFuncTy &irFty) {
-  std::vector<LLValue *> restrictPtrs;
+  llvm::SmallVector<LLValue *, 4> restrictPtrs;
 
   auto &args = irFty.args;
   for (auto *arg : args) {
