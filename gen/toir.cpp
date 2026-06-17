@@ -2138,7 +2138,7 @@ public:
     p->ir->SetInsertPoint(condtrue);
     PGO.emitCounterIncrement(e);
     DValue *u = toElem(e->e1);
-    if (u->type->toBasetype()->ty != TY::Tnoreturn) {
+    if (u && u->type->toBasetype()->ty != TY::Tnoreturn) {
       if (isLvalue) {
         u_val = makeLValue(e->loc, u);
       } else if (retPtr) {
@@ -2155,7 +2155,7 @@ public:
     llvm::BasicBlock *v_bb = nullptr;
     p->ir->SetInsertPoint(condfalse);
     DValue *v = toElem(e->e2);
-    if (v->type->toBasetype()->ty != TY::Tnoreturn) {
+    if (v && v->type->toBasetype()->ty != TY::Tnoreturn) {
       if (isLvalue) {
         v_val = makeLValue(e->loc, v);
       } else if (retPtr) {
@@ -2180,7 +2180,7 @@ public:
         phi->addIncoming(u_val ? u_val : llvm::UndefValue::get(ptrType), u_bb);
         LLValue *v_inc = v_val ? v_val : llvm::UndefValue::get(ptrType);
         if (v_inc->getType() != ptrType) {
-          v_inc = DtoBitCast(v_inc, ptrType);
+          v_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(v_inc, ptrType);
         }
         phi->addIncoming(v_inc, v_bb);
         result = new DLValue(e->type, phi);
