@@ -2,11 +2,13 @@
 
 import ldc.attributes;
 
-// Two restrict slices → one assume with separate_storage
+// Two restrict slices → one pairwise assume with separate_storage
 // CHECK-LABEL: define {{.*}}@{{.*}}twoSlices
 // CHECK: getelementptr inbounds {{.*}} i32 0, i32 1
+// CHECK: [[A:%.restrict.ptr[0-9]*]] = load ptr, ptr
 // CHECK: getelementptr inbounds {{.*}} i32 0, i32 1
-// CHECK: separate_storage
+// CHECK: [[B:%.restrict.ptr[0-9]*]] = load ptr, ptr
+// CHECK: separate_storage{{.*}}ptr [[A]], ptr [[B]]
 void twoSlices(@restrict int[] a, @restrict int[] b) {
     a[0] = 1;
     b[0] = 2;
@@ -22,9 +24,16 @@ void threeSlices(@restrict int[] a, @restrict int[] b, @restrict int[] c) { }
 // CHECK-NOT: separate_storage
 void singleSlice(@restrict int[] a) { }
 
+// One restrict slice + one non-restrict slice → no assume
+// CHECK-LABEL: define {{.*}}@{{.*}}oneRestrictOneNormal
+// CHECK-NOT: separate_storage
+void oneRestrictOneNormal(@restrict int[] a, int[] b) { }
+
 // Mix: restrict pointer (noalias attr) + restrict slices (separate_storage)
 // CHECK-LABEL: define {{.*}}@{{.*}}mixed
-// CHECK-SAME: ptr noalias %p_arg
+// CHECK-NOT: noalias %a_arg
+// CHECK-NOT: noalias %b_arg
+// CHECK: ptr noalias %p_arg
 // CHECK-NOT: noalias %a_arg
 // CHECK-NOT: noalias %b_arg
 // CHECK: separate_storage
