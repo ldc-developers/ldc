@@ -22,10 +22,19 @@ void threeSlices(@restrict int[] a, @restrict int[] b, @restrict int[] c) { }
 // CHECK-NOT: separate_storage
 void singleSlice(@restrict int[] a) { }
 
-// Mix: restrict pointer (noalias attr) + restrict slice (separate_storage)
+// Mix: restrict pointer (noalias attr) + restrict slices (separate_storage)
 // CHECK-LABEL: define {{.*}}@{{.*}}mixed
 // CHECK-SAME: ptr noalias %p_arg
+// CHECK-NOT: noalias %a_arg
+// CHECK-NOT: noalias %b_arg
 // CHECK: separate_storage
-void mixed(@restrict int[] a, @restrict int* p) {
+void mixed(@restrict int[] a, @restrict int[] b, @restrict int* p) {
     a[0] = *p;
+    b[0] = *p;
 }
+
+// Restrict on static array (non-pointer type) → should not crash
+// CHECK-LABEL: define {{.*}}@{{.*}}staticArray
+// CHECK-NOT: noalias
+// CHECK-NOT: separate_storage
+void staticArray(@restrict int[4] arr) {}
