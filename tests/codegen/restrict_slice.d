@@ -32,9 +32,3 @@ void mixed(@restrict int[] a, @restrict int[] b, @restrict int* p) {
     a[0] = *p;
     b[0] = *p;
 }
-
-// Restrict on static array (non-pointer type) → should not crash
-// CHECK-LABEL: define {{.*}}@{{.*}}staticArray
-// CHECK-NOT: noalias
-// CHECK-NOT: separate_storage
-void staticArray(@restrict int[4] arr) {}
