@@ -2179,6 +2179,8 @@ public:
         ptrType = v_val->getType();
       }
 
+      LLValue *val = nullptr;
+
       if (u_bb && v_bb) {
         llvm::PHINode *phi = p->ir->CreatePHI(ptrType, 2, "condtmp");
         
@@ -2194,21 +2196,29 @@ public:
         }
         phi->addIncoming(v_inc, v_bb);
         
-        result = new DLValue(e->type, phi);
+        val = phi;
       } else if (u_bb) {
         LLValue *u_inc = u_val ? u_val : llvm::UndefValue::get(ptrType);
         if (u_inc->getType() != ptrType) {
           u_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(u_inc, ptrType);
         }
-        result = new DLValue(e->type, u_inc);
+        val = u_inc;
       } else if (v_bb) {
         LLValue *v_inc = v_val ? v_val : llvm::UndefValue::get(ptrType);
         if (v_inc->getType() != ptrType) {
           v_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(v_inc, ptrType);
         }
-        result = new DLValue(e->type, v_inc);
+        val = v_inc;
       } else {
-        result = new DLValue(e->type, llvm::UndefValue::get(ptrType));
+        val = llvm::UndefValue::get(ptrType);
+      }
+
+      if (auto du = u ? u->isDDcomputeLVal() : nullptr) {
+        result = new DDcomputeLValue(e->type, du->lltype, val);
+      } else if (auto dv = v ? v->isDDcomputeLVal() : nullptr) {
+        result = new DDcomputeLValue(e->type, dv->lltype, val);
+      } else {
+        result = new DLValue(e->type, val);
       }
     } else if (retPtr) {
       result = new DLValue(e->type, retPtr);
