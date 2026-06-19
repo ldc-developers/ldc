@@ -42,6 +42,11 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     FuncDeclaration *f = ce->f;
     if (f->ident == Id::dcReflect)
       return true;
+    // Calls into the comparison/equality hook modules (`__cmp`, `__equals`,
+    // their `isEqual`/`at` helpers) are the lowering for array `<`/`==` and are
+    // legal in device code even though those modules are host-only.
+    if (isDeviceArrayComparisonHook(f))
+      return true;
     if (currentFunction == nullptr)
       return false;
     TemplateInstance *inst = currentFunction->isInstantiated();
