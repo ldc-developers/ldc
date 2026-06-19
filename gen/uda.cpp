@@ -16,6 +16,7 @@
 #include "ir/irvar.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include <cstring>
 #include <stdio.h>
 
 using namespace dmd;
@@ -642,6 +643,28 @@ extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
   checkStructElems(sle, {Type::tint32});
 
   return static_cast<DComputeCompileFor>(1 + (*sle->elements)[0]->toInteger());
+}
+
+bool isDeviceArrayComparisonHook(Dsymbol *sym) {
+  if (!sym)
+    return false;
+  Module *m = sym->getModule();
+  if (!m)
+    return false;
+  // These druntime modules are host-only, but their templates (`__cmp`,
+  // `__equals` and helpers like `isEqual`/`at`) are the lowering hooks emitted
+  // for array `<`/`==` in device code, so they must not be skipped.
+  const char *fqn = m->toPrettyChars();
+  if (!strcmp(fqn, "core.internal.array.comparison") ||
+      !strcmp(fqn, "core.internal.array.equality"))
+    return true;
+  // From core.internal.string only `dstrcmp` is a device-legal hook helper (the
+  // `char`/string `__cmp` specialization calls it). The rest of that module
+  // (e.g. signedToTempString) contains device-illegal code, so don't exempt the
+  // whole module.
+  if (!strcmp(fqn, "core.internal.string"))
+    return sym->ident && !strcmp(sym->ident->toChars(), "dstrcmp");
+  return false;
 }
 
 /// Returns whether `sym` has the `@ldc.dcompute._kernel()` UDA applied.

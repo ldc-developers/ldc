@@ -39,6 +39,16 @@ enum class DComputeCompileFor : int
   hostAndDevice = 2
 };
 extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym);
+
+/// Returns whether `sym` is one of druntime's array comparison/equality
+/// lowering hooks: `__cmp`/`__equals` and their helpers `isEqual`/`at` (from
+/// core.internal.array.{comparison,equality}), plus `dstrcmp` (the char/string
+/// `__cmp` helper from core.internal.string). Array `<`/`==` in `@compute`
+/// device code lowers to these. They live in host-only modules but must still be
+/// validated and codegen'd for the device, so they are exempted from the
+/// host-only template skip.
+bool isDeviceArrayComparisonHook(Dsymbol *sym);
+
 bool hasNoSplitStackUDA(FuncDeclaration *fd);
 
 unsigned getMaskFromNoSanitizeUDA(FuncDeclaration &fd);
