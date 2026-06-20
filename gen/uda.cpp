@@ -16,7 +16,6 @@
 #include "ir/irvar.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
-#include <cstring>
 #include <stdio.h>
 
 using namespace dmd;
@@ -660,19 +659,27 @@ bool isDeviceArrayComparisonHook(Dsymbol *sym) {
   Module *m = sym->getModule();
   if (!m)
     return false;
+  const ModuleDeclaration *md = m->md;
+  if (!md)
+    return false;
   // These druntime modules are host-only, but their templates (`__cmp`,
   // `__equals` and helpers like `isEqual`/`at`) are the lowering hooks emitted
   // for array `<`/`==` in device code, so they must not be skipped.
-  const char *fqn = m->toPrettyChars();
-  if (!strcmp(fqn, "core.internal.array.comparison") ||
-      !strcmp(fqn, "core.internal.array.equality"))
+  Identifier *const internal = Identifier::idPool("internal");
+  if (md->packages.length == 3 && md->packages.ptr[0] == Id::core &&
+      md->packages.ptr[1] == internal &&
+      md->packages.ptr[2] == Identifier::idPool("array") &&
+      (md->id == Identifier::idPool("comparison") ||
+       md->id == Identifier::idPool("equality")))
     return true;
   // From core.internal.string only `dstrcmp` is a device-legal hook helper (the
   // `char`/string `__cmp` specialization calls it). The rest of that module
   // (e.g. signedToTempString) contains device-illegal code, so don't exempt the
   // whole module.
-  if (!strcmp(fqn, "core.internal.string"))
-    return sym->ident && !strcmp(sym->ident->toChars(), "dstrcmp");
+  if (md->packages.length == 2 && md->packages.ptr[0] == Id::core &&
+      md->packages.ptr[1] == internal &&
+      md->id == Identifier::idPool("string"))
+    return sym->ident == Identifier::idPool("dstrcmp");
   return false;
 }
 
