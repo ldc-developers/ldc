@@ -586,7 +586,16 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
 
       auto ident = sle->sd->ident;
       if (ident == Id::udaLLVMAttr) {
-        applyAttrLLVMAttr(sle, arg->attrs);
+        // noalias is only valid for pointer-type params. For non-pointer
+        // types (slices, static arrays, structs, scalars), skip the LLVM
+        // attribute. Slice params get separate_storage assumes instead.
+        if (getStringElem(sle, 0) == "noalias" &&
+            !arg->ltype->isPointerTy()) {
+          if (param->type->toBasetype()->ty == TY::Tarray)
+            arg->isRestrictSlice = true;
+        } else {
+          applyAttrLLVMAttr(sle, arg->attrs);
+        }
       } else {
         warning(sle->loc,
                 "ignoring unrecognized special parameter attribute "

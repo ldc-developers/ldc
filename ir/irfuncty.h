@@ -65,6 +65,9 @@ struct IrFuncTyArg {
    *  return values */
   ABIRewrite *rewrite = nullptr;
 
+  /// True if this param is a @restrict slice, needing separate_storage
+  bool isRestrictSlice = false;
+
   /// Helper to check if the 'inreg' attribute is set
   bool isInReg() const;
   /// Helper to check if the 'sret' attribute is set
