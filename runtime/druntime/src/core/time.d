@@ -456,6 +456,7 @@ version (Posix)
             assert(0, "What are the monotonic clock types supported by this system?");
     }
 }
+else
 version (WASI)
 {
     private auto _posixClock(ClockType clockType)

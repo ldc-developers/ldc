@@ -52,7 +52,7 @@ version (Posix)
     ///
     enum SIGTERM    = 15; // Termination
 }
-version (WASI)
+else version (WASI)
 {
     extern(C) void __SIG_ERR(int);
     extern(C) void __SIG_IGN(int);

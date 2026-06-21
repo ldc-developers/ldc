@@ -590,7 +590,7 @@ version (CRuntime_Microsoft)
         FE_TOWARDZERO   = 0x300, ///
     }
 }
-version (CRuntime_WASI)
+else version (CRuntime_WASI)
 {
     enum
     {
