@@ -130,6 +130,12 @@ llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
 }
 
 bool IRState::emitArrayBoundsChecks() {
+  // Bounds checks throw `RangeError`, which is illegal in `@compute` device code
+  // (and the `_d_arraybounds_index` handler has no device implementation), so
+  // never emit them for device code.
+  if (dcomputetarget)
+    return false;
+
   if (global.params.useArrayBounds != CHECKENABLEsafeonly) {
     return global.params.useArrayBounds == CHECKENABLEon;
   }
