@@ -656,21 +656,17 @@ bool isDeviceArrayComparisonHook(Dsymbol *sym) {
   // These druntime modules are host-only, but their templates (`__cmp`,
   // `__equals` and helpers like `isEqual`/`at`) are the lowering hooks emitted
   // for array `<`/`==` in device code, so they must not be skipped.
-  Identifier *const internal = Identifier::idPool("internal");
   if (md->packages.length == 3 && md->packages.ptr[0] == Id::core &&
-      md->packages.ptr[1] == internal &&
-      md->packages.ptr[2] == Identifier::idPool("array") &&
-      (md->id == Identifier::idPool("comparison") ||
-       md->id == Identifier::idPool("equality")))
+      md->packages.ptr[1] == Id::internal && md->packages.ptr[2] == Id::array &&
+      (md->id == Id::comparison || md->id == Id::equality))
     return true;
   // From core.internal.string only `dstrcmp` is a device-legal hook helper (the
   // `char`/string `__cmp` specialization calls it). The rest of that module
   // (e.g. signedToTempString) contains device-illegal code, so don't exempt the
   // whole module.
   if (md->packages.length == 2 && md->packages.ptr[0] == Id::core &&
-      md->packages.ptr[1] == internal &&
-      md->id == Identifier::idPool("string"))
-    return sym->ident == Identifier::idPool("dstrcmp");
+      md->packages.ptr[1] == Id::internal && md->id == Id::string)
+    return sym->ident == Id::dstrcmp;
   return false;
 }
 
