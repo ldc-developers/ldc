@@ -910,6 +910,7 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("WASIp1");
     VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
     break;
+#if LLVM_VERSION_MAJOR >= 22
   case llvm::Triple::WASIp1:
     VersionCondition::addPredefinedGlobalIdent("WASI");
     VersionCondition::addPredefinedGlobalIdent("WASIp1");
@@ -920,6 +921,7 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("WASIp2");
     VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
     break;
+#endif
   case llvm::Triple::Emscripten:
     VersionCondition::addPredefinedGlobalIdent("Emscripten");
     // Emscripten uses musl and libc++, so mimic a musl Linux platform:
