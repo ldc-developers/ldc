@@ -54,6 +54,7 @@
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
@@ -858,6 +859,44 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
   }
 }
 
+// For @restrict slice parameters, emit llvm.assume["separate_storage"]
+// to indicate the slice data pointers do not alias.
+void emitRestrictSeparateStorage(FuncDeclaration *fd, IrFuncTy &irFty) {
+  llvm::SmallVector<LLValue *, 4> restrictPtrs;
+
+  auto &args = irFty.args;
+  for (auto *arg : args) {
+    if (!arg->isRestrictSlice)
+      continue;
+
+    auto paramIdx = arg->parametersIdx;
+    if (paramIdx >= fd->parameters->length)
+      continue;
+    auto param = (*fd->parameters)[paramIdx];
+
+    auto *irparam = getIrParameter(param);
+    LLValue *allocaVal = irparam->value;
+    LLValue *ptrGEP = DtoGEP(DtoType(param->type->toBasetype()),
+                             allocaVal, 0, 1, ".restrict.ptr.gep");
+    LLValue *ptr = DtoLoad(getOpaquePtrType(), ptrGEP, ".restrict.ptr");
+    restrictPtrs.push_back(ptr);
+  }
+
+  if (restrictPtrs.size() < 2)
+    return;
+
+  auto *assumeFn = GET_INTRINSIC_DECL(assume, {});
+  auto *trueVal = llvm::ConstantInt::getTrue(gIR->context());
+
+  for (size_t i = 0; i < restrictPtrs.size(); i++) {
+    for (size_t j = i + 1; j < restrictPtrs.size(); j++) {
+      LLValue *ptrs[] = {restrictPtrs[i], restrictPtrs[j]};
+      llvm::OperandBundleDef ob("separate_storage", ptrs);
+      gIR->ir->CreateCall(assumeFn, {trueVal}, {ob});
+    }
+  }
+}
+
 void emitDMDStyleFunctionTrace(IRState &irs, FuncDeclaration *fd,
                                FuncGenState &funcGen) {
   /* DMD-style profiling: wrap the entire function body in:
@@ -1243,6 +1282,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // define all explicit parameters
   if (!isNaked && fd->parameters)
     defineParameters(irFty, *fd->parameters);
+
+  // Emit separate_storage assumes for @restrict slice params
+  emitRestrictSeparateStorage(fd, irFty);
 
   // Initialize PGO state for this function
   funcGen.pgo.assignRegionCounters(fd, func);

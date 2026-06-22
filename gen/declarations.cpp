@@ -363,7 +363,8 @@ public:
         return;
       }
       Module *m = decl->tempdecl->getModule();
-      if (m && hasComputeAttr(m) == DComputeCompileFor::hostOnly) {
+      if (m && hasComputeAttr(m) == DComputeCompileFor::hostOnly &&
+          !isDeviceArrayComparisonHook(decl->tempdecl)) {
         Logger::println("Skipping host-side template instantiations "
                         "in dcompute modules.");
         return;

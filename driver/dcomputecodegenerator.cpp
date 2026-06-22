@@ -21,7 +21,7 @@
 
 DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {}
 void DComputeCodeGenManager::emit(Module *) {}
-void DComputeCodeGenManager::writeModules() {}
+void DComputeCodeGenManager::writeModules(llvm::Module *) {}
 DComputeCodeGenManager::~DComputeCodeGenManager() {}
 
 #else
@@ -86,6 +86,7 @@ DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {
   }
   oldGIR = gIR;
   oldGTargetMachine = gTargetMachine;
+  oldGABI = gABI;
 }
 
 void DComputeCodeGenManager::emit(Module *m) {
@@ -93,17 +94,29 @@ void DComputeCodeGenManager::emit(Module *m) {
     target->emit(m);
     IrDsymbol::resetAll();
   }
+  gIR = oldGIR;
+  gTargetMachine = oldGTargetMachine;
+  gABI = oldGABI;
 }
 
-void DComputeCodeGenManager::writeModules() {
+void DComputeCodeGenManager::writeModules(llvm::Module *hostModule) {
   for (auto &target : targets) {
-    target->writeModule();
+    // Set target machine before writing the module, since writeModule uses it
+    gTargetMachine = target->targetMachine;
+    target->writeModule(hostModule);
   }
+  gIR = oldGIR;
+  gTargetMachine = oldGTargetMachine;
+  gABI = oldGABI;
 }
 
 DComputeCodeGenManager::~DComputeCodeGenManager() {
+  for (auto t : targets) {
+    delete t;
+  }
   gIR = oldGIR;
   gTargetMachine = oldGTargetMachine;
+  gABI = oldGABI;
 }
 
 #endif // LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
