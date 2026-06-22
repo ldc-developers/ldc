@@ -38,7 +38,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   // the
   // template declaration, it's module of origin is the module at the point of
   // instansiation so we need to check for that.
-  bool isNonComputeCallExpVaild(CallExp *ce) {
+  bool isNonComputeCallExpValid(CallExp *ce) {
     FuncDeclaration *f = ce->f;
     if (f->ident == Id::dcReflect)
       return true;
@@ -243,7 +243,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       
     Module *m = e->f->getModule();
     if ((m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly)) &&
-        !isNonComputeCallExpVaild(e)) {
+        !isNonComputeCallExpValid(e)) {
       error(e->loc, "can only call functions from other `@compute` modules in "
                     "`@compute` code");
       stop = true;
