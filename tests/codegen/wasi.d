@@ -1,13 +1,13 @@
 // REQUIRES: target_WebAssembly, link_WebAssembly
 
 // emit textual IR *and* compile & link
-// RUN: %ldc -mtriple=wasm32-unknown-wasi -Xcc=-nostdlib -output-ll -output-o -of=%t.wasm %s
+// RUN: %ldc -mtriple=wasm32-unknown-wasi --linker=lld -Xcc=-nostdlib -output-ll -output-o -of=%t.wasm %s
 // RUN: FileCheck %s < %t.ll
 //
-// RUN: %ldc -mtriple=wasm32-unknown-wasip1 -Xcc=-nostdlib -output-ll -output-o -of=%t_p1.wasm %s
+// RUN: %ldc -mtriple=wasm32-unknown-wasip1 --linker=lld -Xcc=-nostdlib -output-ll -output-o -of=%t_p1.wasm %s
 // RUN: FileCheck %s < %t_p1.ll
 //
-// RUN: %ldc -mtriple=wasm32-unknown-wasip2 -Xcc=-nostdlib -output-ll -output-o -of=%t_p2.wasm %s
+// RUN: %ldc -mtriple=wasm32-unknown-wasip2 --linker=lld -Xcc=-nostdlib -output-ll -output-o -of=%t_p2.wasm %s
 // RUN: FileCheck %s < %t_p2.ll
 
 
