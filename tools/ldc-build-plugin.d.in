@@ -16,6 +16,9 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
+version (linux) version = LDCLinkedWithSharedRuntime;
+version (FreeBSD) version = LDCLinkedWithSharedRuntime;
+
 struct Config {
     string ldcExecutable;
     string buildDir;
@@ -140,12 +143,17 @@ void build() {
         "--d-version=IN_LLVM",
         "-J" ~ buildPath(config.ldcSourceDir, "dmd", "res"),
         "--shared",
-        "--defaultlib=",
         "--od=" ~ config.buildDir
     ];
 
     version (Darwin) {
         args ~= "-L-Wl,-undefined,dynamic_lookup";
+    }
+
+    // When LDC is linked with shared runtime, don't link it again into the plugin to avoid two runtimes being loaded.
+    // Only link with phobos.
+    version (LDCLinkedWithSharedRuntime) {
+        args ~= "--defaultlib=phobos2-ldc";
     }
 
     args ~= config.ldcArgs;
