@@ -36,12 +36,6 @@ template _d_cmain()
         {
             int _d_run_main(int argc, char** argv, void* mainFunc);
 
-            version (CRuntime_WASI)
-            int __main_argc_argv(int argc, char **argv)
-            {
-                return _d_run_main(argc, argv, &_Dmain);
-            }
-            else
             int main(int argc, char** argv)
             {
                 pragma(LDC_profile_instr, false);
