@@ -20,3 +20,4 @@ import dmd.dtemplate;
 extern (C++) void DtoSetFuncDeclIntrinsicName(TemplateInstance ti, TemplateDeclaration td, FuncDeclaration fd);
 
 extern (C++) bool isTargetWindowsMSVC();
+extern (C++) bool isTargetWasm();
