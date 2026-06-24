@@ -54,6 +54,11 @@ pragma(LDC_intrinsic, "llvm.returnaddress")
 pragma(LDC_intrinsic, "llvm.frameaddress.p0")
     void* llvm_frameaddress(uint level);
 
+/// The 'llvm.stackaddress' intrinsic returns the starting address of the stack
+// region that may be used by called functions.
+pragma(LDC_intrinsic, "llvm.stackaddress.p0")
+    void* llvm_stackaddress();
+
 /// The 'llvm.stacksave' intrinsic is used to remember the current state of the
 /// function stack, for use with llvm.stackrestore. This is useful for
 /// implementing language features like scoped automatic variable sized arrays

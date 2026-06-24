@@ -1831,6 +1831,24 @@ version (LDC)
                 static assert(0);
         }
     }
+    else version (WebAssembly)
+    {
+        /* Must NOT be naked, but is safe to inline.
+         *
+         * The function prologue is what loads the `__stack_pointer` global
+         * into a fake "physical" register (which becomes a Wasm local).
+         * Manipulation of the stack is done with the local, and only synced
+         * back out to `__stack_pointer` across function boundaries.
+         *
+         * `llvm_stackaddress` gives us access to this fake register
+         * and allows for better optimization than inline asm would.
+         */
+        private extern(D) void* getStackTop() nothrow @nogc
+        {
+            import ldc.intrinsics;
+            return llvm_stackaddress();
+        }
+    }
     else
     {
         /* The use of intrinsic llvm_frameaddress is a reasonable default for
@@ -1872,6 +1890,14 @@ version (LDC_Windows)
             return __asm!(void*)("ldr $0, [x18,$1]", "=r,r", 8);
         else
             static assert(false, "Architecture not supported.");
+    }
+}
+else version (WebAssembly)
+{
+    private extern(C) extern void* __stack_low;
+    private extern(D) void* getStackBottom() nothrow @nogc
+    {
+        return __stack_low;
     }
 }
 else
