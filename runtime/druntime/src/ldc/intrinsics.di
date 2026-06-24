@@ -378,9 +378,9 @@ pragma(LDC_intrinsic, "llvm.maximum.f#")
     T llvm_maximum(T)(T vala, T valb)
         if (__traits(isFloating, T));
 
-/// The ‘llvm.is.fpclass’ intrinsic returns a boolean value or vector of
-/// boolean values depending on whether the first argument satisfies the
-/// test specified by the second argument.
+/// The ‘llvm.is.fpclass’ intrinsic returns a boolean value depending on
+// whether the first argument satisfies the test specified by the second
+// argument.
 ///
 /// The function checks if `op` belongs to any of the floating-point classes
 /// specified by `test`.
