@@ -378,6 +378,32 @@ pragma(LDC_intrinsic, "llvm.maximum.f#")
     T llvm_maximum(T)(T vala, T valb)
         if (__traits(isFloating, T));
 
+/// The ‘llvm.is.fpclass’ intrinsic returns a boolean value depending on
+// whether the first argument satisfies the test specified by the second
+// argument.
+///
+/// The function checks if `op` belongs to any of the floating-point classes
+/// specified by `test`.
+///
+/// The second argument specifies, which tests to perform.
+/// It must be a compile-time integer constant,
+/// each bit in which specifies floating-point class:
+/// | Bit # | floating-point class |
+/// | ----: | -------------------- |
+/// |     0 | Signaling NaN        |
+/// |     1 | Quiet NaN            |
+///	|     2 | Negative infinity    |
+///	|     3 | Negative normal      |
+///	|     4 | Negative subnormal   |
+///	|     5 | Negative zero        |
+///	|     6 | Positive zero        |
+///	|     7 | Positive subnormal   |
+///	|     8 | Positive normal      |
+///	|     9 | Positive infinity    |
+pragma(LDC_intrinsic, "llvm.is.fpclass.f#")
+    bool llvm_is_fpclass(T)(T op, uint test)
+        if (__traits(isFloating, T));
+
 //
 // BIT MANIPULATION INTRINSICS
 //
