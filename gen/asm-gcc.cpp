@@ -213,7 +213,7 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
       const bool isIndirect = constraintsBuilder.isIndirectOperand(i);
 
       if (isOutput) {
-        assert(e->isLvalue() && "should have been caught by front-end");
+        assert(dmd::isLvalue(e) && "should have been caught by front-end");
         LLValue *lval = DtoLVal(e);
         if (isIndirect) {
           operands.push_back(lval);
@@ -223,7 +223,7 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
           outputTypes.push_back(DtoType(e->type));
         }
       } else {
-        if (isIndirect && !e->isLvalue()) {
+        if (isIndirect && !dmd::isLvalue(e)) {
           error(e->loc,
                 "indirect `\"m\"` input operands require an lvalue, but `%s` "
                 "is an rvalue",

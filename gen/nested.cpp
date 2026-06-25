@@ -31,8 +31,11 @@ unsigned getVthisIdx(AggregateDeclaration *ad) {
 }
 
 bool isNRVOVar(VarDeclaration *vd) {
-  if (auto fd = vd->toParent2()->isFuncDeclaration())
-    return fd->isNRVO() && vd == fd->nrvo_var && !dmd::needsClosure(fd);
+  if (auto fd = vd->toParent2()->isFuncDeclaration()) {
+    return ((fd->isNRVO() && vd == fd->nrvo_var) ||
+            (vd->isResult() && vd->nrvo())) &&
+           !dmd::needsClosure(fd);
+  }
   return false;
 }
 

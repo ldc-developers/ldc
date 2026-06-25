@@ -93,8 +93,8 @@ bool requireHardfloatRewrite(Type *ty) {
   if (result.length <= 0)
     return false;
   if (result.length == 1)
-    return result.fields[0].ty->isFloating();
-  return result.fields[0].ty->isFloating() || result.fields[1].ty->isFloating();
+    return isFloating(result.fields[0].ty);
+  return isFloating(result.fields[0].ty) || isFloating(result.fields[1].ty);
 }
 
 struct HardfloatRewrite : ABIRewrite {
@@ -139,7 +139,7 @@ struct HardfloatRewrite : ABIRewrite {
     assert(flat.length == 2);
     LLType *t[2];
     for (unsigned i = 0; i < 2; ++i) {
-      t[i] = flat.fields[i].ty->isFloating()
+      t[i] = isFloating(flat.fields[i].ty)
                  ? DtoType(flat.fields[i].ty)
                  : LLIntegerType::get(gIR->context(),
                                       size(flat.fields[i].ty) * 8);

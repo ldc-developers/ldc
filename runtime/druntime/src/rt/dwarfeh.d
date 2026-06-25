@@ -367,8 +367,8 @@ extern(C) void _d_throw_exception(Throwable o)
              * since otherwise everything is enclosed by a top-level
              * try/catch.
              */
-            fprintf(stderr, "%s:%d: uncaught exception reached top of stack\n", __FILE__.ptr, __LINE__);
-            fprintf(stderr, "This might happen if you're missing a top level catch in your fiber or signal handler\n");
+            fprintf(cast()stderr, "%s:%d: uncaught exception reached top of stack\n", __FILE__.ptr, __LINE__);
+            fprintf(cast()stderr, "This might happen if you're missing a top level catch in your fiber or signal handler\n");
             /**
             As _d_print_throwable() itself may throw multiple times when calling core.demangle,
             and with the uncaught exception still on the EH stack, this doesn't bode well with core.demangle's error recovery.
@@ -604,7 +604,7 @@ extern (C) _Unwind_Reason_Code _d_eh_personality_common(_Unwind_Action actions,
     final switch (result)
     {
         case LsdaResult.notFound:
-            fprintf(stderr, "not found\n");
+            fprintf(cast()stderr, "not found\n");
             terminate(__LINE__);
             assert(0);
 
@@ -613,7 +613,7 @@ extern (C) _Unwind_Reason_Code _d_eh_personality_common(_Unwind_Action actions,
             assert(0);
 
         case LsdaResult.corrupt:
-            fprintf(stderr, "LSDA is corrupt\n");
+            fprintf(cast()stderr, "LSDA is corrupt\n");
             terminate(__LINE__);
             assert(0);
 
@@ -959,7 +959,7 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
                 auto h = actionTableLookup(exceptionObject, cast(uint)ActionRecordPtr, pActionTable, tt, TType, exceptionClass, lsda);
                 if (h < 0)
                 {
-                    fprintf(stderr, "negative handler\n");
+                    fprintf(cast()stderr, "negative handler\n");
                     return false;
                 }
 
@@ -1031,7 +1031,7 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
                 {
                     if (p == pActionTable)
                         break;
-                    fprintf(stderr, "no Call Site Table\n");
+                    fprintf(cast()stderr, "no Call Site Table\n");
 
                     return LsdaResult.corrupt;
                 }
@@ -1078,7 +1078,7 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
                         auto h = actionTableLookup(exceptionObject, cast(uint)ActionRecordPtr, pActionTable, tt, TType, exceptionClass, lsda);
                         if (h < 0)
                         {
-                            fprintf(stderr, "negative handler\n");
+                            fprintf(cast()stderr, "negative handler\n");
                             return LsdaResult.corrupt;
                         }
                         if (h == 0)
@@ -1165,7 +1165,7 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
         }
         if (TypeFilter <= 0)                    // should never happen with DMD generated tables
         {
-            fprintf(stderr, "TypeFilter = %d\n", cast(int)TypeFilter);
+            fprintf(cast()stderr, "TypeFilter = %d\n", cast(int)TypeFilter);
             return -1;                          // corrupt
         }
 
@@ -1187,7 +1187,7 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
                                     else
                                         goto case DW_EH_PE_udata4;
             default:
-                fprintf(stderr, "TType = x%x\n", TType);
+                fprintf(cast()stderr, "TType = x%x\n", TType);
                 return -1;      // corrupt
         }
         if (!entry)             // the 'catch all' type

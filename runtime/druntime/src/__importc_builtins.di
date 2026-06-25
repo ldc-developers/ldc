@@ -15,7 +15,6 @@ module __builtins;
 import core.stdc.config : c_long, c_ulong;
 import core.checkedint : adds, subs, muls;
 
-
 /* gcc relies on internal __builtin_xxxx functions and templates to
  * accomplish <stdarg.h>. D does the same thing with templates in core.stdc.stdarg.
  * Here, we redirect the gcc builtin declarations to the equivalent
@@ -54,7 +53,7 @@ version (LDC)
         version (ARM)
             public import core.stdc.stdarg : __va_list;
         else version (AArch64)
-            public import core.internal.vararg.aarch64 : __va_list;
+            public import core.internal.vararg.aapcs64 : __va_list;
     }
 }
 else version (Posix)

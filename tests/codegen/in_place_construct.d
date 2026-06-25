@@ -36,25 +36,53 @@ S returnRValue()
 S returnNRVO()
 {
     // make sure NRVO zero-initializes the sret pointee directly
-    // CHECK: call void @llvm.memset.{{.*}}(ptr{{.*}}, i8 0,
+    // CHECK: call void @llvm.memset.{{.*}}(ptr{{.*}} %.sret_arg, i8 0,
     const S r;
     return r;
 }
 
-// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct15withOutContractFZSQBo1S
-S withOutContract()
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct19RVO_withOutContractFZSQBs1S
+S RVO_withOutContract()
+out { assert(__result.c == 3); }
+do
+{
+    // make sure the literal is emitted directly into the sret pointee
+    // CHECK-NEXT: %1 = getelementptr inbounds {{.*}}%in_place_construct.S, ptr %.sret_arg, i32 0, i32 0
+    // CHECK-NEXT: store i64 1, ptr %1
+    // CHECK-NEXT: %2 = getelementptr inbounds {{.*}}%in_place_construct.S, ptr %.sret_arg, i32 0, i32 1
+    // CHECK-NEXT: store i64 2, ptr %2
+    // CHECK-NEXT: %3 = getelementptr inbounds {{.*}}%in_place_construct.S, ptr %.sret_arg, i32 0, i32 2
+    // CHECK-NEXT: store i64 3, ptr %3
+    // CHECK-NEXT: %4 = getelementptr inbounds {{.*}}%in_place_construct.S, ptr %.sret_arg, i32 0, i32 3
+    // CHECK-NEXT: store i64 4, ptr %4
+    return S(1, 2, 3, 4);
+
+    // make sure `__result` inside the out contract is just an alias to the sret pointee
+    // CHECK:      %5 = getelementptr inbounds {{.*}}%in_place_construct.S, ptr %.sret_arg, i32 0, i32 2
+    // CHECK-NEXT: %6 = load {{.*}}ptr %5
+    // CHECK-NEXT: icmp eq i64 %6, 3
+}
+
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct20NRVO_withOutContractFZSQBt1S
+S NRVO_withOutContract()
 out { assert(__result.a == 0); }
 do
 {
+    // __result is a ref
+    // CHECK-NEXT: %result = alloca ptr
+
     // make sure NRVO zero-initializes the sret pointee directly
-    // CHECK: call void @llvm.memset.{{.*}}(ptr{{.*}}, i8 0,
+    // CHECK-NEXT: call void @llvm.memset.{{.*}}(ptr{{.*}} %.sret_arg, i8 0,
     const S r;
     return r;
 
-    // make sure `__result` inside the out contract is just an alias to the sret pointee
-    // CHECK: %{{1|2}} = getelementptr inbounds {{.*}}%in_place_construct.S, ptr %.sret_arg, i32 0, i32 0
-    // CHECK: %{{2|3}} = load {{.*}}ptr %{{1|2}}
-    // CHECK: %{{3|4}} = icmp eq i64 %{{2|3}}, 0
+    // make sure the __result ref is initialized with the sret pointer
+    // CHECK-NEXT: store ptr %.sret_arg, ptr %result
+
+    // CHECK:      %1 = load ptr, ptr %result
+    // CHECK-NEXT: %2 = getelementptr inbounds {{.*}}%in_place_construct.S, ptr %1, i32 0, i32 0
+    // CHECK-NEXT: %3 = load {{.*}}ptr %2
+    // CHECK-NEXT: icmp eq i64 %3, 0
 }
 
 // CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct7structsFZv
@@ -87,7 +115,8 @@ void structs()
     // CHECK-SAME: ptr{{.*}} %c
     const c = returnNRVO();
 
-    withOutContract();
+    RVO_withOutContract();
+    NRVO_withOutContract();
 }
 
 // CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct12staticArraysFZv

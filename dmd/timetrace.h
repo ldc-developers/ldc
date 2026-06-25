@@ -29,6 +29,7 @@ enum class TimeTraceEventType
     sema1Function,
     sema2,
     sema3,
+    dfa,
     ctfe,
     ctfeCall,
     codegenGlobal,

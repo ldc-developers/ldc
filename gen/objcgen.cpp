@@ -69,7 +69,7 @@ std::string objcGetTypeEncoding(Type *t) {
       // Static arrays are encoded in the form of:
       // [<element count><element type>]
       auto typ = t->isTypeSArray();
-      uinteger_t count = typ->dim->toUInteger();
+      uinteger_t count = dmd::toUInteger(typ->dim);
       tmp.append("[");
       tmp.append(std::to_string(count));
       tmp.append(objcGetTypeEncoding(typ->next));

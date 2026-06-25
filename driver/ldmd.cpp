@@ -434,7 +434,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        */
       else if (startsWith(p + 1, "check=")) {
         // Parse:
-        //      -check=[assert|bounds|in|invariant|out|switch][=[on|off]]
+        //      -check=[assert|bounds|in|invariant|out|switch|nullderef][=[on|off]]
         const char *arg = p + 7;
         if (strcmp(arg, "on") == 0) {
           ldcArgs.push_back("-boundscheck=on");
@@ -478,6 +478,10 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
 
           if (kindLength == 6 && memcmp(arg, "bounds", 6) == 0) {
             ldcArgs.push_back(enabled ? "-boundscheck=on" : "-boundscheck=off");
+          } else if (kindLength == 9 && memcmp(arg, "nullderef", 9) == 0) {
+            // TODO: implement?
+            if (enabled)
+              goto Lnot_in_ldc;
           } else if (!(check(6, "assert", "asserts") ||
                        check(2, "in", "preconditions") ||
                        check(9, "invariant", "invariants") ||

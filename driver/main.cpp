@@ -668,12 +668,6 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::ppc64le:
     VersionCondition::addPredefinedGlobalIdent("PPC64");
     registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
-    if (triple.getOS() == llvm::Triple::Linux) {
-      const llvm::SmallVector<llvm::StringRef> features{};
-      const std::string abi = getABI(triple, features);
-      VersionCondition::addPredefinedGlobalIdent(abi == "elfv1" ? "ELFv1"
-                                                                : "ELFv2");
-    }
     break;
   case llvm::Triple::arm:
   case llvm::Triple::armeb:
@@ -766,6 +760,18 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("LittleEndian");
   } else {
     VersionCondition::addPredefinedGlobalIdent("BigEndian");
+  }
+
+  // ELFv1/ELFv2
+  if (triple.isOSBinFormatELF()) {
+    if (arch == llvm::Triple::ppc64 || arch == llvm::Triple::ppc64le) {
+      const llvm::SmallVector<llvm::StringRef> features{};
+      const std::string abi = getABI(triple, features);
+      VersionCondition::addPredefinedGlobalIdent(abi == "elfv1" ? "ELFv1"
+                                                                : "ELFv2");
+    } else {
+      VersionCondition::addPredefinedGlobalIdent("ELFv1");
+    }
   }
 
   // Set versions for arch bitwidth
