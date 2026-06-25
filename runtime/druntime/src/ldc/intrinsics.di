@@ -696,6 +696,19 @@ pragma(LDC_intrinsic, "llvm.assume")
 pragma(LDC_intrinsic, "llvm.sideeffect")
     void llvm_sideeffect();
 
+/// Performs element-wise type conversion between two vector types with the
+/// same number of elements. The source and destination vectors must have the
+/// same element count but may differ in element type and element size.
+/// The conversion follows standard D conversion rules:
+/// - Integer-to-integer: sext (signed) or zext (unsigned) for widening, trunc for narrowing
+/// - Integer-to-float: sitofp (signed) or uitofp (unsigned)
+/// - Float-to-integer: fptosi (signed dest) or fptoui (unsigned dest)
+/// - Float-to-float: fpext for widening, fptrunc for narrowing
+///
+/// This is the equivalent of GDC/Clang's `__builtin_convertvector`.
+pragma(LDC_intrinsic, "ldc.convertvector")
+    To llvm_convertvector(To, From)(From val);
+
 version (WebAssembly)
 {
 /// Grows memory by a given delta and returns the previous size, or -1 if enough
