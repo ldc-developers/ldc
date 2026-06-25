@@ -679,18 +679,73 @@ DSliceValue *DtoAppendDCharToUnicodeString(Loc loc, DValue *arr,
 
 ////////////////////////////////////////////////////////////////////////////////
 namespace {
-// Create a call instruction to memcmp.
-llvm::CallInst *callMemcmp(Loc loc, IRState &irs, LLValue *l_ptr,
-                           LLValue *r_ptr, LLValue *numElements, LLType *elemty) {
+// Inline byte-wise memcmp for `@compute` device code. The device has no libc to
+// provide `memcmp`, and there is no `llvm.memcmp` intrinsic, so emit the
+// comparison as a loop. Returns an i32 with C `memcmp`'s convention: 0 iff the
+// `sizeInBytes` bytes are equal, otherwise the (unsigned) difference of the
+// first mismatching byte.
+llvm::Value *emitInlineMemcmp(IRState &irs, LLValue *l_ptr, LLValue *r_ptr,
+                              LLValue *sizeInBytes) {
+  LLType *i8 = LLType::getInt8Ty(gIR->context());
+  LLType *i32 = LLType::getInt32Ty(gIR->context());
+
+  llvm::BasicBlock *entryBB = irs.ir->GetInsertBlock();
+  llvm::BasicBlock *condBB = irs.insertBB("memcmp.cond");
+  llvm::BasicBlock *bodyBB = irs.insertBBAfter(condBB, "memcmp.body");
+  llvm::BasicBlock *diffBB = irs.insertBBAfter(bodyBB, "memcmp.diff");
+  llvm::BasicBlock *incBB = irs.insertBBAfter(diffBB, "memcmp.inc");
+  llvm::BasicBlock *endBB = irs.insertBBAfter(incBB, "memcmp.end");
+  irs.ir->CreateBr(condBB);
+
+  // cond: index < sizeInBytes ?
+  irs.ir->SetInsertPoint(condBB);
+  llvm::PHINode *idx = irs.ir->CreatePHI(sizeInBytes->getType(), 2);
+  idx->addIncoming(DtoConstSize_t(0), entryBB);
+  irs.ir->CreateCondBr(
+      irs.ir->CreateICmp(llvm::ICmpInst::ICMP_ULT, idx, sizeInBytes), bodyBB,
+      endBB);
+
+  // body: compare the two bytes at `idx`
+  irs.ir->SetInsertPoint(bodyBB);
+  LLValue *lb = irs.ir->CreateLoad(i8, irs.ir->CreateInBoundsGEP(i8, l_ptr, idx));
+  LLValue *rb = irs.ir->CreateLoad(i8, irs.ir->CreateInBoundsGEP(i8, r_ptr, idx));
+  irs.ir->CreateCondBr(irs.ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, lb, rb), incBB,
+                       diffBB);
+
+  // diff: result = (unsigned)lb - (unsigned)rb
+  irs.ir->SetInsertPoint(diffBB);
+  LLValue *diff = irs.ir->CreateSub(irs.ir->CreateZExt(lb, i32),
+                                    irs.ir->CreateZExt(rb, i32));
+  irs.ir->CreateBr(endBB);
+
+  // inc: ++index
+  irs.ir->SetInsertPoint(incBB);
+  idx->addIncoming(irs.ir->CreateAdd(idx, DtoConstSize_t(1)), incBB);
+  irs.ir->CreateBr(condBB);
+
+  // end: 0 if the loop ran to completion, else the byte difference
+  irs.ir->SetInsertPoint(endBB);
+  llvm::PHINode *result = irs.ir->CreatePHI(i32, 2);
+  result->addIncoming(DtoConstInt(0), condBB);
+  result->addIncoming(diff, diffBB);
+  return result;
+}
+
+// Compare two memory blocks for the array  lowering: a `memcmp` call on
+// host, an inline loop on `@compute` device code (no libc).
+llvm::Value *callMemcmp(Loc loc, IRState &irs, LLValue *l_ptr, LLValue *r_ptr,
+                        LLValue *numElements, LLType *elemty) {
   assert(l_ptr && r_ptr && numElements);
-  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "memcmp");
-  assert(fn);
   auto sizeInBytes = numElements;
   size_t elementSize = getTypeAllocSize(elemty);
   if (elementSize != 1) {
     sizeInBytes = irs.ir->CreateMul(sizeInBytes, DtoConstSize_t(elementSize));
   }
+  if (gIR->dcomputetarget)
+    return emitInlineMemcmp(irs, l_ptr, r_ptr, sizeInBytes);
   // Call memcmp.
+  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "memcmp");
+  assert(fn);
   LLValue *args[] = {l_ptr, r_ptr, sizeInBytes};
   return irs.ir->CreateCall(fn, args);
 }
@@ -732,6 +787,9 @@ LLValue *DtoArrayEqCmp_memcmp(Loc loc, DValue *l, DValue *r, IRState &irs) {
   // return 0 (equality) when the length is zero.
   irs.ir->SetInsertPoint(memcmpBB);
   auto memcmpAnswer = callMemcmp(loc, irs, l_ptr, r_ptr, l_length, DtoMemType(l->type->nextOf()));
+  // callMemcmp may emit extra blocks (the device inline loop), so branch to the
+  // merge point from whatever block we ended up in.
+  llvm::BasicBlock *memcmpResultBB = irs.ir->GetInsertBlock();
   irs.ir->CreateBr(memcmpEndBB);
 
   // Merge the result of length check and memcmp call into a phi node.
@@ -739,7 +797,7 @@ LLValue *DtoArrayEqCmp_memcmp(Loc loc, DValue *l, DValue *r, IRState &irs) {
   llvm::PHINode *phi =
       irs.ir->CreatePHI(LLType::getInt32Ty(gIR->context()), 2, "cmp_result");
   phi->addIncoming(DtoConstInt(1), incomingBB);
-  phi->addIncoming(memcmpAnswer, memcmpBB);
+  phi->addIncoming(memcmpAnswer, memcmpResultBB);
 
   return phi;
 }
