@@ -707,7 +707,9 @@ pragma(LDC_intrinsic, "llvm.sideeffect")
 ///
 /// This is the equivalent of GDC/Clang's `__builtin_convertvector`.
 pragma(LDC_intrinsic, "ldc.convertvector")
-    To llvm_convertvector(To, From)(From val);
+    To llvm_convertvector(To, From)(From val)
+        if (is(From : __vector(V[N]), V, size_t N) &&
+            is(To : __vector(U[M]), U, size_t M));
 
 version (WebAssembly)
 {
