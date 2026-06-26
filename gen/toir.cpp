@@ -2179,36 +2179,27 @@ public:
         ptrType = v_val->getType();
       }
 
+      // Coerce a branch value to ptrType, substituting undef for a missing
+      // branch. Bitcast/addrspacecast keeps the address space intact.
+      auto incomingFor = [&](LLValue *branchVal) {
+        LLValue *inc = branchVal ? branchVal : llvm::UndefValue::get(ptrType);
+        if (inc->getType() != ptrType) {
+          inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(inc, ptrType);
+        }
+        return inc;
+      };
+
       LLValue *val = nullptr;
 
       if (u_bb && v_bb) {
         llvm::PHINode *phi = p->ir->CreatePHI(ptrType, 2, "condtmp");
-        
-        LLValue *u_inc = u_val ? u_val : llvm::UndefValue::get(ptrType);
-        if (u_inc->getType() != ptrType) {
-          u_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(u_inc, ptrType);
-        }
-        phi->addIncoming(u_inc, u_bb);
-        
-        LLValue *v_inc = v_val ? v_val : llvm::UndefValue::get(ptrType);
-        if (v_inc->getType() != ptrType) {
-          v_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(v_inc, ptrType);
-        }
-        phi->addIncoming(v_inc, v_bb);
-        
+        phi->addIncoming(incomingFor(u_val), u_bb);
+        phi->addIncoming(incomingFor(v_val), v_bb);
         val = phi;
       } else if (u_bb) {
-        LLValue *u_inc = u_val ? u_val : llvm::UndefValue::get(ptrType);
-        if (u_inc->getType() != ptrType) {
-          u_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(u_inc, ptrType);
-        }
-        val = u_inc;
+        val = incomingFor(u_val);
       } else if (v_bb) {
-        LLValue *v_inc = v_val ? v_val : llvm::UndefValue::get(ptrType);
-        if (v_inc->getType() != ptrType) {
-          v_inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(v_inc, ptrType);
-        }
-        val = v_inc;
+        val = incomingFor(v_val);
       } else {
         val = llvm::UndefValue::get(ptrType);
       }
