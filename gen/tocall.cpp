@@ -16,6 +16,7 @@
 #include "dmd/target.h"
 #include "dmd/template.h"
 #include "gen/abi/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
@@ -1005,6 +1006,19 @@ DValue *DtoCallFunction(Loc loc, Type *resulttype, DValue *fnval,
       retllval = irFty.getRetRVal(returntype, retllval);
     }
   }
+
+#if LLVM_VERSION_MAJOR >= 23
+  // A b8 LLVM callee return type only appears when byte-interop ABI lowering
+  // ran (see TargetABI::shouldUseLLVMByteInExternSignature).
+  if (!retValIsLVal && returnTy != TY::Tvoid && returnTy != TY::Tnoreturn) {
+    LLType *callRetTy = callableTy->getReturnType();
+    LLType *dRetTy = DtoType(returntype->toBasetype());
+    if (callRetTy != dRetTy && dRetTy->isIntegerTy(8) &&
+        callRetTy->isByteTy(8)) {
+      retllval = DtoBitCast(retllval, dRetTy);
+    }
+  }
+#endif
 
   // repaint the type if necessary
   Type *rbase = stripModifiers(resulttype->toBasetype(), true);

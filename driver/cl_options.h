@@ -105,6 +105,8 @@ extern cl::opt<bool> fNoExceptions;
 extern cl::opt<bool> fNoModuleInfo;
 extern cl::opt<bool> fNoRTTI;
 extern cl::opt<bool> fSplitStack;
+/// [EXPERIMENTAL] Use LLVM b8 in extern(C/C++/…) signatures (default off).
+extern cl::opt<bool> fCInteropLLVMByte;
 
 // Arguments to -d-debug
 extern std::vector<std::string> debugArgs;

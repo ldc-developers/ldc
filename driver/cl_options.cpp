@@ -616,6 +616,14 @@ cl::opt<bool>
     fSplitStack("fsplit-stack", cl::ZeroOrMore,
                 cl::desc("Use segmented stack (see Clang documentation)"));
 
+cl::opt<bool> fCInteropLLVMByte(
+    "fc-interop-llvm-byte", cl::ZeroOrMore, cl::init(false),
+    cl::desc(
+        "[EXPERIMENTAL] Use LLVM b8 for extern(C/C++/…) 8-bit integer "
+        "parameters and returns in function signatures. Default off: Clang may "
+        "still emit i8, so mixed LTO can fail until LLVM and Clang agree on "
+        "byte types in IR."));
+
 cl::opt<bool, true>
     allinst("allinst", cl::ZeroOrMore, cl::location(global.params.allInst),
             cl::desc("Generate code for all template instantiations"));

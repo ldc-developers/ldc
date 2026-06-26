@@ -254,6 +254,16 @@ public:
         // do abi specific transformations on the return value
         returnValue = getIrFunc(fd)->irFty.putRet(dval);
 
+#if LLVM_VERSION_MAJOR >= 23
+        // b8 in the LLVM signature only comes from ABI lowering gated on
+        // -fc-interop-llvm-byte (see TargetABI::shouldUseLLVMByteInExternSignature),
+        // so no separate opts::fCInteropLLVMByte check here.
+        if (funcType->getReturnType()->isByteTy(8) &&
+            returnValue->getType()->isIntegerTy(8)) {
+          returnValue = DtoBitCast(returnValue, funcType->getReturnType());
+        }
+#endif
+
         // Hack around LDC assuming structs and static arrays are in memory:
         // If the function returns a struct or a static array, and the return
         // value is a pointer to a struct or a static array, load from it
