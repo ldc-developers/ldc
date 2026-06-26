@@ -180,6 +180,24 @@ else version (DigitalMars)
  */
 version (GNU)
     T va_arg(T)(ref va_list ap); // intrinsic
+else version (WebAssembly){
+    pragma(LDC_va_arg)
+    T ldc_va_arg(T)(ref va_list ap);
+    T va_arg(T)(ref va_list ap)
+    {
+        static if (__traits(isScalar, T) || is(T == U*, U))
+        {
+            return ldc_va_arg!T(ap);
+        }
+        else
+        {
+            ap = ap.alignUp!(T.alignof);
+            auto p = cast(T*) ap;
+            ap += T.sizeof.alignUp;
+            return *p;
+        }
+    }
+}
 else
 T va_arg(T)(ref va_list ap)
 {
