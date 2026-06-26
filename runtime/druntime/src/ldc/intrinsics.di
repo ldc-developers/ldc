@@ -709,7 +709,8 @@ pragma(LDC_intrinsic, "llvm.sideeffect")
 pragma(LDC_intrinsic, "ldc.convertvector")
     To llvm_convertvector(To, From)(From val)
         if (is(From : __vector(V[N]), V, size_t N) &&
-            is(To : __vector(U[N]), U, size_t N));
+            is(To : __vector(U[M]), U, size_t M) &&
+            N == M);
 
 version (WebAssembly)
 {
