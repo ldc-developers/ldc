@@ -47,6 +47,7 @@ enum LDCPragma {
   LLVMbitop_bts,
   LLVMbitop_vld,
   LLVMbitop_vst,
+  LLVMconvertvector,
   LLVMextern_weak,
   LLVMprofile_instr
 };
