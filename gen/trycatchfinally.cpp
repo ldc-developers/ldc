@@ -845,15 +845,12 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
   //
   // cleanuppad:
   //   %0 = cleanuppad within %funclet[]
-  //   %frame = nullptr
-  //   if (!_d_enter_cleanup(%frame)) br label %cleanupret
-  //                                  else br label %copy
+  //   br label %copy
   //
   // copy:
   //   invoke _dtor to %cleanupret unwind %unwindTo [ "funclet"(token %0) ]
   //
   // cleanupret:
-  //   _d_leave_cleanup(%frame)
   //   cleanupret %0 unwind %unwindTo
   //
   llvm::BasicBlock *cleanupbb = irs.insertBB("cleanuppad");
@@ -863,28 +860,14 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
 
   llvm::BasicBlock *cleanupret = irs.insertBBAfter(cleanupbb, "cleanupret");
 
-  // preparation to allocate some space on the stack where _d_enter_cleanup
-  //  can place an exception frame (but not done here)
-  auto frame = getNullPtr();
-
   const auto savedInsertPoint = irs.saveInsertPoint();
 
-  auto endFn = getRuntimeFunction(Loc(), irs.module, "_d_leave_cleanup");
-  irs.ir->SetInsertPoint(cleanupret);
-  irs.DBuilder.EmitStopPoint(irs.func()->decl->loc);
-  irs.ir->CreateCall(endFn, frame,
-                     {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
   llvm::CleanupReturnInst::Create(cleanuppad, unwindTo, cleanupret);
 
   auto copybb = cleanupScopes[scope].runCopying(irs, cleanupbb, cleanupret,
                                                 unwindTo, cleanuppad);
 
-  auto beginFn = getRuntimeFunction(Loc(), irs.module, "_d_enter_cleanup");
-  irs.ir->SetInsertPoint(cleanupbb);
-  irs.DBuilder.EmitStopPoint(irs.func()->decl->loc);
-  auto exec = irs.ir->CreateCall(
-      beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
-  createBranch(exec, copybb, cleanupret, cleanupbb);
+  createBranch(copybb, cleanupbb);
 
   return cleanupbb;
 }

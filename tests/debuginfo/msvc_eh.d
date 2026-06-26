@@ -28,6 +28,4 @@ void foo_msvc()
         WithDtor swd_2 = { 48 };
     }
     // CHECK-DAG: call {{.*}}@_d_eh_enter_catch{{.*}} !dbg
-    // CHECK-DAG: call {{.*}}@_d_enter_cleanup{{.*}} !dbg
-    // CHECK-DAG: call {{.*}}@_d_leave_cleanup{{.*}} !dbg
 }
