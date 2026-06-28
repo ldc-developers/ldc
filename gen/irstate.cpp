@@ -349,3 +349,7 @@ IRBuilder<> *IRBuilderHelper::operator->() {
 bool useMSVCEH() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }
+
+bool useWasmEH() {
+  return global.params.targetTriple->isWasm();
+}

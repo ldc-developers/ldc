@@ -289,3 +289,4 @@ public:
 void Statement_toIR(Statement *s, IRState *irs);
 
 bool useMSVCEH();
+bool useWasmEH();
