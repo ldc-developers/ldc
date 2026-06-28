@@ -730,6 +730,10 @@ static void buildRuntimeModule() {
       // (int state, ptr ucb, ptr context)
       createFwdDecl(LINK::c, intTy, {"_d_eh_personality"},
                     {intTy, voidPtrTy, voidPtrTy});
+    } else if (global.params.targetTriple->isWasm()) {
+      // (int ver, int actions, ulong eh_class, ptr eh_info, ptr context)
+      createFwdDecl(LINK::c, intTy, {"__gxx_wasm_personality_v0"},
+                    {intTy, intTy, ulongTy, voidPtrTy, voidPtrTy});
     } else {
       // (int ver, int actions, ulong eh_class, ptr eh_info, ptr context)
       createFwdDecl(LINK::c, intTy, {"_d_eh_personality"},
@@ -747,6 +751,14 @@ static void buildRuntimeModule() {
     // Throwable _d_eh_enter_catch(ptr exception, ClassInfo catchType)
     createFwdDecl(LINK::c, throwableTy, {"_d_eh_enter_catch"},
                   {voidPtrTy, classInfoTy}, {});
+  } else if (useWasmEH()) {
+    // Throwable _d_eh_enter_catch(ptr)
+    createFwdDecl(LINK::c, throwableTy, {"_d_eh_enter_catch"}, {voidPtrTy}, {},
+                  Attr_NoUnwind);
+
+    // void* __cxa_begin_catch(ptr)
+    createFwdDecl(LINK::c, voidPtrTy, {"__cxa_begin_catch"}, {voidPtrTy}, {},
+                  Attr_NoUnwind);
   } else {
     // void _Unwind_Resume(ptr)
     createFwdDecl(LINK::c, voidTy, {getUnwindResumeFunctionName()}, {voidPtrTy},

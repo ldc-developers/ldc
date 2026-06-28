@@ -24,6 +24,7 @@ class BasicBlock;
 class GlobalVariable;
 class MDNode;
 class Value;
+class Type;
 }
 
 /// Represents a position on the stack of currently active cleanup scopes.
@@ -76,6 +77,7 @@ private:
 
   void emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot);
   void emitCatchBodiesMSVC(IRState &irs, llvm::Value *ehPtrSlot);
+  void emitCatchBodiesWasm(IRState &irs, llvm::Value *ehPtrSlot);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -243,6 +245,18 @@ public:
   /// If there's no cached one, a new one will be emitted.
   llvm::BasicBlock *getLandingPad();
 
+  /// Returns the stack slot that contains the exception object pointer while a
+  /// landing pad is active, lazily creating it as needed.
+  ///
+  /// This value must dominate all uses; first storing it, and then loading it
+  /// when calling _d_eh_resume_unwind. If we take a select at the end of any
+  /// cleanups on the way to the latter, the value must also dominate all other
+  /// predecessors of the cleanup. Thus, we just use a single alloca in the
+  /// entry BB of the function.
+  llvm::AllocaInst *getOrCreateEhPtrSlot();
+
+  /// Similar story to getOrCreateEhPtrSlot, but for the selector value.
+  llvm::AllocaInst *getOrCreateEhSelectorSlot(llvm::Type *ty);
 private:
   IRState &irs;
   llvm::AllocaInst *ehPtrSlot = nullptr;
@@ -287,16 +301,6 @@ private:
   void runCleanups(CleanupCursor sourceScope, CleanupCursor targetScope,
                    llvm::BasicBlock *continueWith);
 
-  /// Returns the stack slot that contains the exception object pointer while a
-  /// landing pad is active, lazily creating it as needed.
-  ///
-  /// This value must dominate all uses; first storing it, and then loading it
-  /// when calling _d_eh_resume_unwind. If we take a select at the end of any
-  /// cleanups on the way to the latter, the value must also dominate all other
-  /// predecessors of the cleanup. Thus, we just use a single alloca in the
-  /// entry BB of the function.
-  llvm::AllocaInst *getOrCreateEhPtrSlot();
-
   /// Returns the basic block with the call to the unwind resume function.
   ///
   /// Because of ehPtrSlot, we do not need more than one, so might as well
@@ -305,6 +309,11 @@ private:
 
   // MSVC
   llvm::BasicBlock *emitLandingPadMSVC(CleanupCursor cleanupScope);
+
+  // Wasm
+  llvm::BasicBlock *emitLandingPadWasm(CleanupCursor cleanupScope);
+
+  // MSVC & Wasm
   void runCleanupCopies(CleanupCursor sourceScope, CleanupCursor targetScope,
                         llvm::BasicBlock *continueWith);
   llvm::BasicBlock *runCleanupPad(CleanupCursor scope,

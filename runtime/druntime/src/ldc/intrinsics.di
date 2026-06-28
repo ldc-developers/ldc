@@ -734,4 +734,7 @@ pragma(LDC_intrinsic, "llvm.wasm.memory.grow.i32")
 /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-memory-size
 pragma(LDC_intrinsic, "llvm.wasm.memory.size.i32")
     int llvm_wasm_memory_size(int mem);
+
+pragma(LDC_intrinsic, "llvm.wasm.throw")
+    void llvm_wasm_throw(uint tag, void* ex);
 } // version (WebAssembly)
