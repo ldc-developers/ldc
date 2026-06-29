@@ -77,19 +77,43 @@ LLStructType *DtoModuleReferenceType();
 
 // getelementptr helpers
 LLValue *DtoGEP1(LLType *pointeeTy, LLValue *ptr, LLValue *i0,
-                 const char *name = "", llvm::BasicBlock *bb = nullptr);
+                 const char *name = "", llvm::BasicBlock *bb = nullptr
+#if LDC_LLVM_VER >= 2000
+                 , llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds()
+#endif
+                );
 LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, LLValue *i0, LLValue *i1,
-                const char *name = "", llvm::BasicBlock *bb = nullptr);
+                const char *name = "", llvm::BasicBlock *bb = nullptr
+#if LDC_LLVM_VER >= 2000
+                 , llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds()
+#endif
+              );
 
 LLValue *DtoGEP1(LLType *pointeeTy, LLValue *ptr, unsigned i0,
-                 const char *name = "", llvm::BasicBlock *bb = nullptr);
+                 const char *name = "", llvm::BasicBlock *bb = nullptr
+#if LDC_LLVM_VER >= 2000
+                 , llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds()
+#endif
+                );
 LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, unsigned i0, unsigned i1,
-                const char *name = "", llvm::BasicBlock *bb = nullptr);
+                const char *name = "", llvm::BasicBlock *bb = nullptr
+#if LDC_LLVM_VER >= 2000
+                 , llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds()
+#endif
+              );
 LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
-                   unsigned i1);
+                   unsigned i1
+#if LDC_LLVM_VER >= 2000
+                 , llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds()
+#endif
+                  );
 
 LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, uint64_t i0,
-                    const char *name = "", llvm::BasicBlock *bb = nullptr);
+                    const char *name = "", llvm::BasicBlock *bb = nullptr
+#if LDC_LLVM_VER >= 2000
+                 , llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds()
+#endif
+                  );
 
 // to constant helpers
 LLConstantInt *DtoConstSize_t(uint64_t);

@@ -22,6 +22,8 @@
 #include "dmd/root/rmem.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
+#include "driver/cl_options.h"
+#include "gen/aa.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/binops.h"
@@ -1178,7 +1180,16 @@ public:
       }
       LLType *elt = DtoMemType(e1type->nextOf());
       LLType *arrty = llvm::ArrayType::get(elt, e1type->isTypeSArray()->dim->isIntegerExp()->getInteger());
-      arrptr = DtoGEP(arrty, DtoLVal(l), DtoConstUint(0), DtoRVal(r));
+#if LDC_LLVM_VER >= 2000
+      llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
+      if (e->indexIsInBounds && opts::enableGetElementPtrNuw)
+        nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
+#endif
+      arrptr = DtoGEP(arrty, DtoLVal(l), DtoConstUint(0), DtoRVal(r)
+#if LDC_LLVM_VER >= 2000
+                    , "", nullptr, nw
+#endif
+      );
     } else if (e1type->ty == TY::Tarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
@@ -1271,8 +1282,16 @@ public:
       }
 
       // offset by lower
-      eptr = DtoGEP1(DtoMemType(etype->nextOf()), getBasePointer(), vlo, "lowerbound");
-
+#if LDC_LLVM_VER >= 2000
+      llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
+      if (!needCheckUpper && !needCheckLower && opts::enableGetElementPtrNuw)
+        nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
+#endif
+      eptr = DtoGEP1(DtoMemType(etype->nextOf()), getBasePointer(), vlo, "lowerbound"
+#if LDC_LLVM_VER >= 2000
+                   , nullptr, nw
+#endif
+      );
       // adjust length
       elen = p->ir->CreateSub(vup, vlo);
     }
