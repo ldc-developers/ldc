@@ -72,7 +72,7 @@ public:
     auto linkage = llvm::GlobalValue::LinkageTypes::ExternalLinkage;
     auto name = llvm::Twine(mangleExact(fd)) + llvm::Twine("_kernel");
     auto *f = llvm::Function::Create(void_func_void, linkage, name, _ir->module);
-    f->setCallingConv(llvm::CallingConv::SPIR_KERNEL);
+    // f->setCallingConv(llvm::CallingConv::SPIR_KERNEL);
     return f;
   }
   llvm::Type *buildArgType(llvm::Function *llf, llvm::SmallVector<llvm::Type *, 8> &args, llvm::StringRef name) {
@@ -130,6 +130,7 @@ public:
     // Fake being HLSL
     llvm::Function *f = buildFunction(fd);
     f->addFnAttrs(buildKernAttrs(kernAttr));
+    llf->setLinkage(llvm::GlobalValue::InternalLinkage);
 
     llvm::SmallVector<llvm::Type *, 8> argTypes(llf->getFunctionType()->getNumParams());
     auto name = llvm::Twine(mangleExact(fd)) + llvm::Twine("_args");
@@ -187,3 +188,4 @@ DComputeTarget *createVulkanTarget(llvm::LLVMContext &c, int ver) {
 }
 
 #endif // LDC_LLVM_SUPPORTED_TARGET_SPIRV
+ 
