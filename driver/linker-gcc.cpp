@@ -549,7 +549,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     args.push_back("-shared");
   }
 
-  if (linkFullyStatic() == llvm::cl::BOU_TRUE) {
+  if (linkFullyStatic() == llvm::cl::boolOrDefault::BOU_TRUE) {
     args.push_back("-static");
   }
 

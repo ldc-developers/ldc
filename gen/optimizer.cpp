@@ -152,8 +152,8 @@ bool willInline() {
 #ifdef IN_JITRT
   return false;
 #else
-  return enableInlining == cl::BOU_TRUE ||
-         (enableInlining == cl::BOU_UNSET && optLevel() > 1);
+  return enableInlining == cl::boolOrDefault::BOU_TRUE ||
+         (enableInlining == cl::boolOrDefault::BOU_UNSET && optLevel() > 1);
 #endif
 }
 
@@ -161,7 +161,7 @@ bool willCrossModuleInline() {
 #ifdef IN_JITRT
   return false;
 #else
-  return enableCrossModuleInlining == llvm::cl::BOU_TRUE && willInline();
+  return enableCrossModuleInlining == llvm::cl::boolOrDefault::BOU_TRUE && willInline();
 #endif
 }
 
