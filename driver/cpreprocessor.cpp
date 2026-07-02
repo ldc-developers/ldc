@@ -106,7 +106,7 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
 #else
       const auto &featureBits = subTarget->getFeatureBits();
 #endif
-      
+
       llvm::SmallString<64> featureString;
       for (const auto &feature :
 #if LLVM_VERSION_MAJOR >= 23
@@ -120,7 +120,11 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
         args.push_back("-Xclang");
 
         featureString += featureBits.test(feature.Value) ? '+' : '-';
+#if LLVM_VERSION_MAJOR >= 23
+        featureString += feature.key();
+#else
         featureString += feature.Key;
+#endif
         args.push_back(featureString.str().str());
         featureString.clear();
       }

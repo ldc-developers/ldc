@@ -40,12 +40,12 @@ template <> struct FlagParserDataType<bool> {
 };
 
 template <> struct FlagParserDataType<cl::boolOrDefault> {
-  static cl::boolOrDefault true_val() { return cl::BOU_TRUE; }
-  static cl::boolOrDefault false_val() { return cl::BOU_FALSE; }
+  static cl::boolOrDefault true_val() { return cl::boolOrDefault::BOU_TRUE; }
+  static cl::boolOrDefault false_val() { return cl::boolOrDefault::BOU_FALSE; }
 };
 
 inline bool getFlagOrDefault(cl::boolOrDefault value, bool defaultValue) {
-  return value == cl::BOU_UNSET ? defaultValue : value == cl::BOU_TRUE;
+  return value == cl::boolOrDefault::BOU_UNSET ? defaultValue : value == cl::boolOrDefault::BOU_TRUE;
 }
 
 template <> struct FlagParserDataType<CHECKENABLE> {

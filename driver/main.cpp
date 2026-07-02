@@ -463,11 +463,11 @@ void parseCommandLine(Strings &sourceFiles) {
   }
 
   global.params.output_o =
-      (opts::output_o == cl::BOU_UNSET &&
+      (opts::output_o == cl::boolOrDefault::BOU_UNSET &&
        !(opts::output_bc || opts::output_ll || opts::output_s ||
          opts::output_mlir))
           ? OUTPUTFLAGdefault
-          : opts::output_o == cl::BOU_TRUE ? OUTPUTFLAGset : OUTPUTFLAGno;
+          : opts::output_o == cl::boolOrDefault::BOU_TRUE ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_bc = opts::output_bc ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_mlir = opts::output_mlir ? OUTPUTFLAGset : OUTPUTFLAGno;

@@ -218,9 +218,9 @@ cl::boolOrDefault linkFullyStatic() { return staticFlag; }
 bool linkAgainstSharedDefaultLibs() {
   // -static enforces static default libs.
   // Default to shared default libs for DLLs.
-  return staticFlag != cl::BOU_TRUE &&
-         (linkDefaultLibShared == cl::BOU_TRUE ||
-          (linkDefaultLibShared == cl::BOU_UNSET && global.params.dll));
+  return staticFlag != cl::boolOrDefault::BOU_TRUE &&
+         (linkDefaultLibShared == cl::boolOrDefault::BOU_TRUE ||
+          (linkDefaultLibShared == cl::boolOrDefault::BOU_UNSET && global.params.dll));
 }
 
 //////////////////////////////////////////////////////////////////////////////
