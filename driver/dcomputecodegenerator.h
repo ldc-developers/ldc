@@ -17,7 +17,7 @@ namespace llvm {
 }
 
 class DComputeTarget;
-class TargetABI;
+struct TargetABI;
 
 // gets run on modules marked @compute
 // All @compute D modules are emitted into one LLVM module once per target.
