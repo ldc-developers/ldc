@@ -1218,6 +1218,13 @@ int cppmain() {
     global.params.dllimport = DLLImport::none;
   }
 
+  if (triple->isWindowsMSVCEnvironment() &&
+      opts::fOptimizeNothrow.getNumOccurrences() == 0) {
+    // FIXME: make https://github.com/ldc-developers/ldc/issues/3504 much less
+    //        likely for now
+    global.params.nothrowOptimizations = true;
+  }
+
   global.preprocess = &runCPreprocessor;
 
   // allocate the target abi

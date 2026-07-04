@@ -751,6 +751,14 @@ cl::opt<unsigned>
                    cl::desc("Warn for stack size bigger than the given number"),
                    cl::value_desc("threshold"));
 
+cl::opt<bool, true> fOptimizeNothrow(
+    "foptimize-nothrow", cl::ZeroOrMore,
+    cl::location(global.params.nothrowOptimizations),
+    cl::desc("Omit EH cleanups (destructors/`finally`/`scope(exit)`) when "
+             "Errors unwind through nothrow code. Defaults to true for Windows "
+             "targets, to make hitting "
+             "https://github.com/ldc-developers/ldc/issues/3504 less likely."));
+
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,

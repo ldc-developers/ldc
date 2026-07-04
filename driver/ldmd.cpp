@@ -245,6 +245,8 @@ Where:\n\
                     use <filespec> as source file for <package.module>\n\
   -noboundscheck    no array bounds checking (deprecated, use -boundscheck=off)\n\
   -nothrow          assume no Exceptions will be thrown\n\
+  -nothrow-optimizations\n\
+                    allow skipping destructors when an Error unwinds through a nothrow function\n\
   -O                optimize\n\
   -o-               do not write object file\n\
   -od=<directory>   write object & library files to directory\n\
@@ -698,6 +700,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        */
       else if (strcmp(p + 1, "nothrow") == 0) {
         ldcArgs.push_back("-fno-exceptions");
+      } else if (strcmp(p + 1, "nothrow-optimizations") == 0) {
+        ldcArgs.push_back("-foptimize-nothrow");
       }
       /* -unittest
        * -I
