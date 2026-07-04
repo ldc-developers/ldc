@@ -8514,6 +8514,18 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         }
         assert(t1.ty == Tfunction);
 
+        // semantic on arguments and return type should not be delayed to infer attributes
+        Scope* sc2 = sc;
+        if (sc.deferSemantic3InCompilerHook)
+        {
+            sc = sc.push();
+            sc.deferSemantic3InCompilerHook = false;
+        }
+        scope(exit)
+        {
+            if (sc2 != sc)
+                sc.pop();
+        }
         Expression argprefix;
         if (!exp.arguments)
             exp.arguments = new Expressions();
@@ -11842,7 +11854,18 @@ version (IN_LLVM)
             /* If e1 is not trivial, take a reference to it
              */
             Expression de = null;
-            if (exp.e1.op != EXP.variable && exp.e1.op != EXP.arrayLength)
+            if (auto ale = exp.e1.isArrayLengthExp())
+            {
+                // don't evaluate arrExp twice in `arrExp.length++` if non-trivial
+                if (ale.e1.op != EXP.variable)
+                {
+                    // ref v = e1;
+                    auto v = copyToTemp(STC.ref_, "__postref", ale.e1);
+                    de = new DeclarationExp(ale.loc, v);
+                    ale.e1 = new VarExp(ale.e1.loc, v);
+                }
+            }
+            else if (exp.e1.op != EXP.variable)
             {
                 // ref v = e1;
                 auto v = copyToTemp(STC.ref_, "__postref", exp.e1);
@@ -14843,14 +14866,20 @@ version (IN_LLVM)
 
         auto arguments = new Expressions(ee.e1, ee.e2);
         auto ce = new CallExp(ee.loc, id, arguments);
+        Expression e = ce;
         if (ee.op == EXP.notEqual)
         {
             auto ne = new NotExp(ee.loc, ce);
             ne.loweredFrom = ee;
-            return ne.expressionSemantic(sc);
+            e = ne;
         }
-        ce.loweredFrom = ee;
-        return ce.expressionSemantic(sc);
+        else
+            ce.loweredFrom = ee;
+        auto sc2 = sc.push();
+        sc2.deferSemantic3InCompilerHook = true;
+        e = e.expressionSemantic(sc2);
+        sc2.pop();
+        return e;
     }
 
     override void visit(EqualExp exp)
