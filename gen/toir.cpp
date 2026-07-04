@@ -2113,10 +2113,12 @@ public:
     PGO.setCurrentStmt(e);
 
     Type *dtype = e->type->toBasetype();
+    const bool isLvalue = e->isLvalue();
     LLValue *retPtr = nullptr;
     if (!(dtype->ty == TY::Tvoid || dtype->ty == TY::Tnoreturn)) {
-      // allocate a temporary for pointer to the final result.
-      retPtr = DtoAlloca(pointerTo(dtype), "condtmp");
+      if (!isLvalue) {
+        retPtr = DtoAlloca(dtype, "condtmp");
+      }
     }
 
     llvm::BasicBlock *condtrue = p->insertBB("condtrue");
@@ -2131,26 +2133,87 @@ public:
     auto branchweights = PGO.createProfileWeights(truecount, falsecount);
     p->ir->CreateCondBr(cond_val, condtrue, condfalse, branchweights);
 
+    LLValue *u_val = nullptr;
+    llvm::BasicBlock *u_bb = nullptr;
     p->ir->SetInsertPoint(condtrue);
     PGO.emitCounterIncrement(e);
     DValue *u = toElem(e->e1);
-    if (retPtr && u->type->toBasetype()->ty != TY::Tnoreturn) {
-      LLValue *lval = makeLValue(e->loc, u);
-      DtoStore(lval, retPtr);
+    if (u && u->type->toBasetype()->ty != TY::Tnoreturn) {
+      if (isLvalue) {
+        u_val = makeLValue(e->loc, u);
+      } else if (retPtr) {
+        DLValue dst(dtype, retPtr);
+        DtoAssign(e->loc, &dst, u, EXP::blit);
+      }
+    }
+    if (!p->scopebb()->getTerminator()) {
+      u_bb = p->scopebb();
     }
     createBranch(condend, p->scopebb());
 
+    LLValue *v_val = nullptr;
+    llvm::BasicBlock *v_bb = nullptr;
     p->ir->SetInsertPoint(condfalse);
     DValue *v = toElem(e->e2);
-    if (retPtr && v->type->toBasetype()->ty != TY::Tnoreturn) {
-      LLValue *lval = makeLValue(e->loc, v);
-      DtoStore(lval, retPtr);
+    if (v && v->type->toBasetype()->ty != TY::Tnoreturn) {
+      if (isLvalue) {
+        v_val = makeLValue(e->loc, v);
+      } else if (retPtr) {
+        DLValue dst(dtype, retPtr);
+        DtoAssign(e->loc, &dst, v, EXP::blit);
+      }
+    }
+    if (!p->scopebb()->getTerminator()) {
+      v_bb = p->scopebb();
     }
     createBranch(condend, p->scopebb());
 
     p->ir->SetInsertPoint(condend);
-    if (retPtr)
-      result = new DSpecialRefValue(e->type, retPtr);
+    if (isLvalue) {
+      llvm::Type *ptrType = getOpaquePtrType();
+      if (u_val && v_val && u_val->getType() == v_val->getType()) {
+        ptrType = u_val->getType();
+      } else if (u_val && !v_val) {
+        ptrType = u_val->getType();
+      } else if (v_val && !u_val) {
+        ptrType = v_val->getType();
+      }
+
+      // Coerce a branch value to ptrType, substituting undef for a missing
+      // branch. Bitcast/addrspacecast keeps the address space intact.
+      auto incomingFor = [&](LLValue *branchVal) {
+        LLValue *inc = branchVal ? branchVal : llvm::UndefValue::get(ptrType);
+        if (inc->getType() != ptrType) {
+          inc = p->ir->CreatePointerBitCastOrAddrSpaceCast(inc, ptrType);
+        }
+        return inc;
+      };
+
+      LLValue *val = nullptr;
+
+      if (u_bb && v_bb) {
+        llvm::PHINode *phi = p->ir->CreatePHI(ptrType, 2, "condtmp");
+        phi->addIncoming(incomingFor(u_val), u_bb);
+        phi->addIncoming(incomingFor(v_val), v_bb);
+        val = phi;
+      } else if (u_bb) {
+        val = incomingFor(u_val);
+      } else if (v_bb) {
+        val = incomingFor(v_val);
+      } else {
+        val = llvm::UndefValue::get(ptrType);
+      }
+
+      if (auto du = u ? u->isDDcomputeLVal() : nullptr) {
+        result = new DDcomputeLValue(e->type, du->lltype, val);
+      } else if (auto dv = v ? v->isDDcomputeLVal() : nullptr) {
+        result = new DDcomputeLValue(e->type, dv->lltype, val);
+      } else {
+        result = new DLValue(e->type, val);
+      }
+    } else if (retPtr) {
+      result = new DLValue(e->type, retPtr);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
