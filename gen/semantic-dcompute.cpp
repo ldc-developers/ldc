@@ -38,9 +38,14 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   // the
   // template declaration, it's module of origin is the module at the point of
   // instansiation so we need to check for that.
-  bool isNonComputeCallExpVaild(CallExp *ce) {
+  bool isNonComputeCallExpValid(CallExp *ce) {
     FuncDeclaration *f = ce->f;
     if (f->ident == Id::dcReflect)
+      return true;
+    // Calls into the comparison/equality hook modules (`__cmp`, `__equals`,
+    // their `isEqual`/`at` helpers) are the lowering for array `<`/`==` and are
+    // legal in device code even though those modules are host-only.
+    if (isDeviceArrayComparisonHook(f))
       return true;
     if (currentFunction == nullptr)
       return false;
@@ -212,6 +217,12 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     }
   }
   void visit(CallExp *e) override {
+    if (!e->f) {
+      error(e->loc, "function pointers and delegates are not allowed in `@compute` code");
+      stop = true;
+      return;
+    }
+
     // SynchronizedStatement is lowered to
     //    Critsec __critsec105; // 105 == line number
     //    _d_criticalenter(& __critsec105); <--
@@ -232,7 +243,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       
     Module *m = e->f->getModule();
     if ((m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly)) &&
-        !isNonComputeCallExpVaild(e)) {
+        !isNonComputeCallExpValid(e)) {
       error(e->loc, "can only call functions from other `@compute` modules in "
                     "`@compute` code");
       stop = true;
@@ -260,6 +271,16 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // as they contain unsupported global variables.
     if (ti->tempdecl == Type::rtinfo || ti->tempdecl == Type::rtinfoImpl) {
       stop = true;
+      return;
+    }
+    
+    // Skip host-side template instantiations (like TypeInfo or std.stdio)
+    if (ti->tempdecl) {
+      Module *m = ti->tempdecl->getModule();
+      if (m && hasComputeAttr(m) == DComputeCompileFor::hostOnly) {
+        stop = true;
+        return;
+      }
     }
   }
 

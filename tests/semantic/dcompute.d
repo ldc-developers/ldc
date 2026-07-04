@@ -79,6 +79,12 @@ void func()
     //CHECK-NOT: Error:
     scope(exit)
         func2();
+
+    void function() ptr;
+    if (ptr) {
+        //CHECK: dcompute.d([[@LINE+1]]): Error: function pointers and delegates are not allowed in `@compute` code
+        ptr();
+    }
 }
 
 void func1() {}

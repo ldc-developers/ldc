@@ -272,6 +272,11 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   llvm::LLVMRemarkFileHandle diagnosticsOutputFile =
       createAndSetDiagnosticsOutputFile(*ir_, context_, filename);
 
+  if (dcomputeHook_) {
+    dcomputeHook_(&ir_->module);
+    dcomputeHook_ = nullptr;
+  }
+
   writeModule(&ir_->module, filename);
 
   if (diagnosticsOutputFile)

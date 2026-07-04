@@ -38,6 +38,7 @@
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
 #include "gen/abi/abi.h"
+#include "ir/irtypestruct.h"
 #include "gen/irstate.h"
 #include "gen/ldctraits.h"
 #include "gen/linkage.h"
@@ -462,11 +463,11 @@ void parseCommandLine(Strings &sourceFiles) {
   }
 
   global.params.output_o =
-      (opts::output_o == cl::BOU_UNSET &&
+      (opts::output_o == cl::boolOrDefault::BOU_UNSET &&
        !(opts::output_bc || opts::output_ll || opts::output_s ||
          opts::output_mlir))
           ? OUTPUTFLAGdefault
-          : opts::output_o == cl::BOU_TRUE ? OUTPUTFLAGset : OUTPUTFLAGno;
+          : opts::output_o == cl::boolOrDefault::BOU_TRUE ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_bc = opts::output_bc ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_mlir = opts::output_mlir ? OUTPUTFLAGset : OUTPUTFLAGno;
@@ -913,8 +914,26 @@ void registerPredefinedTargetVersions() {
     break;
   case llvm::Triple::WASI:
     VersionCondition::addPredefinedGlobalIdent("WASI");
+    VersionCondition::addPredefinedGlobalIdent("WASIp1");
     VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
     break;
+#if LLVM_VERSION_MAJOR >= 22
+  case llvm::Triple::WASIp1:
+    VersionCondition::addPredefinedGlobalIdent("WASI");
+    VersionCondition::addPredefinedGlobalIdent("WASIp1");
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
+    break;
+  case llvm::Triple::WASIp2:
+    VersionCondition::addPredefinedGlobalIdent("WASI");
+    VersionCondition::addPredefinedGlobalIdent("WASIp2");
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
+    break;
+  case llvm::Triple::WASIp3:
+    VersionCondition::addPredefinedGlobalIdent("WASI");
+    VersionCondition::addPredefinedGlobalIdent("WASIp3");
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
+    break;
+#endif
   case llvm::Triple::Emscripten:
     VersionCondition::addPredefinedGlobalIdent("Emscripten");
     // Emscripten uses musl and libc++, so mimic a musl Linux platform:
@@ -1224,6 +1243,7 @@ void codegenModules(Modules &modules) {
   if (global.params.obj && !modules.empty()) {
     dmd::TimeTraceScope timeScope(TimeTraceEventType::codegenGlobal);
 
+    DComputeCodeGenManager dccg(getGlobalContext());
 #if LDC_MLIR_ENABLED
     mlir::MLIRContext mlircontext;
     ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
@@ -1231,7 +1251,6 @@ void codegenModules(Modules &modules) {
 #else
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
 #endif
-    DComputeCodeGenManager dccg(getGlobalContext());
     std::vector<Module *> computeModules;
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
@@ -1247,23 +1266,7 @@ void codegenModules(Modules &modules) {
       if (m->filetype == FileType::dhdr)
         continue;
 
-      if (global.params.v.verbose)
-        message("code      %s", m->toChars());
-
       const auto atCompute = hasComputeAttr(m);
-      if (atCompute == DComputeCompileFor::hostOnly ||
-          atCompute == DComputeCompileFor::hostAndDevice) {
-        dmd::TimeTraceScope timeScope(
-            TimeTraceEventType::codegenModule,
-            (llvm::Twine("Codegen: module ") + m->toChars()).str().c_str(),
-            m->toChars(), m->loc);
-#if LDC_MLIR_ENABLED
-        if (global.params.output_mlir == OUTPUTFLAGset)
-          cg.emitMLIR(m);
-        else
-#endif
-          cg.emit(m);
-      }
       if (atCompute != DComputeCompileFor::hostOnly) {
         computeModules.push_back(m);
         if (atCompute == DComputeCompileFor::deviceOnly) {
@@ -1277,10 +1280,9 @@ void codegenModules(Modules &modules) {
           }
         }
       }
-      if (global.errors)
-        fatal();
     }
 
+    bool dcomputeWritten = false;
     if (!computeModules.empty()) {
       dmd::TimeTraceScope timeScope("Codegen DCompute device modules");
       for (auto &mod : computeModules) {
@@ -1292,8 +1294,47 @@ void codegenModules(Modules &modules) {
             mod->toChars(), mod->loc);
         dccg.emit(mod);
       }
+      cg.setDComputeHook([&](llvm::Module *m) {
+        if (!dcomputeWritten) {
+          dccg.writeModules(opts::fembedDCompute ? m : nullptr);
+          dcomputeWritten = true;
+        }
+      });
+      IrTypeStruct::resetDComputeTypes();
     }
-    dccg.writeModules();
+
+    bool hasHostModules = false;
+    for (d_size_t i = modules.length; i-- > 0;) {
+      Module *const m = modules[i];
+
+      if (m->filetype != FileType::d && m->filetype != FileType::c)
+        continue;
+
+      if (global.params.v.verbose)
+        message("code      %s", m->toChars());
+
+      const auto atCompute = hasComputeAttr(m);
+      if (atCompute == DComputeCompileFor::hostOnly ||
+          atCompute == DComputeCompileFor::hostAndDevice) {
+        hasHostModules = true;
+        dmd::TimeTraceScope timeScope(
+            TimeTraceEventType::codegenModule,
+            (llvm::Twine("Codegen: module ") + m->toChars()).str().c_str(),
+            m->toChars(), m->loc);
+#if LDC_MLIR_ENABLED
+        if (global.params.output_mlir == OUTPUTFLAGset)
+          cg.emitMLIR(m);
+        else
+#endif
+          cg.emit(m);
+      }
+      if (global.errors)
+        fatal();
+    }
+
+    if (!computeModules.empty() && !hasHostModules) {
+      dccg.writeModules(nullptr);
+    }
 
     // We may have removed all object files, if so don't link.
     if (global.params.objfiles.length == 0)

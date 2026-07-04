@@ -72,7 +72,11 @@ std::string getFeaturesStr() {
 
 void setFunctionAttributes(StringRef cpu, StringRef features,
                            Function &function) {
+#if LLVM_VERSION_MAJOR >= 23
+  return codegen::setFunctionAttributes(function, cpu, features);
+#else
   return codegen::setFunctionAttributes(cpu, features, function);
+#endif
 }
 } // namespace opts
 

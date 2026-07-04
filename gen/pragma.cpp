@@ -134,6 +134,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
         {"bitop.bt", LLVMbitop_bt},   {"bitop.btc", LLVMbitop_btc},
         {"bitop.btr", LLVMbitop_btr}, {"bitop.bts", LLVMbitop_bts},
         {"bitop.vld", LLVMbitop_vld}, {"bitop.vst", LLVMbitop_vst},
+        {"convertvector", LLVMconvertvector},
     };
 
     static std::string prefix = "ldc.";
@@ -414,7 +415,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     break;
   }
 
-  case LLVMatomic_rmw: {
+  case LLVMatomic_rmw:
+  case LLVMconvertvector: {
     const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
       td->llvmInternal = llvm_internal;
       td->intrinsicName = arg1str;
@@ -595,6 +597,7 @@ bool DtoIsMagicIntrinsic(FuncDeclaration *fd) {
   case LLVMbitop_bts:
   case LLVMbitop_vld:
   case LLVMbitop_vst:
+  case LLVMconvertvector:
     return true;
 
   default:

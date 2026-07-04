@@ -457,8 +457,7 @@ public:
     llvm::BasicBlock *elsebb =
         stmt->elsebody ? irs->insertBBAfter(ifbb, "else") : endbb;
 
-    auto brinstr =
-        llvm::BranchInst::Create(ifbb, elsebb, cond_val, irs->scopebb());
+    auto brinstr = createBranch(cond_val, ifbb, elsebb,  irs->scopebb());
     PGO.addBranchWeights(brinstr, brweights);
 
     // replace current scope
@@ -473,7 +472,7 @@ public:
       irs->DBuilder.EmitBlockEnd();
     }
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(endbb, irs->scopebb());
+      createBranch(endbb, irs->scopebb());
     }
 
     if (stmt->elsebody) {
@@ -481,7 +480,7 @@ public:
       irs->DBuilder.EmitBlockStart(stmt->elsebody->loc);
       stmt->elsebody->accept(this);
       if (!irs->scopereturned()) {
-        llvm::BranchInst::Create(endbb, irs->scopebb());
+        createBranch(endbb, irs->scopebb());
       }
       irs->DBuilder.EmitBlockEnd();
     }
@@ -545,8 +544,7 @@ public:
     delete cond_e;
 
     // conditional branch
-    auto branchinst =
-        llvm::BranchInst::Create(whilebodybb, endbb, cond_val, irs->scopebb());
+    auto branchinst = createBranch(cond_val, whilebodybb, endbb, irs->scopebb());
     {
       auto loopcount = PGO.getRegionCount(stmt);
       auto brweights =
@@ -567,7 +565,7 @@ public:
 
     // loop
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(whilebb, irs->scopebb());
+      createBranch(whilebb, irs->scopebb());
     }
 
     // rewrite the scope
@@ -596,7 +594,7 @@ public:
 
     // move into the while block
     assert(!irs->scopereturned());
-    llvm::BranchInst::Create(dowhilebb, irs->scopebb());
+    createBranch(dowhilebb, irs->scopebb());
 
     // replace current scope
     irs->ir->SetInsertPoint(dowhilebb);
@@ -610,7 +608,7 @@ public:
     irs->funcGen().jumpTargets.popLoopTarget();
 
     // branch to condition block
-    llvm::BranchInst::Create(condbb, irs->scopebb());
+    createBranch(condbb, irs->scopebb());
     irs->ir->SetInsertPoint(condbb);
 
     // create the condition
@@ -620,8 +618,7 @@ public:
     delete cond_e;
 
     // conditional branch
-    auto branchinst =
-        llvm::BranchInst::Create(dowhilebb, endbb, cond_val, irs->scopebb());
+    auto branchinst = createBranch(cond_val, dowhilebb, endbb, irs->scopebb());
     {
       // The region counter includes fallthrough from the previous statement.
       // Subtract parent count to get the true branch count of the loop
@@ -665,7 +662,7 @@ public:
 
     // move into the for condition block, ie. start the loop
     assert(!irs->scopereturned());
-    llvm::BranchInst::Create(forbb, irs->scopebb());
+    createBranch(forbb, irs->scopebb());
 
     // In case of loops that have been rewritten to a composite statement
     // containing the initializers and then the actual loop, we need to
@@ -692,8 +689,7 @@ public:
 
     // conditional branch
     assert(!irs->scopereturned());
-    auto branchinst =
-        llvm::BranchInst::Create(forbodybb, endbb, cond_val, irs->scopebb());
+    auto branchinst = createBranch(cond_val, forbodybb, endbb, irs->scopebb());
     {
       auto brweights = PGO.createProfileWeightsForLoop(stmt);
       PGO.addBranchWeights(branchinst, brweights);
@@ -710,7 +706,7 @@ public:
 
     // move into the for increment block
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(forincbb, irs->scopebb());
+      createBranch(forincbb, irs->scopebb());
     }
     irs->ir->SetInsertPoint(forincbb);
 
@@ -723,7 +719,7 @@ public:
 
     // loop
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(forbb, irs->scopebb());
+      createBranch(forbb, irs->scopebb());
     }
 
     irs->funcGen().jumpTargets.popLoopTarget();
@@ -926,7 +922,7 @@ public:
     irs->DBuilder.EmitBlockEnd();
 
     if (!irs->scopereturned())
-      llvm::BranchInst::Create(endbb, irs->scopebb());
+      createBranch(endbb, irs->scopebb());
 
     irs->funcGen().scopes.popTryCatch();
 
@@ -1015,7 +1011,7 @@ public:
     stmt->_body->accept(this);
     funcGen.jumpTargets.popBreakTarget();
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(endbb, irs->scopebb());
+      createBranch(endbb, irs->scopebb());
     }
 
     irs->ir->SetInsertPoint(oldbb);
@@ -1045,7 +1041,7 @@ public:
           irs->ir->SetInsertPoint(defaultcntr);
           if (stmt->sdefault)
               PGO.emitCounterIncrement(stmt->sdefault);
-          llvm::BranchInst::Create(defaultTargetBB, defaultcntr);
+          createBranch(defaultTargetBB, defaultcntr);
           // Create switch
           si = llvm::SwitchInst::Create(condVal, defaultcntr, caseCount,
                                         switchbb);
@@ -1059,7 +1055,7 @@ public:
           auto casecntr = irs->insertBBBefore(body, "casecntr");
           irs->ir->SetInsertPoint(casecntr);
           PGO.emitCounterIncrement(cs);
-          llvm::BranchInst::Create(body, casecntr);
+          createBranch(body, casecntr);
           si->addCase(isaConstantInt(indices[i]), casecntr);
         }
       }
@@ -1086,7 +1082,7 @@ public:
       LLValue *condVal = DtoRVal(cond);
 
       llvm::BasicBlock *nextbb = irs->insertBBBefore(endbb, "checkcase");
-      llvm::BranchInst::Create(nextbb, irs->scopebb());
+      createBranch(nextbb, irs->scopebb());
 
       if (stmt->sdefault && PGO.emitsInstrumentation()) {
         // Prepend extra BB to "default:" to increment profiling counter.
@@ -1094,7 +1090,7 @@ public:
             irs->insertBBBefore(defaultTargetBB, "defaultcntr");
         irs->ir->SetInsertPoint(defaultcntr);
         PGO.emitCounterIncrement(stmt->sdefault);
-        llvm::BranchInst::Create(defaultTargetBB, defaultcntr);
+        createBranch(defaultTargetBB, defaultcntr);
         defaultTargetBB = defaultcntr;
       }
 
@@ -1114,13 +1110,14 @@ public:
           const auto savedInsertPoint = irs->saveInsertPoint();
           irs->ir->SetInsertPoint(casecntr);
           PGO.emitCounterIncrement(cs);
-          llvm::BranchInst::Create(casejumptargetbb, casecntr);
+          createBranch(casejumptargetbb, casecntr);
           casejumptargetbb = casecntr;
         }
 
         // Create the comparison branch for this case
-        auto branchinst = llvm::BranchInst::Create(casejumptargetbb, nextbb,
-                                                   cmp, irs->scopebb());
+        auto branchinst = createBranch(cmp,
+                                       casejumptargetbb, nextbb,
+                                       irs->scopebb());
 
         // Calculate and apply PGO branch weights
         {
@@ -1136,7 +1133,7 @@ public:
         irs->ir->SetInsertPoint(nextbb);
       }
 
-      llvm::BranchInst::Create(defaultTargetBB, irs->scopebb());
+      createBranch(defaultTargetBB, irs->scopebb());
     }
 
     irs->ir->SetInsertPoint(endbb);
@@ -1160,7 +1157,7 @@ public:
     body->moveAfter(irs->scopebb());
 
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(body, irs->scopebb());
+      createBranch(body, irs->scopebb());
     }
 
     irs->ir->SetInsertPoint(body);
@@ -1193,7 +1190,7 @@ public:
     body->moveAfter(irs->scopebb());
 
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(body, irs->scopebb());
+      createBranch(body, irs->scopebb());
     }
 
     irs->ir->SetInsertPoint(body);
@@ -1357,7 +1354,7 @@ public:
     llvm::BasicBlock *nextbb = irs->insertBBAfter(bodybb, "foreachnext");
     llvm::BasicBlock *endbb = irs->insertBBAfter(nextbb, "foreachend");
 
-    llvm::BranchInst::Create(condbb, irs->scopebb());
+    createBranch(condbb, irs->scopebb());
 
     // condition
     irs->ir->SetInsertPoint(condbb);
@@ -1371,8 +1368,8 @@ public:
       load = irs->ir->CreateSub(load, LLConstantInt::get(keytype, 1, false));
       DtoStore(load, keyvar);
     }
-    auto branchinst =
-        llvm::BranchInst::Create(bodybb, endbb, done, irs->scopebb());
+    auto branchinst = createBranch(done, bodybb, endbb, irs->scopebb());
+
     {
       auto brweights = PGO.createProfileWeightsForeach(stmt);
       PGO.addBranchWeights(branchinst, brweights);
@@ -1405,7 +1402,7 @@ public:
     irs->funcGen().jumpTargets.popLoopTarget();
 
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(nextbb, irs->scopebb());
+      createBranch(nextbb, irs->scopebb());
     }
 
     // next
@@ -1415,7 +1412,7 @@ public:
       load = irs->ir->CreateAdd(load, LLConstantInt::get(keytype, 1, false));
       DtoStore(load, keyvar);
     }
-    llvm::BranchInst::Create(condbb, irs->scopebb());
+    createBranch(condbb, irs->scopebb());
 
     // end the dwarf lexical block
     irs->DBuilder.EmitBlockEnd();
@@ -1461,7 +1458,7 @@ public:
     llvm::BasicBlock *endbb = irs->insertBBAfter(nextbb, "foreachrange_end");
 
     // jump to condition
-    llvm::BranchInst::Create(condbb, irs->scopebb());
+    createBranch(condbb, irs->scopebb());
 
     // CONDITION
     irs->ir->SetInsertPoint(condbb);
@@ -1480,8 +1477,8 @@ public:
     LLValue *cond = irs->ir->CreateICmp(cmpop, lower, upper);
 
     // jump to the body if range is ok, to the end if not
-    auto branchinst =
-        llvm::BranchInst::Create(bodybb, endbb, cond, irs->scopebb());
+    auto branchinst = createBranch(cond, bodybb, endbb, irs->scopebb());
+
     {
       auto brweights = PGO.createProfileWeightsForeachRange(stmt);
       PGO.addBranchWeights(branchinst, brweights);
@@ -1508,7 +1505,7 @@ public:
 
     // jump to next iteration
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(nextbb, irs->scopebb());
+      createBranch(nextbb, irs->scopebb());
     }
 
     // NEXT
@@ -1523,7 +1520,7 @@ public:
     }
 
     // jump to condition
-    llvm::BranchInst::Create(condbb, irs->scopebb());
+    createBranch(condbb, irs->scopebb());
 
     // end the dwarf lexical block
     irs->DBuilder.EmitBlockEnd();
@@ -1565,7 +1562,7 @@ public:
       irs->funcGen().jumpTargets.addLabelTarget(stmt->ident, labelBB);
 
       if (!irs->scopereturned()) {
-        llvm::BranchInst::Create(labelBB, irs->scopebb());
+        createBranch(labelBB, irs->scopebb());
       }
 
       irs->ir->SetInsertPoint(labelBB);
@@ -1623,7 +1620,7 @@ public:
     assert(!irs->scopereturned());
 
     const auto defaultBB = funcGen.switchTargets.get(stmt->sw->sdefault);
-    llvm::BranchInst::Create(defaultBB, irs->scopebb());
+    createBranch(defaultBB, irs->scopebb());
 
     // TODO: Should not be needed.
     llvm::BasicBlock *bb = irs->insertBB("aftergotodefault");
@@ -1649,7 +1646,7 @@ public:
 
     const auto caseBB =
         funcGen.switchTargets.getOrCreate(stmt->cs, "goto_case", *irs);
-    llvm::BranchInst::Create(caseBB, irs->scopebb());
+    createBranch(caseBB, irs->scopebb());
 
     // TODO: Should not be needed.
     llvm::BasicBlock *bb = irs->insertBB("aftergotocase");

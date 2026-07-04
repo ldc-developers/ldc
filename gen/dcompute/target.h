@@ -13,6 +13,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Function.h"
 #include <array>
+#include <vector>
 
 namespace llvm {
 class Module;
@@ -38,15 +39,20 @@ public:
   std::array<int, 5> mapping;
 
   IRState *_ir;
+  std::vector<::Module *> modules;
 
   DComputeTarget(llvm::LLVMContext &c, int v, ID id, const char *_short_name,
                  const char *suffix, TargetABI *a, std::array<int, 5> map)
       : ctx(c), tversion(v), target(id), short_name(_short_name),
         binSuffix(suffix), abi(a), mapping(map), _ir(nullptr) {}
 
+  virtual ~DComputeTarget() {
+    delete _ir;
+  }
+
   void emit(Module *m);
   void doCodeGen(Module *m);
-  void writeModule();
+  void writeModule(llvm::Module *hostModule);
 
   virtual void addMetadata() = 0;
   virtual void addKernelMetadata(FuncDeclaration *df,

@@ -24,7 +24,11 @@ bool traitsTargetHasFeature(Dstring feature) {
   // feature is set.
 
   // Copy MCSubtargetInfo so we can modify it.
+#if LLVM_VERSION_MAJOR >= 23
+  llvm::MCSubtargetInfo mcinfo =  gTargetMachine->getMCSubtargetInfo();
+#else
   llvm::MCSubtargetInfo mcinfo = *gTargetMachine->getMCSubtargetInfo();
+#endif
   auto savedFeatbits = mcinfo.getFeatureBits();
 
   // Nothing will change if the feature string is not recognized or if the

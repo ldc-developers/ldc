@@ -601,6 +601,10 @@ immutable Msgtable[] msgtable =
     { "dcompute" },
     { "dcPointer", "Pointer" },
     { "dcReflect", "__dcompute_reflect" },
+    // dcompute array comparison/equality lowering hooks
+    { "comparison" },
+    { "equality" },
+    { "dstrcmp" },
     { "RTInfoImpl" },
     { "opencl" },
 

@@ -358,7 +358,7 @@ static const char *getCAssertFunctionName() {
     return "_assert";
   } else if (triple.isOSSolaris()) {
     return "__assert_c99";
-  } else if (triple.isMusl() || triple.isGNUEnvironment()) {
+  } else if (triple.isMusl() || triple.isGNUEnvironment() || triple.isOSWASI()) {
     return "__assert_fail";
   } else if (global.params.isNewlibEnvironment) {
     return "__assert_func";
@@ -372,7 +372,7 @@ static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
   const auto uint = Type::tuns32;
 
   if (triple.isOSDarwin() || triple.isOSFreeBSD() || triple.isOSSolaris() ||
-      triple.isMusl() || global.params.isUClibcEnvironment ||
+      triple.isMusl() || triple.isOSWASI() || global.params.isUClibcEnvironment ||
       triple.isGNUEnvironment()) {
     return {voidPtr, voidPtr, uint, voidPtr};
   }
@@ -525,10 +525,21 @@ static void buildRuntimeModule() {
     auto addCold = [&](AttrSet& a) {
       llvm::AttrBuilder ab(context);
       ab.addAttribute(llvm::Attribute::Cold);
+      a.addToFunction(ab);
     };
     addCold(Attr_Cold);
     addCold(Attr_Cold_NoReturn);
     addCold(Attr_Cold_NoReturn_NoUnwind);
+  }
+  // `noreturn`
+  {
+    auto addNoReturn = [&](AttrSet& a) {
+      llvm::AttrBuilder ab(context);
+      ab.addAttribute(llvm::Attribute::NoReturn);
+      a.addToFunction(ab);
+    };
+    addNoReturn(Attr_Cold_NoReturn);
+    addNoReturn(Attr_Cold_NoReturn_NoUnwind);
   }
   // `nocapture`/ `captures(none)`
   {

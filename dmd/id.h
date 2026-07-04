@@ -45,6 +45,9 @@ struct Id
     static Identifier *dcPointer;
     static Identifier *object;
     static Identifier *core;
+    static Identifier *internal;
+    static Identifier *array;
+    static Identifier *string;
     static Identifier *etc;
     static Identifier *std;
     static Identifier *ensure;
@@ -77,6 +80,10 @@ struct Id
     static Identifier *LDC_extern_weak;
     static Identifier *LDC_profile_instr;
     static Identifier *dcReflect;
+    // dcompute array comparison/equality hooks (see isDeviceArrayComparisonHook)
+    static Identifier *comparison;
+    static Identifier *equality;
+    static Identifier *dstrcmp;
     static Identifier *opencl;
     static Identifier *criticalenter;
     static Identifier *criticalexit;

@@ -20,6 +20,7 @@
 #pragma once
 
 #include "gen/irstate.h"
+#include <functional>
 
 #if LDC_MLIR_ENABLED
 namespace mlir {
@@ -45,7 +46,12 @@ public:
   void emitMLIR(Module *m);
 #endif
 
+  void setDComputeHook(std::function<void(llvm::Module *)> hook) {
+    dcomputeHook_ = std::move(hook);
+  }
+
 private:
+  std::function<void(llvm::Module *)> dcomputeHook_;
   void prepareLLModule(Module *m);
   void finishLLModule(Module *m);
   void writeAndFreeLLModule(const char *filename);

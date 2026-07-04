@@ -351,13 +351,13 @@ static void RemoveCall(CallBase *CB, const G2StackAnalysis &A) {
   // immediately before it. Ideally, we would find a way to not invalidate
   // the dominator tree here.
   if (auto Invoke = dyn_cast<InvokeInst>(static_cast<Instruction *>(CB))) {
-    BranchInst::Create(Invoke->getNormalDest(),
-#if LLVM_VERSION_MAJOR >= 19
-                       Invoke->getIterator()
+#if   LLVM_VERSION_MAJOR >= 23
+    UncondBrInst::Create(Invoke->getNormalDest(), Invoke->getIterator());
+#elif LLVM_VERSION_MAJOR >= 19
+    BranchInst::Create(Invoke->getNormalDest(), Invoke->getIterator());
 #else
-                       Invoke
+    BranchInst::Create(Invoke->getNormalDest(), Invoke);
 #endif
-    );
     Invoke->getUnwindDest()->removePredecessor(CB->getParent());
   }
 
@@ -611,7 +611,11 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
 
     // All instructions after the starting point in this block have been
     // accounted for. Look for successors to add to the work list.
+#if LLVM_VERSION_MAJOR >= 23
+    auto *Term = B->getTerminatorOrNull();
+#else
     auto *Term = B->getTerminator();
+#endif
     unsigned SuccCount = Term->getNumSuccessors();
     for (unsigned i = 0; i < SuccCount; i++) {
       BasicBlock *Succ = Term->getSuccessor(i);

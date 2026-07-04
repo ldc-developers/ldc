@@ -16,6 +16,7 @@
 #include "ir/irvar.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include <stdio.h>
 
 using namespace dmd;
 
@@ -84,22 +85,32 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
 }
 
 /// Returns the StructLiteralExp magic attribute with identifier `id` from
-/// the ldc magic module with identifier `from` (attributes or dcompute)
+/// the ldc magic module with identifier `module_id` (attributes or dcompute)
 /// if it is applied to `sym`, otherwise returns nullptr.
 StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
-                                    const Identifier *from) {
+                                    const Identifier *module_id) {
   if (!sym->userAttribDecl())
     return nullptr;
-
-  // Loop over all UDAs and early return the expression if a match was found.
+  
   Expressions *attrs = getAttributes(sym->userAttribDecl());
   expandTuples(attrs);
-  for (auto attr : *attrs) {
-    if (auto sle = attr->isStructLiteralExp())
-      if (isFromMagicModule(sle, from) && id == sle->sd->ident)
-        return sle;
-  }
 
+  if (!attrs)
+    return nullptr;
+  for (auto exp : *attrs) {
+    unsigned prevErrors = global.startGagging();
+    auto e = ctfeInterpret(exp);
+    if (global.endGagging(prevErrors))
+      continue;
+
+    if (e->op == EXP::structLiteral) {
+      auto sle = e->isStructLiteralExp();
+      
+      if (sle->sd->ident == id && isFromMagicModule(sle, module_id)) {
+        return sle;
+      }
+    }
+  }
   return nullptr;
 }
 
@@ -575,7 +586,16 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
 
       auto ident = sle->sd->ident;
       if (ident == Id::udaLLVMAttr) {
-        applyAttrLLVMAttr(sle, arg->attrs);
+        // noalias is only valid for pointer-type params. For non-pointer
+        // types (slices, static arrays, structs, scalars), skip the LLVM
+        // attribute. Slice params get separate_storage assumes instead.
+        if (getStringElem(sle, 0) == "noalias" &&
+            !arg->ltype->isPointerTy()) {
+          if (param->type->toBasetype()->ty == TY::Tarray)
+            arg->isRestrictSlice = true;
+        } else {
+          applyAttrLLVMAttr(sle, arg->attrs);
+        }
       } else {
         warning(sle->loc,
                 "ignoring unrecognized special parameter attribute "
@@ -631,6 +651,32 @@ extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
   checkStructElems(sle, {Type::tint32});
 
   return static_cast<DComputeCompileFor>(1 + toInteger((*sle->elements)[0]));
+}
+
+bool isDeviceArrayComparisonHook(Dsymbol *sym) {
+  if (!sym)
+    return false;
+  Module *m = sym->getModule();
+  if (!m)
+    return false;
+  const ModuleDeclaration *md = m->md;
+  if (!md)
+    return false;
+  // These druntime modules are host-only, but their templates (`__cmp`,
+  // `__equals` and helpers like `isEqual`/`at`) are the lowering hooks emitted
+  // for array `<`/`==` in device code, so they must not be skipped.
+  if (md->packages.length == 3 && md->packages.ptr[0] == Id::core &&
+      md->packages.ptr[1] == Id::internal && md->packages.ptr[2] == Id::array &&
+      (md->id == Id::comparison || md->id == Id::equality))
+    return true;
+  // From core.internal.string only `dstrcmp` is a device-legal hook helper (the
+  // `char`/string `__cmp` specialization calls it). The rest of that module
+  // (e.g. signedToTempString) contains device-illegal code, so don't exempt the
+  // whole module.
+  if (md->packages.length == 2 && md->packages.ptr[0] == Id::core &&
+      md->packages.ptr[1] == Id::internal && md->id == Id::string)
+    return sym->ident == Id::dstrcmp;
+  return false;
 }
 
 /// Returns whether `sym` has the `@ldc.dcompute._kernel()` UDA applied.

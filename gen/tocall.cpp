@@ -627,6 +627,68 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     return true;
   }
 
+  if (fndecl->llvmInternal == LLVMconvertvector) {
+    if (e->arguments->length != 1) {
+      error(e->loc, "`convertvector` intrinsic expects 1 argument");
+      fatal();
+    }
+
+    Expression *exp1 = (*e->arguments)[0];
+    LLValue *srcVal = DtoRVal(exp1);
+    LLType *toLLType = DtoType(e->type);
+
+    auto *fromVecTy = llvm::cast<llvm::FixedVectorType>(srcVal->getType());
+    LLType *fromElemTy = fromVecTy->getElementType();
+
+    auto *toVecTy = llvm::cast<llvm::FixedVectorType>(toLLType);
+    LLType *toElemTy = toVecTy->getElementType();
+
+    Type *fromDType = exp1->type->toBasetype();
+    Type *toDType = e->type->toBasetype();
+    assert(fromDType->ty == TY::Tvector && toDType->ty == TY::Tvector);
+    Type *fromElemDType = static_cast<TypeVector *>(fromDType)->elementType();
+    Type *toElemDType = static_cast<TypeVector *>(toDType)->elementType();
+    bool fromUnsigned = fromElemDType->isUnsigned();
+    bool toUnsigned = toElemDType->isUnsigned();
+
+    unsigned fromBits = fromElemTy->getPrimitiveSizeInBits();
+    unsigned toBits = toElemTy->getPrimitiveSizeInBits();
+
+    LLValue *val;
+    if (fromElemTy->isIntegerTy() && toElemTy->isIntegerTy()) {
+      if (fromBits < toBits) {
+        val = fromUnsigned
+                  ? p->ir->CreateZExt(srcVal, toLLType)
+                  : p->ir->CreateSExt(srcVal, toLLType);
+      } else if (fromBits > toBits) {
+        val = p->ir->CreateTrunc(srcVal, toLLType);
+      } else {
+        val = srcVal;
+      }
+    } else if (fromElemTy->isIntegerTy() && toElemTy->isFloatingPointTy()) {
+      val = fromUnsigned ? p->ir->CreateUIToFP(srcVal, toLLType)
+                         : p->ir->CreateSIToFP(srcVal, toLLType);
+    } else if (fromElemTy->isFloatingPointTy() && toElemTy->isIntegerTy()) {
+      val = toUnsigned ? p->ir->CreateFPToUI(srcVal, toLLType)
+                       : p->ir->CreateFPToSI(srcVal, toLLType);
+    } else if (fromElemTy->isFloatingPointTy() && toElemTy->isFloatingPointTy()) {
+      if (fromBits < toBits) {
+        val = p->ir->CreateFPExt(srcVal, toLLType);
+      } else if (fromBits > toBits) {
+        val = p->ir->CreateFPTrunc(srcVal, toLLType);
+      } else {
+        val = srcVal;
+      }
+    } else {
+      error(e->loc, "unsupported vector element conversion from `%s` to `%s`",
+            exp1->type->toChars(), e->type->toChars());
+      fatal();
+    }
+
+    result = new DImValue(e->type, val);
+    return true;
+  }
+
   return false;
 }
 
@@ -734,7 +796,7 @@ private:
       }
       args.push_back(thisptrLval);
     } else if (thiscall && dfnval && dfnval->vthis) {
-      
+
       if (objccall && directcall) {
 
         // ... or a Objective-c direct call argument

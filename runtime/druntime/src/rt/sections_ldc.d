@@ -32,6 +32,7 @@ else version (DragonFlyBSD) {}
 else version (NetBSD) {}
 else version (OpenBSD) {}
 else version (Windows) {}
+else version (WebAssembly) {}
 else version (LDC):
 
 import rt.minfo;

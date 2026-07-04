@@ -549,7 +549,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     args.push_back("-shared");
   }
 
-  if (linkFullyStatic() == llvm::cl::BOU_TRUE) {
+  if (linkFullyStatic() == llvm::cl::boolOrDefault::BOU_TRUE) {
     args.push_back("-static");
   }
 
@@ -810,7 +810,7 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
   // exception: invoke (ld-compatible) linker directly for WebAssembly targets
   std::string tool;
   std::unique_ptr<ArgsBuilder> argsBuilder;
-  if (global.params.targetTriple->isOSBinFormatWasm()) {
+  if (global.params.targetTriple->isOSBinFormatWasm() && !global.params.targetTriple->isOSWASI()) {
     argsBuilder = std::make_unique<LdArgsBuilder>();
     tool = getProgram("wasm-ld", &opts::linker);
   } else {
