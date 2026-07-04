@@ -4,6 +4,9 @@ import core.thread.threadbase;
 import core.memory;
 import core.cpuid;
 
+version (LDC) import ldc.attributes : optStrategy;
+
+@optStrategy("none") // LDC: do not optimize away GC allocations
 void main()
 {
     auto threads = threadsPerCPU();

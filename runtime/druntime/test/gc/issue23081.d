@@ -27,6 +27,9 @@ import core.stdc.stdio;
 import core.sys.posix.sys.resource;
 import core.time;
 
+version (LDC) import ldc.attributes : optStrategy;
+
+@optStrategy("none") // LDC: do not optimize away GC allocations
 void main()
 {
     auto collections = GC.profileStats().numCollections;
