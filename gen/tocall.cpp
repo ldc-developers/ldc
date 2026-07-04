@@ -648,8 +648,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     assert(fromDType->ty == TY::Tvector && toDType->ty == TY::Tvector);
     Type *fromElemDType = static_cast<TypeVector *>(fromDType)->elementType();
     Type *toElemDType = static_cast<TypeVector *>(toDType)->elementType();
-    bool fromUnsigned = fromElemDType->isUnsigned();
-    bool toUnsigned = toElemDType->isUnsigned();
+    bool fromUnsigned = isUnsigned(fromElemDType);
+    bool toUnsigned = isUnsigned(toElemDType);
 
     unsigned fromBits = fromElemTy->getPrimitiveSizeInBits();
     unsigned toBits = toElemTy->getPrimitiveSizeInBits();
