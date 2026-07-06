@@ -2123,7 +2123,7 @@ public:
     PGO.setCurrentStmt(e);
 
     Type *dtype = e->type->toBasetype();
-    const bool isLvalue = e->isLvalue();
+    const bool isLvalue = dmd::isLvalue(e);
     LLValue *retPtr = nullptr;
     if (!(dtype->ty == TY::Tvoid || dtype->ty == TY::Tnoreturn)) {
       if (!isLvalue) {
