@@ -993,7 +993,7 @@ void registerPredefinedVersions() {
 
     #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
       if (targetInfo.starts_with("metal")) {
-          VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_METAL");
+          VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_Metal");
       }
     #endif
   }
