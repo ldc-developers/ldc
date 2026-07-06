@@ -1894,10 +1894,10 @@ version (LDC_Windows)
 }
 else version (WebAssembly)
 {
-    private extern(C) extern void* __stack_low;
+    private extern(C) extern ubyte __stack_high;
     private extern(D) void* getStackBottom() nothrow @nogc
     {
-        return __stack_low;
+        return &__stack_high;
     }
 }
 else
