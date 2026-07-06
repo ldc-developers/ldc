@@ -970,33 +970,27 @@ void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
 
-#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64
+  for(auto& dcomputeTarget: dcomputeTargets) {
+    auto targetInfo = llvm::StringRef(dcomputeTarget);
+    
+    if (targetInfo.starts_with("cuda")) {
+      VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_CUDA");
+    }
+
+    if (targetInfo.starts_with("ocl")) {
+      VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_OCL");
+    }
+
+    if (targetInfo.starts_with("metal")) {
+      VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_Metal");
+    }
+  }
+
   if (dcomputeTargets.size() != 0) {
     VersionCondition::addPredefinedGlobalIdent("LDC_DCompute");
   }
 #endif
-
-  for(auto& dcomputeTarget: dcomputeTargets) {
-    auto targetInfo = llvm::StringRef(dcomputeTarget);
-    
-    #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
-      if (targetInfo.starts_with("cuda")) {
-            VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_CUDA");
-      }
-    #endif
-
-    #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
-      if (targetInfo.starts_with("ocl")) {
-            VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_OCL");
-      }
-    #endif
-
-    #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
-      if (targetInfo.starts_with("metal")) {
-          VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_Metal");
-      }
-    #endif
-  }
 
   if (global.params.ddoc.doOutput) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
