@@ -1017,6 +1017,28 @@ void registerPredefinedVersions() {
   }
 #endif
 
+  for(auto& dcomputeTarget: dcomputeTargets) {
+    auto targetInfo = llvm::StringRef(dcomputeTarget);
+    
+    #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
+      if (targetInfo.starts_with("cuda")) {
+            VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_CUDA");
+      }
+    #endif
+
+    #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
+      if (targetInfo.starts_with("ocl")) {
+            VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_OCL");
+      }
+    #endif
+
+    #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
+      if (targetInfo.starts_with("metal")) {
+          VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_METAL");
+      }
+    #endif
+  }
+
   if (global.params.ddoc.doOutput) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
   }
