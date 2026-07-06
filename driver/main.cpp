@@ -51,6 +51,7 @@
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
 #include "gen/uda.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/IR/LLVMContext.h"
@@ -955,6 +956,28 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("LDC_DCompute");
   }
 #endif
+
+  for(auto& dcomputeTarget: dcomputeTargets) {
+    auto targetInfo = llvm::StringRef(dcomputeTarget);
+    
+    #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
+      if (targetInfo.starts_with("cuda")) {
+            VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_CUDA");
+      }
+    #endif
+
+    #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
+      if (targetInfo.starts_with("ocl")) {
+            VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_OCL");
+      }
+    #endif
+
+    #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
+      if (targetInfo.starts_with("metal")) {
+          VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_METAL");
+      }
+    #endif
+  }
 
   if (global.params.ddoc.doOutput) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
