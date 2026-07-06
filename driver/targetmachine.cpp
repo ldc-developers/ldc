@@ -653,6 +653,16 @@ ComputeBackend::Type getComputeTargetType(llvm::Module* m) {
     return ComputeBackend::SPIRV;
   else if (a == llvm::Triple::nvptx || a == llvm::Triple::nvptx64)
     return ComputeBackend::NVPTX;
-  else
-    return ComputeBackend::None;
+
+
+#if LDC_LLVM_SUPPORTED_TARGET_AArch64 && LLVM_VERSION_MAJOR >= 21
+    llvm::StringRef tripleString = m->getTargetTriple().str();
+#else
+    llvm::StringRef tripleString = m->getTargetTriple();
+#endif
+
+
+  if (tripleString.starts_with("air64"))
+    return ComputeBackend::METAL; 
+  return ComputeBackend::None;
 }

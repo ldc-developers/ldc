@@ -24,7 +24,7 @@ struct TargetABI;
 class DComputeCodeGenManager {
 
   llvm::LLVMContext &ctx;
-  llvm::SmallVector<DComputeTarget *, 2> targets;
+  llvm::SmallVector<DComputeTarget *, 3> targets;
   DComputeTarget *createComputeTarget(const std::string &s);
   IRState *oldGIR = nullptr;
   llvm::TargetMachine *oldGTargetMachine = nullptr;
