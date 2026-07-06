@@ -2146,7 +2146,12 @@ public:
         DtoAssign(e->loc, &dst, u, EXP::blit);
       }
     }
+
+#if LLVM_VERSION_MAJOR >= 23
+    if (!p->scopebb()->getTerminatorOrNull()) {
+#else
     if (!p->scopebb()->getTerminator()) {
+#endif
       u_bb = p->scopebb();
     }
     createBranch(condend, p->scopebb());
@@ -2163,7 +2168,12 @@ public:
         DtoAssign(e->loc, &dst, v, EXP::blit);
       }
     }
+
+#if LLVM_VERSION_MAJOR >= 23
+    if (!p->scopebb()->getTerminatorOrNull()) {
+#else
     if (!p->scopebb()->getTerminator()) {
+#endif
       v_bb = p->scopebb();
     }
     createBranch(condend, p->scopebb());
