@@ -85,7 +85,7 @@ static void DtoArrayInit(Loc loc, LLValue *ptr, LLValue *length,
   llvm::BasicBlock *endbb = gIR->insertBBAfter(bodybb, "arrayinit.end");
 
   // initialize iterator
-  LLValue *itr = DtoAllocaDump(DtoConstSize_t(0), 0, "arrayinit.itr");
+  LLValue *itr = DtoAllocaDump(DtoConstSize_t(0), false, 0, "arrayinit.itr");
 
   // move into the for condition block, ie. start the loop
   assert(!gIR->scopereturned());

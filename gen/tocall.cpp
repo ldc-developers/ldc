@@ -749,7 +749,7 @@ private:
     LLValue *pointer = sretPointer;
     if (!pointer) {
       pointer = DtoRawAlloca(DtoType(tf->nextOf()),
-                             DtoAlignment(resulttype), ".sret_tmp");
+                             DtoAlignment(resulttype), hasPointers(tf->nextOf()), ".sret_tmp");
     }
 
     args.push_back(pointer);
@@ -812,7 +812,7 @@ private:
 
 
             // Allocate and store obj_super struct into a new variable.
-            auto clsaddr = DtoRawAlloca(obj_super->getType(), 16, "super");
+            auto clsaddr = DtoRawAlloca(obj_super->getType(), 16, true, "super");
             DtoStore(obj_super, clsaddr);
 
             args.push_back(clsaddr);
@@ -1026,7 +1026,7 @@ DValue *DtoCallFunction(Loc loc, Type *resulttype, DValue *fnval,
         if (!retValIsLVal) {
           // static arrays need to be dumped to memory; use vector alignment
           retllval =
-              DtoAllocaDump(retllval, DtoType(rbase), DtoAlignment(nextbase),
+              DtoAllocaDump(retllval, DtoType(rbase), hasPointers(rbase), DtoAlignment(nextbase),
                             ".vector_to_sarray_tmp");
           retValIsLVal = true;
         }

@@ -166,30 +166,67 @@ unsigned DtoAlignment(VarDeclaration *vd) {
  ******************************************************************************/
 
 llvm::AllocaInst *DtoAlloca(Type *type, const char *name) {
-  return DtoRawAlloca(DtoMemType(type), DtoAlignment(type), name);
+  return DtoRawAlloca(DtoMemType(type), DtoAlignment(type), hasPointers(type), name);
 }
 
 llvm::AllocaInst *DtoAlloca(VarDeclaration *vd, const char *name) {
-  return DtoRawAlloca(DtoMemType(vd->type), DtoAlignment(vd), name);
+  return DtoRawAlloca(DtoMemType(vd->type), DtoAlignment(vd), hasPointers(vd->type), name);
 }
 
 llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name) {
+  const llvm::DataLayout &dl =  gIR->module.getDataLayout();
   LLType *lltype = DtoType(type);
   auto ai = new llvm::AllocaInst(
-      lltype, gIR->module.getDataLayout().getAllocaAddrSpace(),
+      lltype, dl.getAllocaAddrSpace(),
       DtoConstUint(arraysize), name, gIR->nextAllocaPos());
   if (auto alignment = DtoAlignment(type)) {
     ai->setAlignment(llvm::Align(alignment));
   }
+
+  if (
+    hasPointers(type)
+    && global.params.targetTriple->isWasm()
+    && global.params.useGC
+    && !gIR->func()->decl->type->isTypeFunction()->isNogc()
+    && dl.getTypeAllocSize(lltype)
+    && arraysize
+  ) {
+    LLFunction *fn = getRuntimeFunction(Loc(), gIR->module, "_d_stack_gcroot");
+
+    llvm::CallInst::Create(
+        fn, {ai},
+        llvm::Twine(""),
+        gIR->nextAllocaPos()
+    );
+  }
+
   return ai;
 }
 
 llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
-                               const char *name) {
+                               bool gcRoot, const char *name) {
+  const llvm::DataLayout &dl =  gIR->module.getDataLayout();
   auto ai = new llvm::AllocaInst(
-      lltype, gIR->module.getDataLayout().getAllocaAddrSpace(), name,
+      lltype, dl.getAllocaAddrSpace(), name,
       gIR->nextAllocaPos());
+
+  if (
+    gcRoot
+    && global.params.targetTriple->isWasm()
+    && global.params.useGC
+    && !gIR->func()->decl->type->isTypeFunction()->isNogc()
+    && dl.getTypeAllocSize(lltype)
+  ) {
+    LLFunction *fn = getRuntimeFunction(Loc(), gIR->module, "_d_stack_gcroot");
+
+    llvm::CallInst::Create(
+        fn, {ai},
+        llvm::Twine(""),
+        gIR->nextAllocaPos()
+    );
+  }
+
   if (alignment) {
     ai->setAlignment(llvm::Align(alignment));
   }
@@ -201,19 +238,19 @@ LLValue *DtoAllocaDump(DValue *val, const char *name) {
 }
 
 LLValue *DtoAllocaDump(DValue *val, int alignment, const char *name) {
-  return DtoAllocaDump(val, DtoType(val->type), alignment, name);
+  return DtoAllocaDump(val, DtoType(val->type), alignment, hasPointers(val->type), name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name) {
-  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), name);
+  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), hasPointers(asType), name);
 }
 
-LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
+LLValue *DtoAllocaDump(DValue *val, LLType *asType, bool gcRoot, int alignment,
                        const char *name) {
   if (val->isLVal()) {
     LLValue *lval = DtoLVal(val);
     LLType *asMemType = i1ToI8(voidToI8(asType));
-    LLValue *copy = DtoRawAlloca(asMemType, alignment, name);
+    LLValue *copy = DtoRawAlloca(asMemType, alignment, gcRoot, name);
     const auto minSize =
         std::min(getTypeAllocSize(DtoType(val->type)),
                  getTypeAllocSize(asMemType));
@@ -227,22 +264,22 @@ LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
   return DtoAllocaDump(DtoRVal(val), asType, alignment, name);
 }
 
-LLValue *DtoAllocaDump(LLValue *val, int alignment, const char *name) {
-  return DtoAllocaDump(val, val->getType(), alignment, name);
+LLValue *DtoAllocaDump(LLValue *val, bool gcRoot, int alignment, const char *name) {
+  return DtoAllocaDump(val, val->getType(), gcRoot, alignment, name);
 }
 
 LLValue *DtoAllocaDump(LLValue *val, Type *asType, const char *name) {
-  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), name);
+  return DtoAllocaDump(val, DtoType(asType), hasPointers(asType), DtoAlignment(asType), name);
 }
 
-LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
-                       const char *name) {
+LLValue *DtoAllocaDump(LLValue *val, LLType *asType, bool gcRoot, int alignment,
+                      const char *name) {
   LLType *memType = i1ToI8(voidToI8(val->getType()));
   LLType *asMemType = i1ToI8(voidToI8(asType));
   LLType *allocaType =
       (getTypeStoreSize(memType) <= getTypeAllocSize(asMemType) ? asMemType
                                                                 : memType);
-  LLValue *mem = DtoRawAlloca(allocaType, alignment, name);
+  LLValue *mem = DtoRawAlloca(allocaType, alignment, gcRoot, name);
   DtoStoreZextI8(val, mem);
   return mem;
 }

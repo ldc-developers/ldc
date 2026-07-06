@@ -573,7 +573,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       outSetterStmt->code += asmGotoEndLabel.str() + ":\n";
 
       // create storage for and initialize the temporary
-      jump_target = DtoAllocaDump(DtoConstUint(0), 0, "__llvm_jump_target");
+      jump_target = DtoAllocaDump(DtoConstUint(0), false, 0, "__llvm_jump_target");
       // setup variable for output from asm
       outSetterStmt->out.c = "=*m,";
       outSetterStmt->out.ops.push_back(jump_target);

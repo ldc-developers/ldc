@@ -491,7 +491,7 @@ static void buildRuntimeModule() {
   // Construct some attribute lists used below (possibly multiple times)
   AttrSet NoAttrs, Attr_NoUnwind, Attr_ReadOnly, Attr_ReadOnly_NoUnwind, Attr_Cold, Attr_Cold_NoReturn, Attr_Cold_NoReturn_NoUnwind,
           Attr_ReadOnly_1_NoCapture, Attr_ReadOnly_1_3_NoCapture, Attr_ReadOnly_NoUnwind_1_NoCapture,
-          Attr_ReadOnly_NoUnwind_1_2_NoCapture, Attr_1_NoCapture, Attr_1_2_NoCapture, Attr_1_3_NoCapture,
+          Attr_ReadOnly_NoUnwind_1_2_NoCapture, Attr_1_NoCapture, Attr_1_CaptureReadProvenence_MemoryWriteInaccessibleMem, Attr_1_2_NoCapture, Attr_1_3_NoCapture,
           Attr_1_4_NoCapture;
   // `nounwind`
   {
@@ -562,6 +562,42 @@ static void buildRuntimeModule() {
     addCapturesNone(2, Attr_1_2_NoCapture);
     addCapturesNone(3, Attr_1_3_NoCapture);
     addCapturesNone(4, Attr_1_4_NoCapture);
+  }
+  // `captures(read_provenence)`
+  {
+    auto addCapturesReadProvenence = [&](int extra, AttrSet& a) {
+      llvm::AttrBuilder ab(context);
+#if LLVM_VERSION_MAJOR >= 21
+      ab.addCapturesAttr(llvm::CaptureInfo(llvm::CaptureComponents::ReadProvenance));
+#else
+      // no distinction in older LLVM capture is all or nothing
+      // Have to accept pessimization
+#endif
+      a.addToParam(0, ab);
+      if (extra)
+        a.addToParam(extra-1, ab);
+    };
+    addCapturesReadProvenence(0, Attr_1_CaptureReadProvenence_MemoryWriteInaccessibleMem);
+  }
+  // `memory(inaccessiblemem: write)`
+  {
+    auto addMemoryWriteInaccessibleMem = [&](int extra, AttrSet& a) {
+      a = a.merge(AttrSet(llvm::AttributeList().addFnAttribute(
+                          context, llvm::Attribute::getWithMemoryEffects(
+                            context, llvm::MemoryEffects::inaccessibleMemOnly(llvm::ModRefInfo::Mod)))));
+    };
+    addMemoryWriteInaccessibleMem(0, Attr_1_CaptureReadProvenence_MemoryWriteInaccessibleMem);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+
+  if (global.params.targetTriple->isWasm()) {
+    // void _d_stack_gcroot(void*)
+
+    createFwdDecl(LINK::c, Type::tvoid, {"_d_stack_gcroot"},
+                  {voidPtrTy}, {}, Attr_1_CaptureReadProvenence_MemoryWriteInaccessibleMem);
   }
 
   //////////////////////////////////////////////////////////////////////////////

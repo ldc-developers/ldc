@@ -130,7 +130,7 @@ struct BaseBitcastABIRewrite : ABIRewrite {
     const char *name = ".BaseBitcastABIRewrite_arg";
 
     if (!dv->isLVal()) {
-      LLValue *dump = DtoAllocaDump(dv, asType, alignment,
+      LLValue *dump = DtoAllocaDump(dv, asType, dmd::hasPointers(dv->type), alignment,
                                     ".BaseBitcastABIRewrite_arg_storage");
       return DtoLoad(asType, dump, name);
     }
@@ -142,7 +142,7 @@ struct BaseBitcastABIRewrite : ABIRewrite {
         alignment > DtoAlignment(dv->type)) {
       // not enough allocated memory or insufficiently aligned
       LLValue *paddedDump = DtoRawAlloca(
-          asType, alignment, ".BaseBitcastABIRewrite_padded_arg_storage");
+          asType, alignment, dmd::hasPointers(dv->type), ".BaseBitcastABIRewrite_padded_arg_storage");
       DtoMemCpy(paddedDump, address,
                 DtoConstSize_t(getTypeAllocSize(pointeeType)));
       return DtoLoad(asType, paddedDump, name);
@@ -153,7 +153,7 @@ struct BaseBitcastABIRewrite : ABIRewrite {
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
     const unsigned alignment = getMaxAlignment(v->getType(), dty);
-    return DtoAllocaDump(v, DtoType(dty), alignment,
+    return DtoAllocaDump(v, DtoType(dty), dmd::hasPointers(dty), alignment,
                          ".BaseBitcastABIRewrite_param_storage");
   }
 

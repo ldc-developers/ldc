@@ -87,7 +87,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc loc,
 
       // generate asm
       as->out.c = "=*m,=*m,";
-      LLValue* tmp = DtoRawAlloca(llretTy, 0, ".tmp_asm_ret");
+      LLValue* tmp = DtoRawAlloca(llretTy, 0, hasPointers(rt), ".tmp_asm_ret");
       as->out.push_back( tmp );
       as->out.push_back( DtoGEP(tmp, 0, 1) );
       as->code = "movd %eax, $<<out0>>" "\n\t" "mov %edx, $<<out1>>";

@@ -280,7 +280,7 @@ public:
         funcGen.retBlock = irs->insertBB("return");
         if (returnValue) {
           funcGen.retValSlot =
-              DtoRawAlloca(returnValue->getType(), 0, "return.slot");
+              DtoRawAlloca(returnValue->getType(), 0, false, "return.slot");
         }
       }
 
@@ -1320,7 +1320,7 @@ public:
     if (stmt->key) {
       keyvar = DtoRawVarDeclaration(stmt->key);
     } else {
-      keyvar = DtoRawAlloca(keytype, 0, "foreachkey");
+      keyvar = DtoRawAlloca(keytype, 0, hasPointers(stmt->key->type), "foreachkey");
     }
     LLValue *zerokey = LLConstantInt::get(keytype, 0, false);
 

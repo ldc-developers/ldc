@@ -1198,7 +1198,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
       func->addFnAttr(LLAttribute::OptForFuzzing);
     }
-    
+
     if (opts::isSanitizerEnabled(opts::MemorySanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeMemory);
     }
@@ -1269,7 +1269,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
         auto off = DtoConstInt(-fd->interfaceVirtual->offset);
         thismem = DtoGEP1(getI8Type(), thismem, off);
       }
-      thismem = DtoAllocaDump(thismem, 0, "this");
+      thismem = DtoAllocaDump(thismem, true, 0, "this");
       irFunc->thisArg = thismem;
     }
 
@@ -1311,7 +1311,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
                            gIR->scopebb());
 
     // copy _arguments to a memory location
-    irFunc->_arguments = DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
+    irFunc->_arguments = DtoAllocaDump(irFunc->_arguments, true, 0, "_arguments_mem");
 
     // Push cleanup block that calls va_end to match the va_start call.
     {

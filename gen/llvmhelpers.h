@@ -44,18 +44,18 @@ llvm::AllocaInst *DtoAlloca(Type *type, const char *name = "");
 llvm::AllocaInst *DtoAlloca(VarDeclaration *vd, const char *name = "");
 llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name = "");
-llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
+llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment, bool gcRoot,
                                const char *name = "");
 
 LLValue *DtoAllocaDump(DValue *val, const char *name = "");
 LLValue *DtoAllocaDump(DValue *val, int alignment, const char *name = "");
 LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name = "");
-LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment = 0,
+LLValue *DtoAllocaDump(DValue *val, LLType *asType, bool gcRoot, int alignment = 0,
                        const char *name = "");
-LLValue *DtoAllocaDump(LLValue *val, int alignment = 0, const char *name = "");
+LLValue *DtoAllocaDump(LLValue *val, bool gcRoot, int alignment = 0, const char *name = "");
 LLValue *DtoAllocaDump(LLValue *val, Type *asType, const char *name = "");
-LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment = 0,
-                       const char *name = "");
+LLValue *DtoAllocaDump(LLValue *val, LLType *asType, bool gcRoot, int alignment = 0,
+                      const char *name = "");
 
 // assertion generator
 void DtoAssert(Module *M, Loc loc, DValue *msg);

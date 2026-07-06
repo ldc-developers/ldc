@@ -84,7 +84,7 @@ DValue *DtoNewClass(Loc loc, TypeClass *tc, NewExp *newexp) {
     mem = DtoLVal(newexp->placement);
   } else if (newexp->onstack) {
     mem = DtoRawAlloca(irClass->getLLStructType(), tc->sym->alignsize,
-                       ".newclass_alloca");
+                       true, ".newclass_alloca");
   } else if (global.params.ehnogc && newexp->thrownew) {
     // _d_newThrowable template lowering
     assert(newexp->lowering);
