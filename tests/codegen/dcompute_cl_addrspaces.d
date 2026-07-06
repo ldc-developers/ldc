@@ -50,3 +50,21 @@ void foo(GenericPointer!float f) {
     // LL: load float, ptr addrspace(4)
     float g = *f;
 }
+
+void ternary_rval(GlobalPointer!float f, bool c) {
+    // LL-LABEL: define{{.*}} @{{.*}}ternary_rval
+    // LL: load float, ptr addrspace(1)
+    float g = c ? *f : 0.0f;
+}
+
+void ternary_lval(GlobalPointer!float f, GlobalPointer!float g, bool c) {
+    // LL-LABEL: define{{.*}} @{{.*}}ternary_lval
+    // LL: load float, ptr addrspace(1)
+    float h = c ? *f : *g;
+}
+
+void ternary_lval_assign(GlobalPointer!float f, GlobalPointer!float g, bool c) {
+    // LL-LABEL: define{{.*}} @{{.*}}ternary_lval_assign
+    // LL: store float 1.000000e+00, ptr addrspace(1)
+    (c ? *f : *g) = 1.0f;
+}
