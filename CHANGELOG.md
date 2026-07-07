@@ -6,7 +6,7 @@
 - DMD-style inline assembly: `asm { naked; }` is now much less of a special case wrt. codegen - such naked functions are now emitted as if `asm { naked; }` was replaced with the `@naked` function UDA. IR-wise, they are not emitted as module-level asm blobs anymore, but regular IR functions. This should lift a few former `asm { naked; }`-specific restrictions and fixed at least one LTO issue. (#5041)
 - Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
 - **dcompute**: Added support for Native device code Embedding (PTX and SPIR-V) into the host executable's `.rodata` section. (#5140)
-- The `@ldc.attributes.restrict` UDA is now supported for dynamic-array parameters too. Builtin array ops (`c[] = a[] * b[]` etc.) use it, enabling auto-vectorization. (#5148, #5168, #5176)
+- The `@ldc.attributes.restrict` UDA is now supported for dynamic-array parameters too. Builtin array ops (`c[] = a[] * b[]` etc.) use it, enabling auto-vectorization. Note that for such array ops, the dlang spec prescribes that the slice on the left and any slices on the right must not overlap (https://dlang.org/spec/arrays.html#array-operations), and this knowledge is now used by the optimizer. (#5148, #5168, #5176)
 
 #### Platform support
 - Supports LLVM 18 - 22.
