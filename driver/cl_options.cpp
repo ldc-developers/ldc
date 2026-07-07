@@ -751,7 +751,7 @@ cl::opt<unsigned>
                    cl::desc("Warn for stack size bigger than the given number"),
                    cl::value_desc("threshold"));
 
-#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64
 cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
                     cl::desc("Generates code for the specified DCompute target"
