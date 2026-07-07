@@ -191,7 +191,7 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
     && dl.getTypeAllocSize(lltype)
     && arraysize
   ) {
-    LLFunction *fn = getRuntimeFunction(Loc(), gIR->module, "_d_stack_gcroot");
+    LLFunction *fn = getRuntimeFunction(gIR->func()->decl->loc, gIR->module, "_d_stack_gcroot");
 
     llvm::CallInst::Create(
         fn, {ai},
@@ -215,7 +215,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
     && !gIR->func()->decl->type->isTypeFunction()->isNogc()
     && dl.getTypeAllocSize(lltype)
   ) {
-    LLFunction *fn = getRuntimeFunction(Loc(), gIR->module, "_d_stack_gcroot");
+    LLFunction *fn = getRuntimeFunction(gIR->func()->decl->loc, gIR->module, "_d_stack_gcroot");
 
     llvm::CallInst::Create(
         fn, {ai},
@@ -235,11 +235,11 @@ LLValue *DtoAllocaDump(DValue *val, const char *name) {
 }
 
 LLValue *DtoAllocaDump(DValue *val, int alignment, const char *name) {
-  return DtoAllocaDump(val, DtoType(val->type), alignment, NeedsGCRoot(val->type), name);
+  return DtoAllocaDump(val, DtoType(val->type), NeedsGCRoot(val->type), alignment, name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name) {
-  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), NeedsGCRoot(asType), name);
+  return DtoAllocaDump(val, DtoType(asType), NeedsGCRoot(asType), DtoAlignment(asType), name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, LLType *asType, bool gcRoot, int alignment,
@@ -258,7 +258,7 @@ LLValue *DtoAllocaDump(DValue *val, LLType *asType, bool gcRoot, int alignment,
     return copy;
   }
 
-  return DtoAllocaDump(DtoRVal(val), asType, alignment, name);
+  return DtoAllocaDump(DtoRVal(val), asType, gcRoot, alignment, name);
 }
 
 LLValue *DtoAllocaDump(LLValue *val, bool gcRoot, int alignment, const char *name) {
