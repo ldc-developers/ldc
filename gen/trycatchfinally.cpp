@@ -413,7 +413,7 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
   llvm::cast<llvm::SwitchInst>(endBlock()->getTerminatorOrNull())
 #else
   llvm::cast<llvm::SwitchInst>(endBlock()->getTerminator())
-#endif 
+#endif
       ->addCase(selectorVal, continueWith);
 
   // ... insert the store into the source block...
@@ -794,7 +794,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
 
 llvm::AllocaInst *TryCatchFinallyScopes::getOrCreateEhPtrSlot() {
   if (!ehPtrSlot)
-    ehPtrSlot = DtoRawAlloca(getOpaquePtrType(), 0, true, "eh.ptr");
+    ehPtrSlot = DtoRawAlloca(getOpaquePtrType(), 0, NeedsGCRoot(), "eh.ptr");
   return ehPtrSlot;
 }
 

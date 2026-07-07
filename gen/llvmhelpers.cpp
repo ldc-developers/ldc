@@ -40,6 +40,7 @@
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
 #include "ir/irtypeclass.h"
+#include "llvmhelpers.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -166,11 +167,11 @@ unsigned DtoAlignment(VarDeclaration *vd) {
  ******************************************************************************/
 
 llvm::AllocaInst *DtoAlloca(Type *type, const char *name) {
-  return DtoRawAlloca(DtoMemType(type), DtoAlignment(type), hasPointers(type), name);
+  return DtoRawAlloca(DtoMemType(type), DtoAlignment(type), NeedsGCRoot(type), name);
 }
 
 llvm::AllocaInst *DtoAlloca(VarDeclaration *vd, const char *name) {
-  return DtoRawAlloca(DtoMemType(vd->type), DtoAlignment(vd), hasPointers(vd->type), name);
+  return DtoRawAlloca(DtoMemType(vd->type), DtoAlignment(vd), NeedsGCRoot(vd->type), name);
 }
 
 llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
@@ -185,9 +186,7 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
   }
 
   if (
-    hasPointers(type)
-    && global.params.targetTriple->isWasm()
-    && global.params.useGC
+    NeedsGCRoot(type)
     && !gIR->func()->decl->type->isTypeFunction()->isNogc()
     && dl.getTypeAllocSize(lltype)
     && arraysize
@@ -213,8 +212,6 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
 
   if (
     gcRoot
-    && global.params.targetTriple->isWasm()
-    && global.params.useGC
     && !gIR->func()->decl->type->isTypeFunction()->isNogc()
     && dl.getTypeAllocSize(lltype)
   ) {
@@ -238,11 +235,11 @@ LLValue *DtoAllocaDump(DValue *val, const char *name) {
 }
 
 LLValue *DtoAllocaDump(DValue *val, int alignment, const char *name) {
-  return DtoAllocaDump(val, DtoType(val->type), alignment, hasPointers(val->type), name);
+  return DtoAllocaDump(val, DtoType(val->type), alignment, NeedsGCRoot(val->type), name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name) {
-  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), hasPointers(asType), name);
+  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), NeedsGCRoot(asType), name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, LLType *asType, bool gcRoot, int alignment,
@@ -269,7 +266,7 @@ LLValue *DtoAllocaDump(LLValue *val, bool gcRoot, int alignment, const char *nam
 }
 
 LLValue *DtoAllocaDump(LLValue *val, Type *asType, const char *name) {
-  return DtoAllocaDump(val, DtoType(asType), hasPointers(asType), DtoAlignment(asType), name);
+  return DtoAllocaDump(val, DtoType(asType), NeedsGCRoot(asType), DtoAlignment(asType), name);
 }
 
 LLValue *DtoAllocaDump(LLValue *val, LLType *asType, bool gcRoot, int alignment,

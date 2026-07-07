@@ -33,6 +33,7 @@
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
+#include "llvmhelpers.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -84,7 +85,7 @@ DValue *DtoNewClass(Loc loc, TypeClass *tc, NewExp *newexp) {
     mem = DtoLVal(newexp->placement);
   } else if (newexp->onstack) {
     mem = DtoRawAlloca(irClass->getLLStructType(), tc->sym->alignsize,
-                       true, ".newclass_alloca");
+                       NeedsGCRoot(), ".newclass_alloca");
   } else if (global.params.ehnogc && newexp->thrownew) {
     // _d_newThrowable template lowering
     assert(newexp->lowering);

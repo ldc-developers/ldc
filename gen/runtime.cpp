@@ -30,6 +30,7 @@
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
 #include "ir/irtypefunction.h"
+#include "llvmhelpers.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/Support/ModRef.h"
@@ -593,7 +594,7 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  if (global.params.targetTriple->isWasm()) {
+  if (NeedsGCRoot()) {
     // void _d_stack_gcroot(void*)
 
     createFwdDecl(LINK::c, Type::tvoid, {"_d_stack_gcroot"},

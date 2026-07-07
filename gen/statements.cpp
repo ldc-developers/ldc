@@ -1320,7 +1320,7 @@ public:
     if (stmt->key) {
       keyvar = DtoRawVarDeclaration(stmt->key);
     } else {
-      keyvar = DtoRawAlloca(keytype, 0, hasPointers(stmt->key->type), "foreachkey");
+      keyvar = DtoRawAlloca(keytype, 0, NeedsGCRoot(stmt->key->type), "foreachkey");
     }
     LLValue *zerokey = LLConstantInt::get(keytype, 0, false);
 

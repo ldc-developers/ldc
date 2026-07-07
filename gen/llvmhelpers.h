@@ -39,6 +39,13 @@ void DtoDeleteArray(Loc loc, DValue *arr);
 unsigned DtoAlignment(Type *type);
 unsigned DtoAlignment(VarDeclaration *vd);
 
+inline bool NeedsGCRoot(Type *type) {
+  return global.params.useGC && global.params.targetTriple->isWasm() && dmd::hasPointers(type);
+}
+inline bool NeedsGCRoot() {
+  return global.params.useGC && global.params.targetTriple->isWasm();
+}
+
 // emit an alloca
 llvm::AllocaInst *DtoAlloca(Type *type, const char *name = "");
 llvm::AllocaInst *DtoAlloca(VarDeclaration *vd, const char *name = "");
