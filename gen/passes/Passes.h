@@ -26,5 +26,3 @@ llvm::FunctionPass *createGarbageCollect2Stack();
 llvm::ModulePass *createStripExternalsPass();
 
 llvm::ModulePass *createDLLImportRelocationPass();
-
-llvm::FunctionPass *createStripStackGCRootPass();

@@ -25,7 +25,6 @@
 
 #include "gen/passes/GarbageCollect2Stack.h"
 #include "gen/passes/StripExternals.h"
-#include "gen/passes/StripStackGCRoot.h"
 #include "gen/passes/SimplifyDRuntimeCalls.h"
 #include "gen/passes/Passes.h"
 
@@ -304,19 +303,6 @@ static void addStripExternalsPass(ModulePassManager &mpm,
   }
 }
 
-static void addStripStackGCRootPass(ModulePassManager &mpm,
-                                  OptimizationLevel level
-#if LLVM_VERSION_MAJOR >= 20
-                                  ,
-                                  ThinOrFullLTOPhase
-#endif
-) {
-  mpm.addPass(createModuleToFunctionPassAdaptor(StripStackGCRootPass()));
-  if (verifyEach) {
-    mpm.addPass(VerifierPass());
-  }
-}
-
 static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm,
                                          OptimizationLevel level
 #if LLVM_VERSION_MAJOR >= 20
@@ -522,9 +508,6 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
       pb.registerOptimizerLastEPCallback(addGarbageCollect2StackPass);
     }
   }
-
-  //if (TM->getTargetTriple().isWasm())
-  pb.registerOptimizerLastEPCallback(addStripStackGCRootPass);
 
   pb.registerOptimizerLastEPCallback(addStripExternalsPass);
 

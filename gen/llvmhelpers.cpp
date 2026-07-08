@@ -47,6 +47,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <llvm/IR/Constant.h>
+#include <llvm/IR/InlineAsm.h>
 #include <llvm/Analysis/ConstantFolding.h>
 #include <stack>
 
@@ -191,13 +192,23 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
     && dl.getTypeAllocSize(lltype)
     && arraysize
   ) {
-    LLFunction *fn = getRuntimeFunction(gIR->func()->decl->loc, gIR->module, "_d_stack_gcroot");
+    assert(NeedsGCRoot());
+    llvm::FunctionType *functype = llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), {ai->getType()}, false);
+    llvm::InlineAsm *inlineasm = llvm::InlineAsm::get(functype, "nop", "r", false);
 
-    llvm::CallInst::Create(
-        fn, {ai},
+    llvm::CallInst* call = llvm::CallInst::Create(
+        inlineasm, {ai},
         llvm::Twine(""),
         gIR->nextAllocaPos()
     );
+
+#if LLVM_VERSION_MAJOR >= 21
+    call->addParamAttr(0, llvm::Attribute::getWithCaptureInfo(
+      gIR->context(), llvm::CaptureInfo(llvm::CaptureComponents::ReadProvenance)
+    ));
+#else
+    (void)call; // supress warning
+#endif
   }
 
   return ai;
@@ -215,13 +226,24 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
     && !gIR->func()->decl->type->isTypeFunction()->isNogc()
     && dl.getTypeAllocSize(lltype)
   ) {
-    LLFunction *fn = getRuntimeFunction(gIR->func()->decl->loc, gIR->module, "_d_stack_gcroot");
+    assert(NeedsGCRoot());
 
-    llvm::CallInst::Create(
-        fn, {ai},
+    llvm::FunctionType *functype = llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), {ai->getType()}, false);
+    llvm::InlineAsm *inlineasm = llvm::InlineAsm::get(functype, "nop", "r", false);
+
+    llvm::CallInst* call = llvm::CallInst::Create(
+        inlineasm, {ai},
         llvm::Twine(""),
         gIR->nextAllocaPos()
     );
+
+#if LLVM_VERSION_MAJOR >= 21
+    call->addParamAttr(0, llvm::Attribute::getWithCaptureInfo(
+      gIR->context(), llvm::CaptureInfo(llvm::CaptureComponents::ReadProvenance)
+    ));
+#else
+    (void)call; // supress warning
+#endif
   }
 
   if (alignment) {
