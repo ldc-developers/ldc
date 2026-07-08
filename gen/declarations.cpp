@@ -501,7 +501,7 @@ public:
 
     DString str = se->peekString();
     if (str.length)
-      irs->module.appendModuleInlineAsm({str.ptr, str.length});
+      irs->module.appendModuleInlineAsm(llvm::StringRef(str.ptr, str.length));
   }
 };
 
