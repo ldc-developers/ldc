@@ -12,6 +12,8 @@ import core.internal.traits : Filter, staticMap, Unqual;
 version (GNU) version = GNU_OR_LDC;
 version (LDC) version = GNU_OR_LDC;
 
+version (LDC) import ldc.attributes : restrict;
+
 /**
  * Perform array (vector) operations and store the result in `res`.  Operand
  * types and operations are passed as template arguments in Reverse Polish
@@ -33,7 +35,7 @@ version (LDC) version = GNU_OR_LDC;
  *
  * Returns: the slice containing the result
  */
-T[] arrayOp(T : T[], Args...)(T[] res, Filter!(isType, Args) args) @trusted
+T[] arrayOp(T : T[], Args...)(@restrict T[] res, @restrict Filter!(isType, Args) args) @trusted
 {
     alias scalarizedExp = staticMap!(toElementType, Args);
     alias check = typeCheck!(true, T, scalarizedExp); // must support all scalar ops
