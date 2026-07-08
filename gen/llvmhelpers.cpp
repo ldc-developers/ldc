@@ -712,7 +712,7 @@ DValue *DtoCastVector(Loc loc, DValue *val, Type *to) {
     LLValue *vector = DtoRVal(val);
     IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
                           << " (creating temporary)\n";
-    LLValue *array = DtoAllocaDump(vector, tolltype, DtoAlignment(val->type));
+    LLValue *array = DtoAllocaDump(vector, tolltype, NeedsGCRoot(to), DtoAlignment(val->type));
     return new DLValue(to, array);
   }
   if (totype->ty == TY::Tvector && size(to) == size(val->type)) {
