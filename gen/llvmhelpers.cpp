@@ -40,7 +40,6 @@
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
 #include "ir/irtypeclass.h"
-#include "llvmhelpers.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -163,89 +162,65 @@ unsigned DtoAlignment(VarDeclaration *vd) {
   return explicitAlignValue;
 }
 
+// TODO: move me(?)
+void InsertWasmAllocaPin(LLValue *ptr, Type* dtype) {
+  if (!global.params.useGC
+      || !global.params.targetTriple->isWasm()
+      || gIR->func()->decl->type->isTypeFunction()->isNogc()
+      || !dmd::hasPointers(dtype)) return;
+
+  assert(llvm::isa<llvm::AllocaInst>(ptr));
+
+  llvm::FunctionType *functype = llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), {ptr->getType()}, false);
+  llvm::InlineAsm *inlineasm = llvm::InlineAsm::get(functype, "nop", "r", false);
+
+  llvm::CallInst* call = llvm::CallInst::Create(
+    inlineasm, {ptr},
+    llvm::Twine(""),
+    gIR->nextAllocaPos()
+  );
+
+#if LLVM_VERSION_MAJOR >= 21
+  call->addParamAttr(0, llvm::Attribute::getWithCaptureInfo(
+    gIR->context(), llvm::CaptureInfo(llvm::CaptureComponents::ReadProvenance)
+  ));
+#else
+  // Can't limit to just ReadProvenance, so we'll have to settle for
+  // read-write and the extra pessimization.
+
+  (void)call; // supress warning
+#endif
+}
+
 /******************************************************************************
  * ALLOCA HELPERS
  ******************************************************************************/
 
 llvm::AllocaInst *DtoAlloca(Type *type, const char *name) {
-  return DtoRawAlloca(DtoMemType(type), DtoAlignment(type), NeedsGCRoot(type), name);
+  return DtoRawAlloca(DtoMemType(type), DtoAlignment(type), name);
 }
 
 llvm::AllocaInst *DtoAlloca(VarDeclaration *vd, const char *name) {
-  return DtoRawAlloca(DtoMemType(vd->type), DtoAlignment(vd), NeedsGCRoot(vd->type), name);
+  return DtoRawAlloca(DtoMemType(vd->type), DtoAlignment(vd), name);
 }
 
 llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name) {
-  const llvm::DataLayout &dl =  gIR->module.getDataLayout();
   LLType *lltype = DtoType(type);
   auto ai = new llvm::AllocaInst(
-      lltype, dl.getAllocaAddrSpace(),
+      lltype, gIR->module.getDataLayout().getAllocaAddrSpace(),
       DtoConstUint(arraysize), name, gIR->nextAllocaPos());
   if (auto alignment = DtoAlignment(type)) {
     ai->setAlignment(llvm::Align(alignment));
   }
-
-  if (
-    NeedsGCRoot(type)
-    && !gIR->func()->decl->type->isTypeFunction()->isNogc()
-    && dl.getTypeAllocSize(lltype)
-    && arraysize
-  ) {
-    assert(NeedsGCRoot());
-    llvm::FunctionType *functype = llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), {ai->getType()}, false);
-    llvm::InlineAsm *inlineasm = llvm::InlineAsm::get(functype, "nop", "r", false);
-
-    llvm::CallInst* call = llvm::CallInst::Create(
-        inlineasm, {ai},
-        llvm::Twine(""),
-        gIR->nextAllocaPos()
-    );
-
-#if LLVM_VERSION_MAJOR >= 21
-    call->addParamAttr(0, llvm::Attribute::getWithCaptureInfo(
-      gIR->context(), llvm::CaptureInfo(llvm::CaptureComponents::ReadProvenance)
-    ));
-#else
-    (void)call; // supress warning
-#endif
-  }
-
   return ai;
 }
 
 llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
-                               bool gcRoot, const char *name) {
-  const llvm::DataLayout &dl =  gIR->module.getDataLayout();
+                               const char *name) {
   auto ai = new llvm::AllocaInst(
-      lltype, dl.getAllocaAddrSpace(), name,
+      lltype, gIR->module.getDataLayout().getAllocaAddrSpace(), name,
       gIR->nextAllocaPos());
-
-  if (
-    gcRoot
-    && !gIR->func()->decl->type->isTypeFunction()->isNogc()
-    && dl.getTypeAllocSize(lltype)
-  ) {
-    assert(NeedsGCRoot());
-
-    llvm::FunctionType *functype = llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), {ai->getType()}, false);
-    llvm::InlineAsm *inlineasm = llvm::InlineAsm::get(functype, "nop", "r", false);
-
-    llvm::CallInst* call = llvm::CallInst::Create(
-        inlineasm, {ai},
-        llvm::Twine(""),
-        gIR->nextAllocaPos()
-    );
-
-#if LLVM_VERSION_MAJOR >= 21
-    call->addParamAttr(0, llvm::Attribute::getWithCaptureInfo(
-      gIR->context(), llvm::CaptureInfo(llvm::CaptureComponents::ReadProvenance)
-    ));
-#else
-    (void)call; // supress warning
-#endif
-  }
-
   if (alignment) {
     ai->setAlignment(llvm::Align(alignment));
   }
@@ -257,19 +232,19 @@ LLValue *DtoAllocaDump(DValue *val, const char *name) {
 }
 
 LLValue *DtoAllocaDump(DValue *val, int alignment, const char *name) {
-  return DtoAllocaDump(val, DtoType(val->type), NeedsGCRoot(val->type), alignment, name);
+  return DtoAllocaDump(val, DtoType(val->type), alignment, name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name) {
-  return DtoAllocaDump(val, DtoType(asType), NeedsGCRoot(asType), DtoAlignment(asType), name);
+  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), name);
 }
 
-LLValue *DtoAllocaDump(DValue *val, LLType *asType, bool gcRoot, int alignment,
+LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
                        const char *name) {
   if (val->isLVal()) {
     LLValue *lval = DtoLVal(val);
     LLType *asMemType = i1ToI8(voidToI8(asType));
-    LLValue *copy = DtoRawAlloca(asMemType, alignment, gcRoot, name);
+    LLValue *copy = DtoRawAlloca(asMemType, alignment, name);
     const auto minSize =
         std::min(getTypeAllocSize(DtoType(val->type)),
                  getTypeAllocSize(asMemType));
@@ -280,25 +255,25 @@ LLValue *DtoAllocaDump(DValue *val, LLType *asType, bool gcRoot, int alignment,
     return copy;
   }
 
-  return DtoAllocaDump(DtoRVal(val), asType, gcRoot, alignment, name);
+  return DtoAllocaDump(DtoRVal(val), asType, alignment, name);
 }
 
-LLValue *DtoAllocaDump(LLValue *val, bool gcRoot, int alignment, const char *name) {
-  return DtoAllocaDump(val, val->getType(), gcRoot, alignment, name);
+LLValue *DtoAllocaDump(LLValue *val, int alignment, const char *name) {
+  return DtoAllocaDump(val, val->getType(), alignment, name);
 }
 
 LLValue *DtoAllocaDump(LLValue *val, Type *asType, const char *name) {
-  return DtoAllocaDump(val, DtoType(asType), NeedsGCRoot(asType), DtoAlignment(asType), name);
+  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), name);
 }
 
-LLValue *DtoAllocaDump(LLValue *val, LLType *asType, bool gcRoot, int alignment,
-                      const char *name) {
+LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
+                       const char *name) {
   LLType *memType = i1ToI8(voidToI8(val->getType()));
   LLType *asMemType = i1ToI8(voidToI8(asType));
   LLType *allocaType =
       (getTypeStoreSize(memType) <= getTypeAllocSize(asMemType) ? asMemType
                                                                 : memType);
-  LLValue *mem = DtoRawAlloca(allocaType, alignment, gcRoot, name);
+  LLValue *mem = DtoRawAlloca(allocaType, alignment, name);
   DtoStoreZextI8(val, mem);
   return mem;
 }
@@ -712,7 +687,7 @@ DValue *DtoCastVector(Loc loc, DValue *val, Type *to) {
     LLValue *vector = DtoRVal(val);
     IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
                           << " (creating temporary)\n";
-    LLValue *array = DtoAllocaDump(vector, tolltype, NeedsGCRoot(to), DtoAlignment(val->type));
+    LLValue *array = DtoAllocaDump(vector, tolltype, DtoAlignment(val->type));
     return new DLValue(to, array);
   }
   if (totype->ty == TY::Tvector && size(to) == size(val->type)) {
@@ -972,6 +947,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     } else {
       auto allocainst = type != vd->type ? DtoAlloca(type, vd->toChars())
                                          : DtoAlloca(vd, vd->toChars());
+      InsertWasmAllocaPin(allocainst, type);
 
       irLocal->value = allocainst;
       gIR->DBuilder.EmitLocalVariable(allocainst, vd);
@@ -1075,6 +1051,7 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
   // alloca if necessary
   if (!addr && (!irLocal || !irLocal->value)) {
     addr = DtoAlloca(var, var->toChars());
+    InsertWasmAllocaPin(addr, var->type);
     // add debug info
     if (!irLocal) {
       irLocal = getIrLocal(var, true);

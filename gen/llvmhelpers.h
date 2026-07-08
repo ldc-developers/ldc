@@ -39,30 +39,26 @@ void DtoDeleteArray(Loc loc, DValue *arr);
 unsigned DtoAlignment(Type *type);
 unsigned DtoAlignment(VarDeclaration *vd);
 
-inline bool NeedsGCRoot(Type *type) {
-  return global.params.useGC && global.params.targetTriple->isWasm() && dmd::hasPointers(type);
-}
-inline bool NeedsGCRoot() {
-  return global.params.useGC && global.params.targetTriple->isWasm();
-}
+// TODO: move me(?)
+void InsertWasmAllocaPin(LLValue *ptr, Type* dtype);
 
 // emit an alloca
 llvm::AllocaInst *DtoAlloca(Type *type, const char *name = "");
 llvm::AllocaInst *DtoAlloca(VarDeclaration *vd, const char *name = "");
 llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name = "");
-llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment, bool gcRoot,
+llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
                                const char *name = "");
 
 LLValue *DtoAllocaDump(DValue *val, const char *name = "");
 LLValue *DtoAllocaDump(DValue *val, int alignment, const char *name = "");
 LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name = "");
-LLValue *DtoAllocaDump(DValue *val, LLType *asType, bool gcRoot, int alignment = 0,
+LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment = 0,
                        const char *name = "");
-LLValue *DtoAllocaDump(LLValue *val, bool gcRoot, int alignment = 0, const char *name = "");
+LLValue *DtoAllocaDump(LLValue *val, int alignment = 0, const char *name = "");
 LLValue *DtoAllocaDump(LLValue *val, Type *asType, const char *name = "");
-LLValue *DtoAllocaDump(LLValue *val, LLType *asType, bool gcRoot, int alignment = 0,
-                      const char *name = "");
+LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment = 0,
+                       const char *name = "");
 
 // assertion generator
 void DtoAssert(Module *M, Loc loc, DValue *msg);

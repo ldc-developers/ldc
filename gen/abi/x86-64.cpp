@@ -348,7 +348,7 @@ LLValue *X86_64TargetABI::prepareVaStart(DLValue *ap) {
   // Since the user only created a __va_list_tag* pointer (ap) on the stack before
   // invoking va_start, we first need to allocate the actual __va_list_tag struct
   // and set `ap` to its address.
-  LLValue *valistmem = DtoRawAlloca(getValistType(), 0, NeedsGCRoot(), "__va_list_mem");
+  LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
   DtoStore(valistmem, DtoLVal(ap));
   // Pass an opaque pointer to the actual struct to LLVM's va_start intrinsic.
   return valistmem;
@@ -357,7 +357,7 @@ LLValue *X86_64TargetABI::prepareVaStart(DLValue *ap) {
 void X86_64TargetABI::vaCopy(DLValue *dest, DValue *src) {
   // Analog to va_start, we first need to allocate a new __va_list_tag struct on
   // the stack and set `dest` to its address.
-  LLValue *valistmem = DtoRawAlloca(getValistType(), 0, NeedsGCRoot(), "__va_list_mem");
+  LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
   DtoStore(valistmem, DtoLVal(dest));
   // Then fill the new struct with a bitcopy of the source struct.
   // `src` is a __va_list_tag* pointer to the source struct.
@@ -381,7 +381,7 @@ Type *X86_64TargetABI::vaListType() {
 
 const char *X86_64TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) {
   assert(isDarwin());
-
+    
   // see objc/message.h for objc_msgSend selection rules
   if (fty.arg_sret) {
     return directcall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";

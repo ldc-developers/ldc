@@ -508,7 +508,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
             gIR->ir->CreateIntToPtr(mem, LLPointerType::get(getGlobalContext(), 0), ".frame");
       }
     } else {
-      frame = DtoRawAlloca(frameType, frameAlignment, NeedsGCRoot(), ".frame");
+      frame = DtoRawAlloca(frameType, frameAlignment, ".frame");
     }
 
     // copy parent frames into beginning

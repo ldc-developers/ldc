@@ -44,6 +44,11 @@ set(DRUNTIME_EXTRA_UNITTEST_FLAGS -d-version=CoreUnittest -unittest -checkaction
 set(PHOBOS2_EXTRA_FLAGS           )
 set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest -checkaction=context -linkonce-templates)
 
+if (WASI)
+  set(CMAKE_C_OUTPUT_EXTENSION .o)
+  set(CMAKE_ASM_OUTPUT_EXTENSION .o)
+endif()
+
 # Shadow the D_FLAGS cache variable by a regular variable containing all base D flags
 set(D_FLAGS ${D_FLAGS} ${D_EXTRA_FLAGS})
 if (RT_SUPPORT_SANITIZERS)
