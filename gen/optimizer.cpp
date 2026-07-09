@@ -26,6 +26,7 @@
 #include "gen/passes/GarbageCollect2Stack.h"
 #include "gen/passes/StripExternals.h"
 #include "gen/passes/SimplifyDRuntimeCalls.h"
+#include "gen/passes/WasmPointersSpill.h"
 #include "gen/passes/Passes.h"
 
 #ifndef IN_JITRT
@@ -333,6 +334,19 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm,
   }
 }
 
+static void addWasmPointersSpillPass(ModulePassManager &mpm,
+                                         OptimizationLevel level
+#if LLVM_VERSION_MAJOR >= 20
+                                         ,
+                                         ThinOrFullLTOPhase
+#endif
+) {
+  mpm.addPass(createModuleToFunctionPassAdaptor(WasmPointersSpillPass()));
+  if (verifyEach) {
+    mpm.addPass(VerifierPass());
+  }
+}
+
 #ifndef IN_JITRT
 static std::optional<PGOOptions> getPGOOptions() {
   // FIXME: Do we have these anywhere?
@@ -510,6 +524,10 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
   }
 
   pb.registerOptimizerLastEPCallback(addStripExternalsPass);
+
+  if (global.params.targetTriple->isWasm()) {
+    pb.registerOptimizerLastEPCallback(addWasmPointersSpillPass);
+  }
 
 #ifndef IN_JITRT
   registerAllPluginsWithPassBuilder(pb);
