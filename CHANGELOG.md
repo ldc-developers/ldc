@@ -3,11 +3,12 @@
 #### Big news
 - Frontend, druntime and Phobos are at version [2.113.0](https://dlang.org/changelog/2.113.0.html), incl. new command-line option `-foptimize-nothrow` to restore the `nothrow` optimizations. (#5113)
   - `-foptimize-nothrow` is the default setting when targeting Windows, to make hitting https://github.com/ldc-developers/ldc/issues/3504 much less likely.
-- Support for [LLVM 22](https://releases.llvm.org/22.1.0/docs/ReleaseNotes.html). The prebuilt packages use v22.1.2. (#5097, #5102)
+- Support for [LLVM 22](https://releases.llvm.org/22.1.0/docs/ReleaseNotes.html). The prebuilt packages use v22.1.8. (#5097, #5102, #5172)
 - Minimum LLVM version raised to 18. (#5094)
 - DMD-style inline assembly: `asm { naked; }` is now much less of a special case wrt. codegen - such naked functions are now emitted as if `asm { naked; }` was replaced with the `@naked` function UDA. IR-wise, they are not emitted as module-level asm blobs anymore, but regular IR functions. This should lift a few former `asm { naked; }`-specific restrictions and fixed at least one LTO issue. (#5041)
 - Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
 - **dcompute**: Added support for Native device code Embedding (PTX and SPIR-V) into the host executable's `.rodata` section. (#5140)
+- The `@ldc.attributes.restrict` UDA is now supported for dynamic-array parameters too. Builtin array ops (`c[] = a[] * b[]` etc.) use it, enabling auto-vectorization. Note that for such array ops, the dlang spec prescribes that the slice on the left and any slices on the right must not overlap (https://dlang.org/spec/arrays.html#array-operations), and this knowledge is now used by the optimizer. (#5148, #5168, #5176)
 
 #### Platform support
 - Supports LLVM 18 - 22.

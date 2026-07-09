@@ -142,7 +142,7 @@ extern cl::opt<unsigned> fWarnStackSize;
 
 extern cl::opt<bool, true> fOptimizeNothrow;
 
-#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64
 extern cl::list<std::string> dcomputeTargets;
 extern cl::opt<std::string> dcomputeFilePrefix;
 extern cl::opt<bool> fembedDCompute;
