@@ -1024,6 +1024,10 @@ void registerPredefinedVersions() {
       VersionCondition::addPredefinedGlobalIdent("D_TypeInfo");
   }
 
+  if (global.params.trace) {
+    VersionCondition::addPredefinedGlobalIdent("D_Profile");
+  }
+
   if (global.params.tracegc) {
     VersionCondition::addPredefinedGlobalIdent("D_ProfileGC");
   }
