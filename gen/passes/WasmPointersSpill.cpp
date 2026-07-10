@@ -283,10 +283,7 @@ bool WasmPointersSpill::run(Function &F) {
     auto *store = new StoreInst(I, ai, true, ai->getAlign(), nullptr);
 
    std::optional<BasicBlock::iterator> After = I->getInsertionPointAfterDef();
-   if (!After.has_value())
-     reportFatalInternalError(
-       "Cannot spill value as it has no valid insertion point after it."
-     );
+   assert(After.has_value() && "Cannot spill value as it has no valid insertion point after it.");
 
     store->insertBefore(*After);
   }
