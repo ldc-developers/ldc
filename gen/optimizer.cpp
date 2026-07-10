@@ -525,7 +525,7 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
 
   pb.registerOptimizerLastEPCallback(addStripExternalsPass);
 
-  if (global.params.targetTriple->isWasm()) {
+  if (TM->getTargetTriple().isWasm()) {
     pb.registerOptimizerLastEPCallback(addWasmPointersSpillPass);
   }
 

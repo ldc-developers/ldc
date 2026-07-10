@@ -28,8 +28,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
@@ -297,7 +295,15 @@ bool WasmPointersSpill::run(Function &F) {
 
     Changed = true;
 
-    auto *ai = new AllocaInst(I->getType(), 0, "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg"), allocaPoint);
+    auto *ai = new AllocaInst(
+      I->getType(), 0,
+      "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg"),
+#if LLVM_VERSION_MAJOR >= 19
+      allocaPoint
+#else
+      &*allocaPoint
+#endif
+    );
 
     auto *store = new StoreInst(I, ai, true, ai->getAlign(), nullptr);
 
