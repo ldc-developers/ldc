@@ -90,7 +90,15 @@ static bool TypeContainsPointers(LLType *ty) {
 }
 
 bool WasmPointersSpill::run(Function &F) {
-  F.renumberBlocks();
+#if LLVM_VERSION_MAJOR >= 20
+  unsigned BBCount = F.getMaxBlockNumber();
+#else
+  DenseMap<BasicBlock *, unsigned> BBIdx;
+  unsigned BBCount = 0;
+  for (auto &BB : F) {
+    BBIdx[&BB] = BBCount++;
+  }
+#endif
 
   bool Changed = false;
 
@@ -168,7 +176,7 @@ bool WasmPointersSpill::run(Function &F) {
   DenseMap<BasicBlock *, BitVector> Uses;
   DenseMap<BasicBlock *, BitVector> UsesAcrossCall;
   DenseMap<BasicBlock *, BitVector> DefsAfterAllCalls;
-  BitVector HasCalls(F.size());
+  BitVector HasCalls(BBCount);
 
   ReversePostOrderTraversal<Function*> RPOT(&F);
   for (BasicBlock* BB : make_range(RPOT.begin(), RPOT.end())) {
@@ -215,7 +223,13 @@ bool WasmPointersSpill::run(Function &F) {
         BBUsesAcrossCall |= TmpUses;
       }
     }
-    HasCalls[BB->getNumber()] = SeenCall;
+
+#if LLVM_VERSION_MAJOR >= 20
+    unsigned BBNum = BB->getNumber();
+#else
+    unsigned BBNum = BBIdx[BB];
+#endif
+    HasCalls[BBNum] = SeenCall;
     Worklist.insert(BB);
   }
 
@@ -246,7 +260,12 @@ bool WasmPointersSpill::run(Function &F) {
     NewLiveInAcrossCall |= UsesAcrossCall[BB];
     NewLiveInAcrossCall.reset(Defs[BB]);
 
-    if (HasCalls[BB->getNumber()]) {
+#if LLVM_VERSION_MAJOR >= 20
+    unsigned BBNum = BB->getNumber();
+#else
+    unsigned BBNum = BBIdx[BB];
+#endif
+    if (HasCalls[BBNum]) {
       BitVector Tmp = BBLiveOut;
       Tmp.reset(DefsAfterAllCalls[BB]);
       NewLiveInAcrossCall |= Tmp;
