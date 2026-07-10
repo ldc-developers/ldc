@@ -15,6 +15,7 @@
 
 #define DEBUG_TYPE "wasm-ptrs-spill"
 
+#include <limits>
 #include "gen/passes/Passes.h"
 #include "gen/passes/WasmPointersSpill.h"
 #include "gen/llvmhelpers.h"
@@ -50,7 +51,6 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    //AU.addRequired<AAResultsWrapperPass>();
   }
 };
 char WasmPointersSpillLegacyPass::ID = 0;
@@ -81,129 +81,215 @@ static bool TypeContainsPointers(LLType *ty) {
     return false;
   }
 
+  case LLType::FixedVectorTyID:
+      return TypeContainsPointers(cast<VectorType>(ty)->getElementType());
+
   default:
     return false;
   }
 }
 
 bool WasmPointersSpill::run(Function &F) {
-  IRBuilder<> Builder(F.getContext());
-dbgs() << F.getName() << "\n";
+  F.renumberBlocks();
+
   bool Changed = false;
 
-  /*for (auto &BB : F) {
-    for (Instruction &I : BB) {
-      if (I.getType()->isPointerTy() || TypeContainsPointers(I.getType())) SpillCandidates.push_back(&I);
-    }
-    }*/
+  // for SetVector determinstic iteration
+  SmallSetVector<Instruction *, 0> PotentialPointers;
 
-  auto *entryBB = &F.getEntryBlock();
+  {
+    SmallPtrSet<Instruction *, 0> WorklistSeen;
+    SmallSetVector<Instruction *, 0> Worklist;
 
-  DenseMap<Instruction *, uint32_t> InstIdx;
-  uint64_t NextInstIdx = 0;
-  for (auto &BB : F) {
-    for (Instruction &I : BB) {
-      if (
-        !I.getType()->isVoidTy() // we only care about vreg/values
-        && !isa<AllocaInst>(I) // the pointer returned by `alloca` isn't in the GC heap
-      ) {
-        InstIdx[&I] = NextInstIdx++;
+    for (auto &BB : F) {
+      for (Instruction &I : BB) {
+        if (TypeContainsPointers(I.getType())) {
+          PotentialPointers.insert(&I);
+          if (IntToPtrInst *IntToPtr = dyn_cast<IntToPtrInst>(&I)) {
+            if (auto *OpInst = dyn_cast<Instruction>(IntToPtr->getOperand(0))) {
+              WorklistSeen.insert(OpInst);
+              Worklist.insert(OpInst);
+            }
+          }
+        }
       }
-      if (NextInstIdx >= (uint64_t(1) << 32)) reportFatalInternalError("More vregs than can fit in 32-bits!");
+    }
+
+    while (!Worklist.empty()) {
+      auto *I = Worklist.back();
+      Worklist.pop_back();
+
+      if (I->getType()->isVoidTy()) continue; // we don't care about non-values
+
+      // small integers (and bools) can't hold values large enough to
+      // be in the GC heap; assuming we have at least 64K of stack space + data
+      if (I->getType()->isIntegerTy()
+          && I->getType()->getScalarSizeInBits() <= 16) continue;
+
+      PotentialPointers.insert(I);
+
+      if (isa<LoadInst>(I)) continue; // the operand of the load is unrelated to its result
+
+      // We can safely assume the return of the function is
+      // unrelated to any non-pointer operands.
+      //
+      // However, we can only assume that for D function calls
+      // Not intrinsics LLVM might insert.
+      if (isa<CallBase>(I) && !isa<IntrinsicInst>(I)) continue;
+
+      for (Use &Op : I->operands()) {
+        Value *V = Op.get();
+
+        // If the op is/has a pointer, it's not a concern for
+        // hidding values anymore; stop the back-tracking.
+        if (TypeContainsPointers(V->getType())) continue;
+
+        if (auto *OpInst = dyn_cast<Instruction>(V)) {
+          if (WorklistSeen.insert(OpInst).second) Worklist.insert(OpInst);
+        }
+      }
     }
   }
 
-  size_t NumVRegs = NextInstIdx;
+  assert(PotentialPointers.size() < std::numeric_limits<unsigned>::max());
 
-  //SmallSetVector<BasicBlock *, 8> Worklist;
-  //DenseMap<BasicBlock *, BitVector> LiveIn;
-  //DenseMap<BasicBlock *, BitVector> LiveOut;
+  DenseMap<Instruction *, unsigned> InstIdx;
+  unsigned NumVRegs = 0;
+  for (Instruction *I : PotentialPointers) {
+    InstIdx[I] = NumVRegs++;
+  }
+
+  SmallSetVector<BasicBlock *, 8> Worklist;
+  DenseMap<BasicBlock *, BitVector> LiveIn;
+  DenseMap<BasicBlock *, BitVector> LiveInAcrossCall;
+  DenseMap<BasicBlock *, BitVector> LiveOut;
+  DenseMap<BasicBlock *, BitVector> LiveOutAcrossCall;
   DenseMap<BasicBlock *, BitVector> Defs;
   DenseMap<BasicBlock *, BitVector> Uses;
-
+  DenseMap<BasicBlock *, BitVector> UsesAcrossCall;
+  DenseMap<BasicBlock *, BitVector> DefsAfterAllCalls;
+  BitVector HasCalls(F.size());
 
   ReversePostOrderTraversal<Function*> RPOT(&F);
   for (BasicBlock* BB : make_range(RPOT.begin(), RPOT.end())) {
-    //LiveIn[BB].resize(NumVRegs);
-    //LiveOut[BB].resize(NumVRegs);
+    LiveIn[BB].resize(NumVRegs);
+    LiveInAcrossCall[BB].resize(NumVRegs);
+    LiveOut[BB].resize(NumVRegs);
+    LiveOutAcrossCall[BB].resize(NumVRegs);
     Defs[BB].resize(NumVRegs);
     Uses[BB].resize(NumVRegs);
+    UsesAcrossCall[BB].resize(NumVRegs);
+    DefsAfterAllCalls[BB].resize(NumVRegs);
 
     auto &BBUses = Uses[BB];
+    auto &BBUsesAcrossCall = UsesAcrossCall[BB];
     auto &BBDefs = Defs[BB];
+    auto &BBDefsAfterAllCalls = DefsAfterAllCalls[BB];
 
     BitVector TmpUses(NumVRegs);
+    bool SeenCall = false;
 
     for (Instruction &I : make_range(BB->rbegin(), BB->rend())) {
-      for (Value *Op : I.operands()) {
-        if (auto *OpInst = dyn_cast<Instruction>(Op)) {
-          if (InstIdx.contains(OpInst)) TmpUses.set(InstIdx[OpInst]);
+      for (Use &Op : I.operands()) {
+        Value *V = Op.get();
+
+        if (auto *OpInst = dyn_cast<Instruction>(V)) {
+          if (InstIdx.contains(OpInst)) {
+            auto Idx = InstIdx[OpInst];
+            BBUses.set(Idx);
+            TmpUses.set(Idx);
+          }
         }
       }
 
       if (InstIdx.contains(&I)) {
-        BBDefs.set(InstIdx[&I]);
-        TmpUses.reset(InstIdx[&I]);
+        auto Idx = InstIdx[&I];
+        BBDefs.set(Idx);
+        if (!SeenCall) BBDefsAfterAllCalls.set(Idx);
+        BBUses.reset(Idx);
+        TmpUses.reset(Idx);
       }
 
-      if (isa<CallBase>(&I)) BBUses |= TmpUses;
+      if (isa<CallBase>(&I)) {
+        SeenCall = true;
+        BBUsesAcrossCall |= TmpUses;
+      }
     }
-    //Worklist.insert(BB);
+    HasCalls[BB->getNumber()] = SeenCall;
+    Worklist.insert(BB);
   }
 
-  /*
+
   while (!Worklist.empty()) {
     auto *BB = Worklist.back();
     Worklist.pop_back();
 
-    BitVector NewLiveOut(NumVRegs);
+    auto &BBLiveOut = LiveOut[BB];
+    auto &BBLiveOutAcrossCall = LiveOutAcrossCall[BB];
+
+    BBLiveOut.reset();
+    BBLiveOutAcrossCall.reset();
 
     for (BasicBlock *Succ : successors(BB)) {
-      NewLiveOut |= LiveIn[Succ];
+      BBLiveOut |= LiveIn[Succ];
+      BBLiveOutAcrossCall |= LiveInAcrossCall[Succ];
     }
 
-    LiveOut[BB] = NewLiveOut;
-
-    BitVector NewLiveIn = NewLiveOut;
+    // Normal liveliness
+    BitVector NewLiveIn = BBLiveOut;
     NewLiveIn |= Uses[BB];
     NewLiveIn.reset(Defs[BB]);
 
-    if (NewLiveIn != LiveIn[BB]) {
+
+    // Liveliness specifically of call crossing
+    BitVector NewLiveInAcrossCall = BBLiveOutAcrossCall;
+    NewLiveInAcrossCall |= UsesAcrossCall[BB];
+    NewLiveInAcrossCall.reset(Defs[BB]);
+
+    if (HasCalls[BB->getNumber()]) {
+      BitVector Tmp = BBLiveOut;
+      Tmp.reset(DefsAfterAllCalls[BB]);
+      NewLiveInAcrossCall |= Tmp;
+    }
+
+
+    if (NewLiveIn != LiveIn[BB] || NewLiveInAcrossCall != LiveInAcrossCall[BB]) {
       LiveIn[BB] = NewLiveIn;
+      LiveInAcrossCall[BB] = NewLiveInAcrossCall;
 
       for (BasicBlock *Pred : predecessors(BB)) {
         Worklist.insert(Pred);
       }
     }
   }
-  */
 
   BitVector NeedsSpill(NumVRegs);
   for (auto &BB : F) {
-    NeedsSpill |= Uses[&BB];
+    NeedsSpill |= UsesAcrossCall[&BB];
+    NeedsSpill |= LiveOutAcrossCall[&BB];
   }
 
+  // TODO: mark lifetimes and/or reuse alloca to reduce stack usage
+  auto &entryBB = F.getEntryBlock();
+  auto allocaPoint = entryBB.getFirstInsertionPt();
 
-  auto *allocaBB = BasicBlock::Create(F.getContext(), "stackSpillAllocas");
-  allocaBB->insertInto(&F, entryBB);
-
-  SmallVector<Instruction *> InstToSpill = to_vector(InstIdx.keys());
-  std::sort(InstToSpill.begin(), InstToSpill.end(), [&](Instruction *a, Instruction *b)
-    {
-        return InstIdx[a] < InstIdx[b];
-    }
-  );
-
-  for (Instruction *I : InstToSpill) {
+  for (Instruction *I : PotentialPointers) {
     if (!NeedsSpill[InstIdx[I]]) continue;
 
-    auto *ai = new AllocaInst(I->getType(), 0, "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg"), allocaBB);
+    Changed = true;
+
+    auto *ai = new AllocaInst(I->getType(), 0, "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg"), allocaPoint);
 
     auto *store = new StoreInst(I, ai, true, ai->getAlign(), nullptr);
-    store->insertAfter(I);
-  }
 
-  UncondBrInst::Create(entryBB, allocaBB);
+   std::optional<BasicBlock::iterator> After = I->getInsertionPointAfterDef();
+   if (!After.has_value())
+     reportFatalInternalError(
+       "Cannot spill value as it has no valid insertion point after it."
+     );
+
+    store->insertBefore(*After);
+  }
 
   return Changed;
 }
