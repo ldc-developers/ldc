@@ -22,8 +22,6 @@
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
@@ -33,6 +31,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 
 using namespace llvm;
@@ -134,7 +133,28 @@ bool WasmPointersSpill::run(Function &F) {
 
       PotentialPointers.insert(I);
 
-      if (isa<LoadInst>(I)) continue; // the operand of the load is unrelated to its result
+      // trace `alloca` loads back through stores to the same
+      if (auto *Load = dyn_cast<LoadInst>(I)) {
+        Value *V = Load->getPointerOperand();
+
+        AllocaInst *Alloca = findAllocaForValue(V);
+        if (Alloca) {
+          for (User *User : Alloca->users()) {
+            if (auto *Store = dyn_cast<StoreInst>(User)) {
+              Value *StoreValue = Store->getValueOperand();
+              StoreValue->dump();
+
+              if (TypeContainsPointers(StoreValue->getType())) continue;
+
+              if (auto *OpInst = dyn_cast<Instruction>(StoreValue)) {
+                if (WorklistSeen.insert(OpInst).second) Worklist.insert(OpInst);
+              }
+            }
+          }
+        }
+
+        continue;
+      }
 
       // We can safely assume the return of the function is
       // unrelated to any non-pointer operands.
