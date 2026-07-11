@@ -108,6 +108,8 @@ bool WasmPointersSpill::run(Function &F) {
 
     for (auto &BB : F) {
       for (Instruction &I : BB) {
+        if (isa<AllocaInst>(I)) continue; // the result of `alloca` can't be a GC pointer
+
         if (TypeContainsPointers(I.getType())) {
           PotentialPointers.insert(&I);
           if (IntToPtrInst *IntToPtr = dyn_cast<IntToPtrInst>(&I)) {
@@ -125,6 +127,7 @@ bool WasmPointersSpill::run(Function &F) {
       Worklist.pop_back();
 
       if (I->getType()->isVoidTy()) continue; // we don't care about non-values
+      if (isa<AllocaInst>(I)) continue; // the result of `alloca` can't be a GC pointer
 
       // small integers (and bools) can't hold values large enough to
       // be in the GC heap; assuming we have at least 64K of stack space + data
@@ -142,7 +145,6 @@ bool WasmPointersSpill::run(Function &F) {
           for (User *User : Alloca->users()) {
             if (auto *Store = dyn_cast<StoreInst>(User)) {
               Value *StoreValue = Store->getValueOperand();
-              StoreValue->dump();
 
               if (TypeContainsPointers(StoreValue->getType())) continue;
 
