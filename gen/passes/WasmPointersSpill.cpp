@@ -104,23 +104,56 @@ bool WasmPointersSpill::run(Function &F) {
 
   {
     SmallPtrSet<Instruction *, 0> WorklistSeen;
-    SmallSetVector<Instruction *, 0> Worklist;
+    SmallVector<Instruction *> Worklist;
+
+    DenseMap<AllocaInst *, SmallPtrSet<Value *, 0>> ValuesStoredInAlloca;
 
     for (auto &BB : F) {
       for (Instruction &I : BB) {
+        if (auto *Store = dyn_cast<StoreInst>(&I)) {
+          Value *StorePtr = Store->getPointerOperand();
+          AllocaInst *Alloca = findAllocaForValue(StorePtr);
+          if (Alloca) ValuesStoredInAlloca[Alloca].insert(Store->getValueOperand());
+        }
+
         if (isa<AllocaInst>(I)) continue; // the result of `alloca` can't be a GC pointer
 
         if (TypeContainsPointers(I.getType())) {
           PotentialPointers.insert(&I);
           if (IntToPtrInst *IntToPtr = dyn_cast<IntToPtrInst>(&I)) {
+            // if we have `inttoptr` it's transitive uses are themselves
+            // potential pointers
+
             if (auto *OpInst = dyn_cast<Instruction>(IntToPtr->getOperand(0))) {
               WorklistSeen.insert(OpInst);
-              Worklist.insert(OpInst);
+              Worklist.push_back(OpInst);
             }
+          } else if (isa<LoadInst>(&I)) {
+            // if we have a direct `load ptr`, treat it as
+            // e.g. `load i32` and `inttoptr`
+            //
+            // if it's a load from an `alloca`, any stores
+            // into said `alloca` might be hidden pointers
+
+            if (WorklistSeen.insert(&I).second) Worklist.push_back(&I);
           }
         }
       }
     }
+
+
+    auto markValue = [&](Value *V) {
+      // If the op is/has a pointer, it's not a concern for
+      // hidding values anymore; stop the back-tracking.
+      //
+      // However, we want to still trace loads back through memory
+      // regardless to help catch `store`s with mismatching type.
+      if (TypeContainsPointers(V->getType()) && !isa<LoadInst>(V)) return;
+
+      if (auto *OpInst = dyn_cast<Instruction>(V)) {
+        if (WorklistSeen.insert(OpInst).second) Worklist.push_back(OpInst);
+      }
+    };
 
     while (!Worklist.empty()) {
       auto *I = Worklist.back();
@@ -139,21 +172,10 @@ bool WasmPointersSpill::run(Function &F) {
       // trace `alloca` loads back through stores to the same
       if (auto *Load = dyn_cast<LoadInst>(I)) {
         Value *V = Load->getPointerOperand();
-
         AllocaInst *Alloca = findAllocaForValue(V);
-        if (Alloca) {
-          for (User *User : Alloca->users()) {
-            if (auto *Store = dyn_cast<StoreInst>(User)) {
-              Value *StoreValue = Store->getValueOperand();
-
-              if (TypeContainsPointers(StoreValue->getType())) continue;
-
-              if (auto *OpInst = dyn_cast<Instruction>(StoreValue)) {
-                if (WorklistSeen.insert(OpInst).second) Worklist.insert(OpInst);
-              }
-            }
-          }
-        }
+        if (Alloca)
+          for (Value *StoreValue : ValuesStoredInAlloca[Alloca])
+            markValue(StoreValue);
 
         continue;
       }
@@ -167,14 +189,7 @@ bool WasmPointersSpill::run(Function &F) {
 
       for (Use &Op : I->operands()) {
         Value *V = Op.get();
-
-        // If the op is/has a pointer, it's not a concern for
-        // hidding values anymore; stop the back-tracking.
-        if (TypeContainsPointers(V->getType())) continue;
-
-        if (auto *OpInst = dyn_cast<Instruction>(V)) {
-          if (WorklistSeen.insert(OpInst).second) Worklist.insert(OpInst);
-        }
+        markValue(V);
       }
     }
   }
@@ -188,6 +203,7 @@ bool WasmPointersSpill::run(Function &F) {
   }
 
   SmallSetVector<BasicBlock *, 8> Worklist;
+
   DenseMap<BasicBlock *, BitVector> LiveIn;
   DenseMap<BasicBlock *, BitVector> LiveInAcrossCall;
   DenseMap<BasicBlock *, BitVector> LiveOut;
