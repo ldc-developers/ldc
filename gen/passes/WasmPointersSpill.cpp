@@ -331,10 +331,45 @@ bool WasmPointersSpill::run(Function &F) {
   auto &entryBB = F.getEntryBlock();
   auto allocaPoint = entryBB.getFirstInsertionPt();
 
+#if LLVM_VERSION_MAJOR >= 20
   Function *LifetimeStartFn =
-    llvm::Intrinsic::getOrInsertDeclaration(F.getParent(), llvm::Intrinsic::lifetime_start, {F.getDataLayout().getAllocaPtrType(F.getContext())});
+    llvm::Intrinsic::getOrInsertDeclaration(
+      F.getParent(),
+      llvm::Intrinsic::lifetime_start,
+      {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
+    );
   Function *LifetimeEndFn =
-    llvm::Intrinsic::getOrInsertDeclaration(F.getParent(), llvm::Intrinsic::lifetime_end, {F.getDataLayout().getAllocaPtrType(F.getContext())});
+    llvm::Intrinsic::getOrInsertDeclaration(
+      F.getParent(),
+      llvm::Intrinsic::lifetime_end,
+      {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
+  );
+#elif LLVM_VERSION_MAJOR >= 19
+  Function *LifetimeStartFn =
+    llvm::Intrinsic::getDeclaration(
+      F.getParent(),
+      llvm::Intrinsic::lifetime_start,
+      {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
+    );
+  Function *LifetimeEndFn =
+    llvm::Intrinsic::getDeclaration(
+      F.getParent(),
+      llvm::Intrinsic::lifetime_end,
+      {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
+  );
+#else
+  Function *LifetimeStartFn =
+    llvm::Intrinsic::getDeclaration(
+      F.getParent(),
+      llvm::Intrinsic::lifetime_start
+    );
+  Function *LifetimeEndFn =
+    llvm::Intrinsic::getDeclaration(
+      F.getParent(),
+      llvm::Intrinsic::lifetime_end
+  );
+#endif
+
 
   IRBuilder<> Builder(&entryBB, allocaPoint);
 
