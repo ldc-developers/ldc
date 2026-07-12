@@ -20,16 +20,13 @@
 #include "gen/passes/WasmPointersSpill.h"
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
-#include "gen/runtime.h"
-#include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/ValueTracking.h"
 
@@ -319,41 +316,79 @@ bool WasmPointersSpill::run(Function &F) {
   }
 
   BitVector NeedsSpill(NumVRegs);
+  DenseMap<BasicBlock *, BitVector> SpillKills;
   for (auto &BB : F) {
     NeedsSpill |= UsesAcrossCall[&BB];
     NeedsSpill |= LiveOutAcrossCall[&BB];
+
+    BitVector Tmp = LiveInAcrossCall[&BB];
+    Tmp |= Defs[&BB];
+    Tmp.reset(LiveOutAcrossCall[&BB]);
+
+    SpillKills[&BB] = Tmp;
   }
 
-  // TODO: mark lifetimes and/or reuse alloca to reduce stack usage
   auto &entryBB = F.getEntryBlock();
   auto allocaPoint = entryBB.getFirstInsertionPt();
 
+  Function *LifetimeStartFn =
+    llvm::Intrinsic::getOrInsertDeclaration(F.getParent(), llvm::Intrinsic::lifetime_start, {F.getDataLayout().getAllocaPtrType(F.getContext())});
+  Function *LifetimeEndFn =
+    llvm::Intrinsic::getOrInsertDeclaration(F.getParent(), llvm::Intrinsic::lifetime_end, {F.getDataLayout().getAllocaPtrType(F.getContext())});
+
+  IRBuilder<> Builder(&entryBB, allocaPoint);
+
   for (Instruction *I : PotentialPointers) {
-    if (!NeedsSpill[InstIdx[I]]) continue;
+    unsigned Idx = InstIdx[I];
+    if (!NeedsSpill[Idx]) continue;
 
     Changed = true;
 
-    auto *ai = new AllocaInst(
-      I->getType(), 0,
-      "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg"),
-#if LLVM_VERSION_MAJOR >= 19
-      allocaPoint
-#else
-      &*allocaPoint
-#endif
+    Builder.SetInsertPoint(allocaPoint);
+    AllocaInst *ai = Builder.CreateAlloca(
+      I->getType(), nullptr,
+      "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg")
     );
 
     std::optional<BasicBlock::iterator> After = I->getInsertionPointAfterDef();
     assert(After.has_value() && "Cannot spill value as it has no valid insertion point after it.");
 
-    new StoreInst(
-      I, ai, true, ai->getAlign(),
-#if LLVM_VERSION_MAJOR >= 19
-      *After
-#else
-      &**After
-#endif
-    );
+
+    Builder.SetInsertPoint(*After);
+    Builder.CreateCall(LifetimeStartFn, {ai});
+    Builder.CreateStore(I, ai, true);
+
+
+    for (auto &BB : F) {
+      if(!SpillKills[&BB][Idx]) continue;
+
+      if (UsesAcrossCall[&BB][Idx]) {
+        bool Found = false;
+        for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
+          for (Use &Op : IterI.operands()) {
+            Value *V = Op.get();
+
+            if (V == I) {
+              Found = true;
+              break;
+            }
+          }
+
+          if (Found && isa<CallBase>(&IterI)) {
+            if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
+              Builder.SetInsertPoint(Invoke->getNormalDest()->getFirstInsertionPt());
+            } else {
+              assert(!IterI.isTerminator());
+              Builder.SetInsertPoint(std::next(IterI.getIterator()));
+            }
+            break;
+          }
+        }
+      } else {
+        Builder.SetInsertPoint(&BB.front());
+      }
+      Builder.CreateCall(LifetimeEndFn, {ai});
+    }
   }
 
   return Changed;
