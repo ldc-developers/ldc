@@ -347,7 +347,7 @@ bool WasmPointersSpill::run(Function &F) {
       Intrinsic::lifetime_end,
       {DL.getAllocaPtrType(F.getContext())}
   );
-#elif LLVM_VERSION_MAJOR >= 19
+#else
   Function *LifetimeStartFn =
     Intrinsic::getDeclaration(
       F.getParent(),
@@ -360,19 +360,7 @@ bool WasmPointersSpill::run(Function &F) {
       Intrinsic::lifetime_end,
       {DL.getAllocaPtrType(F.getContext())}
   );
-#else
-  Function *LifetimeStartFn =
-    Intrinsic::getDeclaration(
-      F.getParent(),
-      Intrinsic::lifetime_start
-    );
-  Function *LifetimeEndFn =
-    Intrinsic::getDeclaration(
-      F.getParent(),
-      Intrinsic::lifetime_end
-  );
 #endif
-
 
   IRBuilder<> Builder(&entryBB, allocaPoint);
 
@@ -445,7 +433,7 @@ bool WasmPointersSpill::run(Function &F) {
       Builder.CreateCall(
         LifetimeEndFn,
 #if LLVM_VERSION_MAJOR >= 22
-        {ai},
+        {ai}
 #else
         {size, ai}
 #endif
@@ -479,7 +467,7 @@ bool WasmPointersSpill::run(Function &F) {
     Builder.CreateCall(
       LifetimeStartFn,
 #if LLVM_VERSION_MAJOR >= 22
-      {ai},
+      {ai}
 #else
       {size, ai}
 #endif
