@@ -321,7 +321,8 @@ bool WasmPointersSpill::run(Function &F) {
     NeedsSpill |= UsesAcrossCall[&BB];
     NeedsSpill |= LiveOutAcrossCall[&BB];
 
-    BitVector Tmp = LiveInAcrossCall[&BB];
+    BitVector Tmp(NumVRegs);
+    Tmp |= LiveInAcrossCall[&BB];
     Tmp |= Defs[&BB];
     Tmp.reset(LiveOutAcrossCall[&BB]);
 
@@ -333,45 +334,50 @@ bool WasmPointersSpill::run(Function &F) {
 
 #if LLVM_VERSION_MAJOR >= 20
   Function *LifetimeStartFn =
-    llvm::Intrinsic::getOrInsertDeclaration(
+    Intrinsic::getOrInsertDeclaration(
       F.getParent(),
-      llvm::Intrinsic::lifetime_start,
+      Intrinsic::lifetime_start,
       {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
     );
   Function *LifetimeEndFn =
-    llvm::Intrinsic::getOrInsertDeclaration(
+    Intrinsic::getOrInsertDeclaration(
       F.getParent(),
-      llvm::Intrinsic::lifetime_end,
+      Intrinsic::lifetime_end,
       {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
   );
 #elif LLVM_VERSION_MAJOR >= 19
   Function *LifetimeStartFn =
-    llvm::Intrinsic::getDeclaration(
+    Intrinsic::getDeclaration(
       F.getParent(),
-      llvm::Intrinsic::lifetime_start,
+      Intrinsic::lifetime_start,
       {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
     );
   Function *LifetimeEndFn =
-    llvm::Intrinsic::getDeclaration(
+    Intrinsic::getDeclaration(
       F.getParent(),
-      llvm::Intrinsic::lifetime_end,
+      Intrinsic::lifetime_end,
       {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
   );
 #else
   Function *LifetimeStartFn =
-    llvm::Intrinsic::getDeclaration(
+    Intrinsic::getDeclaration(
       F.getParent(),
-      llvm::Intrinsic::lifetime_start
+      Intrinsic::lifetime_start
     );
   Function *LifetimeEndFn =
-    llvm::Intrinsic::getDeclaration(
+    Intrinsic::getDeclaration(
       F.getParent(),
-      llvm::Intrinsic::lifetime_end
+      Intrinsic::lifetime_end
   );
 #endif
 
 
   IRBuilder<> Builder(&entryBB, allocaPoint);
+
+  SmallVector<Instruction *> SpillPointers;
+  SmallVector<AllocaInst *> SpillAllocas;
+
+  Builder.SetInsertPoint(allocaPoint);
 
   for (Instruction *I : PotentialPointers) {
     unsigned Idx = InstIdx[I];
@@ -379,20 +385,19 @@ bool WasmPointersSpill::run(Function &F) {
 
     Changed = true;
 
-    Builder.SetInsertPoint(allocaPoint);
-    AllocaInst *ai = Builder.CreateAlloca(
+    SpillAllocas.push_back(Builder.CreateAlloca(
       I->getType(), nullptr,
       "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg")
-    );
+    ));
+    SpillPointers.push_back(I);
+  }
 
-    std::optional<BasicBlock::iterator> After = I->getInsertionPointAfterDef();
-    assert(After.has_value() && "Cannot spill value as it has no valid insertion point after it.");
+  unsigned NextSpillPointerIdx = 0;
 
-
-    Builder.SetInsertPoint(*After);
-    Builder.CreateCall(LifetimeStartFn, {ai});
-    Builder.CreateStore(I, ai, true);
-
+  // do `lifetime.end` first
+  for (Instruction *I : SpillPointers) {
+    unsigned Idx = InstIdx[I];
+    AllocaInst *ai = SpillAllocas[NextSpillPointerIdx++];
 
     for (auto &BB : F) {
       if(!SpillKills[&BB][Idx]) continue;
@@ -424,6 +429,30 @@ bool WasmPointersSpill::run(Function &F) {
       }
       Builder.CreateCall(LifetimeEndFn, {ai});
     }
+  }
+
+  // then insert `lifetime.start` and store,
+  // skipping after any `lifetime.end`
+  NextSpillPointerIdx = 0;
+  for (Instruction *I : SpillPointers) {
+    AllocaInst *ai = SpillAllocas[NextSpillPointerIdx++];
+
+    BasicBlock::iterator After;
+    {
+      std::optional<BasicBlock::iterator> MaybeAfter = I->getInsertionPointAfterDef();
+      assert(MaybeAfter.has_value() && "Cannot spill value as it has no valid insertion point after it.");
+      After = *MaybeAfter;
+    }
+
+    while (auto *Intrinsic = dyn_cast<IntrinsicInst>(&*After)) {
+      if (Intrinsic->getIntrinsicID() != Intrinsic::lifetime_end) break;
+      After = std::next(After);
+    }
+
+
+    Builder.SetInsertPoint(After);
+    Builder.CreateCall(LifetimeStartFn, {ai});
+    Builder.CreateStore(I, ai, true);
   }
 
   return Changed;
