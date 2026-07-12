@@ -332,31 +332,33 @@ bool WasmPointersSpill::run(Function &F) {
   auto &entryBB = F.getEntryBlock();
   auto allocaPoint = entryBB.getFirstInsertionPt();
 
+  auto &DL = F.getParent()->getDataLayout();
+
 #if LLVM_VERSION_MAJOR >= 20
   Function *LifetimeStartFn =
     Intrinsic::getOrInsertDeclaration(
       F.getParent(),
       Intrinsic::lifetime_start,
-      {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
+      {DL.getAllocaPtrType(F.getContext())}
     );
   Function *LifetimeEndFn =
     Intrinsic::getOrInsertDeclaration(
       F.getParent(),
       Intrinsic::lifetime_end,
-      {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
+      {DL.getAllocaPtrType(F.getContext())}
   );
 #elif LLVM_VERSION_MAJOR >= 19
   Function *LifetimeStartFn =
     Intrinsic::getDeclaration(
       F.getParent(),
       Intrinsic::lifetime_start,
-      {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
+      {DL.getAllocaPtrType(F.getContext())}
     );
   Function *LifetimeEndFn =
     Intrinsic::getDeclaration(
       F.getParent(),
       Intrinsic::lifetime_end,
-      {F.getParent()->getDataLayout().getAllocaPtrType(F.getContext())}
+      {DL.getAllocaPtrType(F.getContext())}
   );
 #else
   Function *LifetimeStartFn =
@@ -376,9 +378,15 @@ bool WasmPointersSpill::run(Function &F) {
 
   SmallVector<Instruction *> SpillPointers;
   SmallVector<AllocaInst *> SpillAllocas;
+#if LLVM_VERSION_MAJOR < 22
+  SmallVector<ConstantInt *> SpillSizes;
+#endif
 
   Builder.SetInsertPoint(allocaPoint);
 
+#if LLVM_VERSION_MAJOR < 22
+  IntegerType *I64Type = IntegerType::get(F.getContext(), 64);
+#endif
   for (Instruction *I : PotentialPointers) {
     unsigned Idx = InstIdx[I];
     if (!NeedsSpill[Idx]) continue;
@@ -390,6 +398,10 @@ bool WasmPointersSpill::run(Function &F) {
       "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg")
     ));
     SpillPointers.push_back(I);
+
+#if LLVM_VERSION_MAJOR < 22
+    SpillSizes.push_back(ConstantInt::get(I64Type, DL.getTypeAllocSize(I->getType())));
+#endif
   }
 
   unsigned NextSpillPointerIdx = 0;
@@ -397,6 +409,9 @@ bool WasmPointersSpill::run(Function &F) {
   // do `lifetime.end` first
   for (Instruction *I : SpillPointers) {
     unsigned Idx = InstIdx[I];
+#if LLVM_VERSION_MAJOR < 22
+    ConstantInt *size = SpillSizes[NextSpillPointerIdx];
+#endif
     AllocaInst *ai = SpillAllocas[NextSpillPointerIdx++];
 
     for (auto &BB : F) {
@@ -427,7 +442,14 @@ bool WasmPointersSpill::run(Function &F) {
       } else {
         Builder.SetInsertPoint(&BB.front());
       }
-      Builder.CreateCall(LifetimeEndFn, {ai});
+      Builder.CreateCall(
+        LifetimeEndFn,
+#if LLVM_VERSION_MAJOR >= 22
+        {ai},
+#else
+        {size, ai}
+#endif
+      );
     }
   }
 
@@ -435,6 +457,9 @@ bool WasmPointersSpill::run(Function &F) {
   // skipping after any `lifetime.end`
   NextSpillPointerIdx = 0;
   for (Instruction *I : SpillPointers) {
+#if LLVM_VERSION_MAJOR < 22
+    ConstantInt *size = SpillSizes[NextSpillPointerIdx];
+#endif
     AllocaInst *ai = SpillAllocas[NextSpillPointerIdx++];
 
     BasicBlock::iterator After;
@@ -451,7 +476,14 @@ bool WasmPointersSpill::run(Function &F) {
 
 
     Builder.SetInsertPoint(After);
-    Builder.CreateCall(LifetimeStartFn, {ai});
+    Builder.CreateCall(
+      LifetimeStartFn,
+#if LLVM_VERSION_MAJOR >= 22
+      {ai},
+#else
+      {size, ai}
+#endif
+    );
     Builder.CreateStore(I, ai, true);
   }
 
