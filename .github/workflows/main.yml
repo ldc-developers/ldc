@@ -192,8 +192,6 @@ jobs:
               git cmake ninja-is-really-ninja g++ clang ldc lld llvm-dev llvm-static compiler-rt \
               libxml2-static zstd-static zlib-static \
               bash grep diffutils make curl 7zip perl
-            # create missing 7za symlink
-            ln -s 7z /usr/bin/7za
             # make lld the default linker (note: /usr/bin/ld seems unused)
             ln -sf /usr/bin/ld.lld /usr/${{ matrix.arch }}-alpine-linux-musl/bin/ld
             # create ../llvm symlink to distro LLVM (no prebuilt LDC-LLVM for musl)

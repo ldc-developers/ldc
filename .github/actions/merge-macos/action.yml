@@ -89,7 +89,7 @@ runs:
         mv ldc2-universal $artifactName
         chmod -R go=rX $artifactName
         sudo chown -R root:wheel $artifactName
-        tar -cf - $artifactName | 7za a newArtifacts/$artifactName.tar.xz -si -txz -mx9
+        tar -cf - $artifactName | 7z a newArtifacts/$artifactName.tar.xz -si -txz -mx9
 
     - name: Upload universal package
       uses: actions/upload-artifact@v6

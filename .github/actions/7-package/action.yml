@@ -143,7 +143,7 @@ runs:
           elif [[ $os != alpine ]]; then
             sudo chown -R 0:0 $artifactName
           fi
-          tar -cf - $artifactName | 7za a artifacts/$artifactName.tar.xz -si -txz -mx9
+          tar -cf - $artifactName | 7z a artifacts/$artifactName.tar.xz -si -txz -mx9
         fi
 
         # export ARTIFACT_{ID,NAME}
