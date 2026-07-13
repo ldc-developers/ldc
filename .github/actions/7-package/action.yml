@@ -13,7 +13,7 @@ runs:
   steps:
 
     - name: Set DMD environment variable
-      shell: bash
+      shell: bash  # don't run in VM, but host runner (for exporting env vars)
       run: |
         set -eux
         cd ..
@@ -26,7 +26,7 @@ runs:
         echo "DMD=$DMD" >> $GITHUB_ENV
 
     - name: Build & copy dub
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }} ${{ startsWith(env.GHA_BASH_SHELL, 'cpa.sh') && '--environment-variables DMD' || '' }}
       run: |
         set -eux
         cd ..
@@ -42,7 +42,7 @@ runs:
         fi
 
     - name: Build & copy dlang tools
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }} ${{ startsWith(env.GHA_BASH_SHELL, 'cpa.sh') && '--environment-variables DMD' || '' }}
       run: |
         set -eux
         cd ..
@@ -62,7 +62,7 @@ runs:
         cp bin/{rdmd,ddemangle,dustmite} ../installed/bin/
 
     - name: Build & copy reggae
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }} ${{ startsWith(env.GHA_BASH_SHELL, 'cpa.sh') && '--environment-variables DMD' || '' }}
       run: |
         set -eux
         cd ..
@@ -93,7 +93,7 @@ runs:
 
     - name: 'Linux: List executable dependencies'
       if: runner.os == 'Linux'
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -euxo pipefail
         cd ../installed/bin
@@ -103,7 +103,7 @@ runs:
         done
 
     - name: Pack installation dir
-      shell: bash
+      shell: bash  # don't run in VM, but host runner (for exporting env vars)
       run: |
         set -euxo pipefail
         cd ..
@@ -152,7 +152,7 @@ runs:
 
     - name: 'Linux x86_64: Pack source dir'
       if: runner.os == 'Linux' && inputs.os == '' && inputs.arch == 'x86_64'
-      shell: bash
+      shell: bash  # don't run in VM, but host runner
       run: |
         set -eux
         git clean -dffx
@@ -166,7 +166,7 @@ runs:
         zip -r -9 artifacts/$artifactName.zip $artifactName >/dev/null
 
     - name: 'Move artifacts dir for uploading'
-      shell: bash
+      shell: bash  # don't run in VM, but host runner
       run: mv ../artifacts ./
 
     - name: Upload artifact(s)

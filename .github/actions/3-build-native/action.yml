@@ -40,4 +40,4 @@ runs:
         arch: ${{ inputs.arch }}
 
     - run: ../build/bin/ldc2 --version
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}

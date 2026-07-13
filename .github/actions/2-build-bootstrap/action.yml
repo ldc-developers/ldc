@@ -10,7 +10,7 @@ runs:
   steps:
 
     - name: Check CMake and ninja versions
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cmake --version
@@ -28,4 +28,4 @@ runs:
         arch: ${{ inputs.arch }}
 
     - run: ../bootstrap-ldc/bin/ldc2 --version
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}

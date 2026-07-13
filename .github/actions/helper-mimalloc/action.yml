@@ -6,7 +6,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: bash
+    - shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..
