@@ -27,8 +27,10 @@ class FuncDeclaration;
 class DComputeTarget {
 public:
   llvm::LLVMContext &ctx;
-  int tversion; // OpenCL or CUDA CC version:major*100 + minor*10
-  enum class ID { Host = 0, OpenCL = 1, CUDA = 2 };
+  int tversion; // OpenCL / CUDA CC / DirectX SM: major*100 + minor*10
+  // MUST stay in sync with ldc.dcompute.ReflectTarget.
+  // DirectX = 4 leaves 3 free for Vulkan (GSoC / PR) without renumbering.
+  enum class ID { Host = 0, OpenCL = 1, CUDA = 2, Vulkan = 3, DirectX = 4 };
   ID target;    // ID for codegen time conditional compilation.
   const char *short_name;
   const char *binSuffix;
@@ -66,4 +68,8 @@ DComputeTarget *createCUDATarget(llvm::LLVMContext &c, int sm);
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
 DComputeTarget *createOCLTarget(llvm::LLVMContext &c, int oclver);
+#endif
+
+#if LDC_LLVM_SUPPORTED_TARGET_DirectX
+DComputeTarget *createDirectXTarget(llvm::LLVMContext &c, int smVersion);
 #endif

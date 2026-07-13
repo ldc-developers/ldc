@@ -7,7 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX ||       \
+    LDC_LLVM_SUPPORTED_TARGET_DirectX
 
 #include "dmd/dsymbol.h"
 #include "dmd/errors.h"

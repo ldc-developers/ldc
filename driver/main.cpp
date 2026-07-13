@@ -970,7 +970,8 @@ void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
 
-#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX ||       \
+    LDC_LLVM_SUPPORTED_TARGET_DirectX || LDC_LLVM_SUPPORTED_TARGET_AArch64
   for(auto& dcomputeTarget: dcomputeTargets) {
     auto targetInfo = llvm::StringRef(dcomputeTarget);
     
@@ -984,6 +985,10 @@ void registerPredefinedVersions() {
 
     if (targetInfo.starts_with("metal")) {
       VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_Metal");
+    }
+
+    if (targetInfo.starts_with("directx")) {
+      VersionCondition::addPredefinedGlobalIdent("LDC_DCompute_DirectX");
     }
   }
 

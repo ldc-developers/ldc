@@ -10,10 +10,12 @@ module ldc.dcompute;
 
 enum ReflectTarget : uint
 {
-    // These numbers MUST match DcomputeTarget::target in LDC.
+    // These numbers MUST match DComputeTarget::ID in LDC gen/dcompute/target.h.
     Host = 0,
     OpenCL = 1,
     CUDA = 2,
+    Vulkan = 3,   // reserved (GSoC / upstream PR); not required for DirectX
+    DirectX = 4,
 }
 /**
  * The pseudo conditional compilation function.
@@ -42,8 +44,8 @@ enum CompileFor : int
 
 /++
 + When applied to a module, specifies that the module should be compiled for
-+ dcompute (-mdcompute-targets=<...>) using the NVPTX and/or SPIRV backends of
-+ LLVM.
++ dcompute (-mdcompute-targets=<...>) using the NVPTX, SPIRV, and/or DirectX
++ backends of LLVM.
 +
 + Examples:
 + ---

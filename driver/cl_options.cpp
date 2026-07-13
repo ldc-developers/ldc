@@ -751,12 +751,14 @@ cl::opt<unsigned>
                    cl::desc("Warn for stack size bigger than the given number"),
                    cl::value_desc("threshold"));
 
-#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX ||       \
+    LDC_LLVM_SUPPORTED_TARGET_DirectX
 cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
                     cl::desc("Generates code for the specified DCompute target"
-                             " list. Use 'ocl-xy0' for OpenCL x.y, and "
-                             "'cuda-xy0' for CUDA CC x.y"),
+                             " list. Use 'ocl-xy0' for OpenCL x.y, "
+                             "'cuda-xy0' for CUDA CC x.y, and "
+                             "'directx-xy0' for DirectX Shader Model x.y"),
                      cl::value_desc("targets"));
 cl::opt<std::string>
     dcomputeFilePrefix("mdcompute-file-prefix",

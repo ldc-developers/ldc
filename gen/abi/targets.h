@@ -31,6 +31,8 @@ TargetABI *getRISCV64TargetABI();
 
 TargetABI *createSPIRVABI();
 
+TargetABI *createDirectXABI();
+
 TargetABI *getWin64TargetABI();
 
 TargetABI *getX86_64TargetABI();
