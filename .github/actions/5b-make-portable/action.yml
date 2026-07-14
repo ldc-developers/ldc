@@ -4,7 +4,7 @@ runs:
   steps:
 
     - name: Make portable
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..
@@ -18,5 +18,5 @@ runs:
         cat "${confs[@]}"
 
     - name: Rename the installation dir to test portability
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: mv ../install ../installed

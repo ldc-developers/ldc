@@ -23,7 +23,7 @@ runs:
   steps:
 
     - if: runner.os != 'Windows'
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..

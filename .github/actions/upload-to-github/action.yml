@@ -25,34 +25,12 @@ runs:
         echo "GITHUB_RELEASE_TAG=$tag" >> $GITHUB_ENV
         echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
 
-    - name: Download existing artifacts from GitHub release
-      # only enabled for the upstream repo by default - (probably) needs an existing release
-      if: github.repository == 'ldc-developers/ldc'
-      # fetch-gh-release-asset errors if there are no existing artifacts (from Cirrus). Allow the error
-      # for CI builds, because Cirrus sometimes exceeds monthly limit (and thus no artifacts).
-      continue-on-error: ${{ env.GITHUB_RELEASE_TAG == 'CI' }}
-      uses: dsaltares/fetch-gh-release-asset@1.1.2
-      with:
-        version: tags/${{ env.GITHUB_RELEASE_TAG }}
-        regex: true
-        # only those with matching ARTIFACT_ID
-        file: ^ldc2-${{ env.ARTIFACT_ID }}-
-        target: existing-artifacts/
-
-    - name: Merge existing artifacts & compute hashes
+    - name: Compute hashes
       shell: bash
       run: |
         set -eux
 
         cd artifacts
-
-        # Extend by existing release artifacts *missing* from GitHub workflow,
-        # e.g., artifacts published by Cirrus CI etc.
-        # (They will be re-uploaded in the next step.)
-        if [[ -d ../existing-artifacts ]]; then
-          mv -n ../existing-artifacts/*.* ./
-        fi
-
         ls -lh
         sha256sum * > "ldc2-$ARTIFACT_ID.sha256sums.txt"
 
