@@ -72,3 +72,16 @@ struct MemberWithCtor
     CtorOnly m;
 };
 Foo(MemberWithCtor);
+
+struct PrivateField
+{
+private:
+    int a;
+
+    // just to be able to access and construct it in the C++ function
+    // (the MSVC++ special case of private fields breaking PODness
+    // doesn't require a constructor):
+    PrivateField(int a) : a(a) {}
+    friend PrivateField fooCpp(PrivateField param);
+};
+Foo(PrivateField);
