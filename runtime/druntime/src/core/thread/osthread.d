@@ -1688,7 +1688,7 @@ in (fn)
             }}
             asm pure nothrow @nogc {
                 ("sd $gp, %0") : "=m" (regs[8]);
-                ("sd $fp, %0") : "=m" (regs[9]); 
+                ("sd $fp, %0") : "=m" (regs[9]);
                 ("sd $ra, %0") : "=m" (sp);
             }
         }
@@ -1847,8 +1847,8 @@ version (LDC)
         {
             import ldc.intrinsics;
 
-            static if (LLVM_atleast!22) return llvm_stackaddress();
-            else static if (LLVM_atleast!18) return llvm_stacksave();
+            static if (LLVM_major >= 22) return llvm_stackaddress();
+            else static if (LLVM_major >= 18) return llvm_stacksave();
             else {
                 // Inline assembly to workaround issue solved by
                 // https://github.com/llvm/llvm-project/pull/68133
