@@ -1846,7 +1846,24 @@ version (LDC)
         private extern(D) void* getStackTop() nothrow @nogc
         {
             import ldc.intrinsics;
-            return llvm_stackaddress();
+
+            static if (LLVM_atleast!22) return llvm_stackaddress();
+            else static if (LLVM_atleast!18) return llvm_stacksave();
+            else {
+                // Inline assembly to workaround issue solved by
+                // https://github.com/llvm/llvm-project/pull/68133
+                //
+                // Which wasn't merged/fixed until LLVM 18
+
+                import ldc.llvmasm;
+
+                enum string isize = size_t.sizeof == 8 ? "i64" : "i32";
+                return __asm!(void*)(`
+                    .globaltype __stack_pointer, `~isize~`
+                    global.get __stack_pointer
+                    local.set $0
+                `, "=r");
+            }
         }
     }
     else
