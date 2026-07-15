@@ -63,14 +63,14 @@ pragma(LDC_intrinsic, "llvm.stackaddress.p0")
 /// function stack, for use with llvm.stackrestore. This is useful for
 /// implementing language features like scoped automatic variable sized arrays
 /// in C99.
-pragma(LDC_intrinsic, "llvm.stacksave")
+pragma(LDC_intrinsic, "llvm.stacksave.p0")
     void* llvm_stacksave();
 
 /// The 'llvm.stackrestore' intrinsic is used to restore the state of the
 /// function stack to the state it was in when the corresponding llvm.stacksave
 /// intrinsic executed. This is useful for implementing language features like
 /// scoped automatic variable sized arrays in C99.
-pragma(LDC_intrinsic, "llvm.stackrestore")
+pragma(LDC_intrinsic, "llvm.stackrestore.p0")
     void llvm_stackrestore(void* ptr);
 
 /// The 'llvm.prefetch' intrinsic is a hint to the code generator to insert a
