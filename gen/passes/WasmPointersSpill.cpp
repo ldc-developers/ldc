@@ -428,7 +428,7 @@ bool WasmPointersSpill::run(Function &F) {
           }
         }
       } else {
-        Builder.SetInsertPoint(&BB.front());
+        Builder.SetInsertPoint(BB.getFirstInsertionPt());
       }
       Builder.CreateCall(
         LifetimeEndFn,
