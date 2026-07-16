@@ -669,12 +669,6 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::ppc64le:
     VersionCondition::addPredefinedGlobalIdent("PPC64");
     registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
-    if (triple.getOS() == llvm::Triple::Linux) {
-      const llvm::SmallVector<llvm::StringRef> features{};
-      const std::string abi = getABI(triple, features);
-      VersionCondition::addPredefinedGlobalIdent(abi == "elfv1" ? "ELFv1"
-                                                                : "ELFv2");
-    }
     break;
   case llvm::Triple::arm:
   case llvm::Triple::armeb:
@@ -767,6 +761,18 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("LittleEndian");
   } else {
     VersionCondition::addPredefinedGlobalIdent("BigEndian");
+  }
+
+  // ELFv1/ELFv2
+  if (triple.isOSBinFormatELF()) {
+    if (arch == llvm::Triple::ppc64 || arch == llvm::Triple::ppc64le) {
+      const llvm::SmallVector<llvm::StringRef> features{};
+      const std::string abi = getABI(triple, features);
+      VersionCondition::addPredefinedGlobalIdent(abi == "elfv1" ? "ELFv1"
+                                                                : "ELFv2");
+    } else {
+      VersionCondition::addPredefinedGlobalIdent("ELFv1");
+    }
   }
 
   // Set versions for arch bitwidth
@@ -1035,6 +1041,10 @@ void registerPredefinedVersions() {
       VersionCondition::addPredefinedGlobalIdent("D_TypeInfo");
   }
 
+  if (global.params.trace) {
+    VersionCondition::addPredefinedGlobalIdent("D_Profile");
+  }
+
   if (global.params.tracegc) {
     VersionCondition::addPredefinedGlobalIdent("D_ProfileGC");
   }
@@ -1227,6 +1237,13 @@ int cppmain() {
   } else {
     global.params.dllexport = false;
     global.params.dllimport = DLLImport::none;
+  }
+
+  if (triple->isWindowsMSVCEnvironment() &&
+      opts::fOptimizeNothrow.getNumOccurrences() == 0) {
+    // FIXME: make https://github.com/ldc-developers/ldc/issues/3504 much less
+    //        likely for now
+    global.params.nothrowOptimizations = true;
   }
 
   global.preprocess = &runCPreprocessor;

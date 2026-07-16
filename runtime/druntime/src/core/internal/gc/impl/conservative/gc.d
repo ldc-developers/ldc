@@ -106,7 +106,7 @@ private
     }
 }
 
-alias GC gc_t;
+alias gc_t = GC;
 
 /* ============================ GC =============================== */
 
@@ -1337,7 +1337,7 @@ class ConservativeGC : GC
         // when collecting.
         static size_t go(Gcx* gcx) nothrow
         {
-            return gcx.fullcollect(false, true); // standard stop the world
+            return gcx.fullcollect(true, false); // standard stop the world
         }
         immutable result = runLocked!go(gcx);
 
@@ -2114,10 +2114,25 @@ struct Gcx
      */
     void updateCollectThresholds() nothrow
     {
-        static float max(float a, float b) nothrow
-        {
-            return a >= b ? a : b;
-        }
+        import core.internal.util.math : min, max;
+
+        // Reserve half of the remaining heap budget to small and large heaps.
+        immutable maxPageUsed = config.heapSizeLimit / PAGESIZE;
+        immutable usedPages = usedSmallPages + usedLargePages;
+        immutable heapBudget = maxPageUsed > usedPages
+            ? maxPageUsed - usedPages
+            : 0;
+
+        immutable smTargetHeap = usedSmallPages + heapBudget / 2;
+        immutable lgTargetHeap = usedLargePages + heapBudget / 2;
+
+        // Compute the target sizes based on the growth factor.
+        immutable smTargetGrowth = usedSmallPages * config.heapSizeFactor;
+        immutable lgTargetGrowth = usedLargePages * config.heapSizeFactor;
+
+        // Collect when either is reached.
+        immutable smTarget = min(smTargetHeap, smTargetGrowth);
+        immutable lgTarget = min(lgTargetHeap, lgTargetGrowth);
 
         // instantly increases, slowly decreases
         static float smoothDecay(float oldVal, float newVal) nothrow
@@ -2129,9 +2144,7 @@ struct Gcx
             return max(newVal, decay);
         }
 
-        immutable smTarget = usedSmallPages * config.heapSizeFactor;
         smallCollectThreshold = smoothDecay(smallCollectThreshold, smTarget);
-        immutable lgTarget = usedLargePages * config.heapSizeFactor;
         largeCollectThreshold = smoothDecay(largeCollectThreshold, lgTarget);
     }
 
@@ -2196,7 +2209,7 @@ struct Gcx
                 if (!newPool(1, false))
                 {
                     // out of memory => try to free some memory
-                    fullcollect(false, true); // stop the world
+                    fullcollect(true, false); // stop the world
                     if (lowMem)
                         minimize();
                     recoverNextPage(bin);
@@ -2204,7 +2217,7 @@ struct Gcx
             }
             else if (usedSmallPages > 0)
             {
-                fullcollect();
+                fullcollect(false, false);
                 if (lowMem)
                     minimize();
                 recoverNextPage(bin);
@@ -2287,13 +2300,13 @@ struct Gcx
                 {
                     // disabled but out of memory => try to free some memory
                     minimizeAfterNextCollection = true;
-                    fullcollect(false, true);
+                    fullcollect(true, false);
                 }
             }
             else if (usedLargePages > 0)
             {
                 minimizeAfterNextCollection = true;
-                fullcollect();
+                fullcollect(false, false);
             }
             // If alloc didn't yet succeed retry now that we collected/minimized
             if (!pool && !tryAlloc() && !tryAllocNewPool())
@@ -3256,7 +3269,7 @@ struct Gcx
      * Return number of full pages free'd.
      * The collection is done concurrently only if block and isFinal are false.
      */
-    size_t fullcollect(bool block = false, bool isFinal = false) nothrow
+    size_t fullcollect(bool block, bool isFinal) nothrow
     {
         // It is possible that `fullcollect` will be called from a thread which
         // is not yet registered in runtime (because allocating `new Thread` is
@@ -3529,8 +3542,8 @@ Lmark:
                         cstdlib.free(Gcx.instance.scanThreadData);
                         Gcx.instance.numScanThreads = 0;
                         Gcx.instance.scanThreadData = null;
-                        Gcx.instance.busyThreads = 0;
-                        Gcx.instance.stackLock = shared(AlignedSpinLock)(SpinLock.Contention.brief);
+                        atomicStore(Gcx.instance.busyThreads, 0);
+                        (cast() Gcx.instance.stackLock) = AlignedSpinLock(SpinLock.Contention.brief);
 
                         memset(&Gcx.instance.evStackFilled, 0, Gcx.instance.evStackFilled.sizeof);
                         memset(&Gcx.instance.evDone, 0, Gcx.instance.evDone.sizeof);
@@ -3611,6 +3624,8 @@ Lmark:
             pullLoop!(true)();
         else
             pullLoop!(false)();
+
+        evStackFilled.reset(); // symmetric with setIfInitialized() above; avoids livelock when no pop ever happened
 
         debug(PARALLEL_PRINTF) printf("waitForScanDone done\n");
     }

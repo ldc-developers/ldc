@@ -182,7 +182,7 @@ DRValue *DBitFieldLValue::getRVal() {
   LLValue *v = gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(1));
   // TODO: byte-swap v for big-endian targets?
 
-  if (bf->type->isUnsigned()) {
+  if (dmd::isUnsigned(bf->type)) {
     if (auto n = bf->bitOffset)
       v = gIR->ir->CreateLShr(v, n);
     const auto mask = llvm::APInt::getLowBitsSet(sizeInBits, bf->fieldWidth);

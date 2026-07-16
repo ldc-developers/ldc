@@ -215,24 +215,23 @@ public:
         DLValue returnValue(rt, sretPointer);
 
         // try to construct the return value in-place
-        const bool constructed = toInPlaceConstruction(&returnValue, stmt->exp);
+        bool constructed = toInPlaceConstruction(&returnValue, stmt->exp);
         if (!constructed) {
-          DValue *e = toElem(stmt->exp);
+          DValue *dval = toElem(stmt->exp);
 
-          // store the return value unless NRVO already used the sret pointer
-          if (!e->isLVal() || DtoLVal(e) != sretPointer) {
-            // call postblit if the expression is a D lvalue
-            // exceptions: NRVO and special __result variable (out contracts)
-            bool doPostblit = !(fd->isNRVO() && fd->nrvo_var);
-            if (doPostblit) {
-              if (auto ve = stmt->exp->isVarExp())
-                if (ve->var->isResult())
-                  doPostblit = false;
-            }
+          // if the return expression comma-ends with the NRVO or __result var,
+          // the return value was already constructed in-place too
+          Expression *tail = stmt->exp;
+          if (auto ce = tail->isCommaExp())
+            tail = ce->getTail();
+          if (auto ve = tail->isVarExp())
+            if (auto vd = ve->var->isVarDeclaration())
+              if (vd->isResult() || (fd->isNRVO() && fd->nrvo_var == vd))
+                constructed = true;
 
-            DtoAssign(stmt->loc, &returnValue, e, EXP::blit);
-            if (doPostblit)
-              callPostblit(stmt->loc, stmt->exp, sretPointer);
+          // else store it to the caller-allocated memory
+          if (!constructed) {
+            DtoAssign(stmt->loc, &returnValue, dval, EXP::blit);
           }
         }
       } else {
@@ -240,17 +239,9 @@ public:
         if (stmt->exp->op == EXP::null_) {
           stmt->exp->type = rt;
         }
-        DValue *dval = nullptr;
-        // call postblit if necessary
-        if (!f->type->isRef()) {
-          dval = toElem(stmt->exp);
-          LLValue *vthis =
-              (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval) : DtoRVal(dval));
-          callPostblit(stmt->loc, stmt->exp, vthis);
-        } else {
-          Expression *ae = stmt->exp;
-          dval = toElem(ae);
-        }
+
+        DValue *dval = toElem(stmt->exp);
+
         // do abi specific transformations on the return value
         returnValue = getIrFunc(fd)->irFty.putRet(dval);
 
@@ -360,8 +351,8 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   bool dcomputeReflectMatches(CallExp *ce) {
-    auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
-    auto arg2 = (*ce->arguments)[1]->toInteger();
+    auto arg1 = (DComputeTarget::ID)toInteger((*ce->arguments)[0]);
+    auto arg2 = toInteger((*ce->arguments)[1]);
     auto dct = irs->dcomputetarget;
     if (!dct) {
       return arg1 == DComputeTarget::ID::Host;
@@ -1444,13 +1435,13 @@ public:
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
     // evaluate lwr/upr
-    assert(stmt->lwr->type->isIntegral());
+    assert(isIntegral(stmt->lwr->type));
     LLValue *lower = DtoRVal(toElemDtor(stmt->lwr));
-    assert(stmt->upr->type->isIntegral());
+    assert(isIntegral(stmt->upr->type));
     LLValue *upper = DtoRVal(toElemDtor(stmt->upr));
 
     // handle key
-    assert(stmt->key->type->isIntegral());
+    assert(isIntegral(stmt->key->type));
     LLValue *keyval  = DtoRawVarDeclaration(stmt->key);
     LLType  *keytype = DtoType(stmt->key->type);
     // store initial value in key

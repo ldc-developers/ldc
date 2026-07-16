@@ -3,9 +3,8 @@
 
 // LDC: MS linker apparently doesn't (properly?) support Unicode in
 //      `/INCLUDE:symbol` linker directives embedded in object files
-//      (introduced in LLVM 7 for llvm.used symbols).
-//      LLD works (-link-internally).
-// DISABLED: win
+//     (for llvm.used symbols). LLD works (-link-internally).
+// REQUIRED_ARGS(windows): -link-internally
 
 // $HeadURL$
 // $Date$

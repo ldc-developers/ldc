@@ -76,6 +76,18 @@ void _d_arrayshrinkfit(Tarr: T[], T)(Tarr arr, bool isshared) @trusted
     gc_shrinkArrayUsed(arr[0 .. reqlen], curlen * T.sizeof, isshared);
 }
 
+size_t _d_arraygetcapacity(size_t size, void[]* p, bool isshared) pure nothrow @trusted
+in
+{
+    assert(!(*p).length || (*p).ptr);
+}
+do
+{
+    auto datasize = (*p).length * size;
+    auto curCapacity = gc_reserveArrayCapacity((*p).ptr[0 .. datasize], 0, isshared);
+    return curCapacity / size;
+}
+
 /**
 Set the array capacity.
 
@@ -225,7 +237,16 @@ size_t _d_arraysetlengthT(Tarr : T[], T)(return ref scope Tarr arr, size_t newle
     // Call the implementation with the unqualified array and sharedness flag
     size_t result = _d_arraysetlengthT_(unqual_arr, newlength, isShared);
 
-    arr = cast(Tarr) unqual_arr;
+    static if (isShared)
+    {
+        // This low-level primitive mutates the caller's shared slice header, so
+        // the caller must already provide whatever synchronization makes that
+        // header update valid; the cast only preserves that existing contract
+        // under `-preview=nosharedaccess`.
+        *cast(UnqT[]*) &arr = unqual_arr;
+    }
+    else
+        arr = cast(Tarr) unqual_arr;
     // Return the result
     return result;
 }
@@ -279,7 +300,10 @@ private size_t _d_arraysetlengthT_(Tarr : T[], T)(return ref scope Tarr arr, siz
     if (!arr.ptr)
     {
         assert(arr.length == 0);
-        void* ptr = GC.malloc(newsize, gcAttrs);
+        version (D_TypeInfo)
+            void* ptr = GC.malloc(newsize, gcAttrs, typeid(T));
+        else
+            void* ptr = GC.malloc(newsize, gcAttrs, null);
         if (!ptr)
         {
             onOutOfMemoryError();
@@ -315,7 +339,10 @@ private size_t _d_arraysetlengthT_(Tarr : T[], T)(return ref scope Tarr arr, siz
 
     if (!gc_expandArrayUsed(newdata[0 .. oldsize], newsize, isShared))
     {
-        newdata = GC.malloc(newsize, gcAttrs);
+        version (D_TypeInfo)
+            newdata = GC.malloc(newsize, gcAttrs, typeid(T));
+        else
+            newdata = GC.malloc(newsize, gcAttrs, null);
         if (!newdata)
         {
             onOutOfMemoryError();
@@ -395,6 +422,8 @@ version (D_ProfileGC)
     shared S[] arr2;
     _d_arraysetlengthT!(typeof(arr2))(arr2, 16);
     assert(arr2.length == 16);
-    foreach (s; arr2)
+    // The resized slice has not been published yet, so the test may inspect
+    // the backing storage directly to verify initialization.
+    foreach (s; (() @trusted => *cast(S[]*) &arr2)())
         assert(s == S.init);
 }

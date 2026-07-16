@@ -1,7 +1,7 @@
 /**
  * 80-bit floating point value implementation if the C/D compiler does not support them natively.
  *
- * Copyright (C) 1999-2025 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2026 by The D Language Foundation, All Rights Reserved
  * All Rights Reserved, written by Rainer Schuetze
  * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -22,6 +22,8 @@ else version (CRuntime_Microsoft)
     static if (real.sizeof > 8)
         alias longdouble = real;
     else
+        // Need to fix longdouble_soft so it works for compiler built with AArch64 but
+        // generating X86_64 code
         alias longdouble = longdouble_soft;
 }
 else
@@ -39,6 +41,7 @@ version(D_InlineAsm_X86_64)
 else version(D_InlineAsm_X86)
     version = AsmX86;
 else
+    // yes, AArch64 host needs to emulate 80 bit real to cross compile for X86_64
     static assert(false, "longdouble_soft not supported on this platform");
 
 bool initFPU()
@@ -577,6 +580,7 @@ int ld_cmp(longdouble_soft x, longdouble_soft y)
             mov     res, EAX;
         }
     }
+    return res;
 }
 
 

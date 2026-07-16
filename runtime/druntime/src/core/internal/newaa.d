@@ -113,8 +113,9 @@ static struct Entry(K, V)
 // backward compatibility conversions
 private ref compat_key(K, K2)(ref K2 key)
 {
-    pragma(inline, true);
-    static if (is(K2 == const(char)[]) && is(K == string))
+    static if(!(is(K2 == struct) && __traits(isNested, K2)))
+        pragma(inline, true);
+    static if (is(Unconstify!K2 == const(char)[]) && is(K == string))
         return (ref (ref return K2 k2) @trusted => *cast(string*)&k2)(key);
     else
         return key;
@@ -180,7 +181,8 @@ Entry!(K, V)* _newEntry(K, V, K2)(ref K2 key)
 
 template pure_hashOf(K)
 {
-    static if (__traits(compiles, function hash_t(scope const ref K key) pure nothrow @nogc @trusted { return hashOf(cast()key); }))
+    static if (!(is(K == struct) && __traits(isNested, K)) &&
+               __traits(compiles, function hash_t(scope const ref K key) pure nothrow @nogc @trusted { return hashOf(cast()key); }))
     {
         // avoid wrapper call in debug builds if pure nothrow @nogc is inferred
         pragma(inline, true)
@@ -198,7 +200,9 @@ template pure_hashOf(K)
 // this also breaks cyclic inference on recursive data types
 template pure_keyEqual(K1, K2 = K1)
 {
-    static if (__traits(compiles, function bool(ref const K1 k1, ref const K2 k2) pure nothrow @nogc @trusted { return cast()k1 == cast()k2; }))
+    static if (!(is(K1 == struct) && __traits(isNested, K1)) &&
+               !(is(K2 == struct) && __traits(isNested, K2)) &&
+               __traits(compiles, function bool(ref const K1 k1, ref const K2 k2) pure nothrow @nogc @trusted { return cast()k1 == cast()k2; }))
     {
         // avoid wrapper call in debug builds if pure nothrow @nogc is inferred
         pragma(inline, true)
@@ -645,12 +649,6 @@ auto _d_aaIn(T : V[K], K, V, K2)(shared T a, auto ref scope K2 key)
     // accept shared for backward compatibility, should be deprecated
     return _d_aaIn(cast(V[K]) a, key);
 }
-/// ditto
-auto _d_aaIn(T : V[K], K, V, K2)(const shared T a, auto ref scope K2 key)
-{
-    // accept shared for backward compatibility, should be deprecated
-    return _d_aaIn(cast(V[K]) a, key);
-}
 
 // fake purity for backward compatibility with runtime hooks
 private extern(C) bool gc_inFinalizer() pure nothrow @safe;
@@ -894,12 +892,18 @@ bool _aaEqual(T : AA!(K, V), K, V)(scope T aa1, scope T aa2)
     return true;
 }
 
-/// compares 2 AAs for equality (compiler hook)
-bool _d_aaEqual(K, V)(scope const V[K] a1, scope const V[K] a2)
+private bool impl_aaEqual(K, V)(scope const V[K] a1, scope const V[K] a2) @trusted
 {
     scope aa1 = _toAA!(K, V)(a1);
     scope aa2 = _toAA!(K, V)(a2);
     return _aaEqual(aa1, aa2);
+}
+
+/// compares 2 AAs for equality (compiler hook)
+bool _d_aaEqual(K, V)(scope const V[K] a1, scope const V[K] a2) pure @nogc @safe nothrow
+{
+    enum pure_aaEqual(K, V) = cast(bool function(scope const V[K] a1, scope const V[K] a2) pure @nogc @safe nothrow) &impl_aaEqual!(K, V);
+    return pure_aaEqual!(K, V)(a1, a2);
 }
 
 /// callback from TypeInfo_AssociativeArray.equals (ignore const for now)

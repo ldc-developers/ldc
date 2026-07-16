@@ -373,13 +373,22 @@ int btc(size_t* p, size_t bitnum) pure @system
         if (!__ctfe)
             return __btc(p, bitnum);
     }
-    else
-    {
-        pragma(inline, false);  // such that DMD intrinsic detection will work
-    }
-    return softBtx!"^"(p, bitnum);
-}
 
+    static if (size_t.sizeof == 8)
+    {
+        int result = ((p[bitnum >> 6] & (1L << (bitnum & 63)))) != 0;
+        p[bitnum >> 6] ^= (1L << (bitnum & 63));
+        return result;
+    }
+    else static if (size_t.sizeof == 4)
+    {
+        int result = ((p[bitnum >> 5] & (1L << (bitnum & 31)))) != 0;
+        p[bitnum >> 5] ^= (1L << (bitnum & 31));
+        return result;
+    }
+    else
+        static assert(0);
+}
 
 /**
  * Tests and resets (sets to 0) the bit.
@@ -392,11 +401,21 @@ int btr(size_t* p, size_t bitnum) pure @system
         if (!__ctfe)
             return __btr(p, bitnum);
     }
-    else
+
+    static if (size_t.sizeof == 8)
     {
-        pragma(inline, false);  // such that DMD intrinsic detection will work
+        int result = ((p[bitnum >> 6] & (1L << (bitnum & 63)))) != 0;
+        p[bitnum >> 6] &= ~(1L << (bitnum & 63));
+        return result;
     }
-    return softBtx!"& ~"(p, bitnum);
+    else static if (size_t.sizeof == 4)
+    {
+        int result = ((p[bitnum >> 5] & (1L << (bitnum & 31)))) != 0;
+        p[bitnum >> 5] &= ~(1L << (bitnum & 31));
+        return result;
+    }
+    else
+        static assert(0);
 }
 
 
@@ -421,11 +440,21 @@ int bts(size_t* p, size_t bitnum) pure @system
         if (!__ctfe)
             return __bts(p, bitnum);
     }
-    else
+
+    static if (size_t.sizeof == 8)
     {
-        pragma(inline, false);  // such that DMD intrinsic detection will work
+        int result = ((p[bitnum >> 6] & (1L << (bitnum & 63)))) != 0;
+        p[bitnum >> 6] |= (1L << (bitnum & 63));
+        return result;
     }
-    return softBtx!"|"(p, bitnum);
+    else static if (size_t.sizeof == 4)
+    {
+        int result = ((p[bitnum >> 5] & (1L << (bitnum & 31)))) != 0;
+        p[bitnum >> 5] |= (1L << (bitnum & 31));
+        return result;
+    }
+    else
+        static assert(0);
 }
 
 ///

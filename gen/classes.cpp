@@ -252,7 +252,7 @@ DValue *DtoCastClass(Loc loc, DValue *val, Type *_to) {
     return new DImValue(_to, gIR->ir->CreateICmpNE(llval, zero));
   }
   // class -> integer
-  if (to->isIntegral()) {
+  if (dmd::isIntegral(to)) {
     IF_LOG Logger::println("to %s", to->toChars());
 
     // get class ptr

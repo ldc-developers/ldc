@@ -1,7 +1,7 @@
 /**
  * Defines enums common to dmd and dmd as parse library.
  *
- * Copyright:   Copyright (C) 1999-2025 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2026 by The D Language Foundation, All Rights Reserved
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/compiler/src/dmd/astenums.d, _astenums.d)
  * Documentation:  https://dlang.org/phobos/dmd_astenums.html
@@ -150,7 +150,7 @@ enum STC : ulong  // transfer changes to declaration.h
 alias StorageClass = ulong;
 
 /********
- * Determine if it's the ambigous case of where `return` attaches to.
+ * Determine if it's the ambiguous case of where `return` attaches to.
  * Params:
  *   stc = STC flags
  * Returns:
@@ -496,6 +496,21 @@ extern (C++) struct structalign_t
     void setPack()         { flags |= PACK; }
     bool fromAlignas() const { return !!(flags & ALIGNAS); }
     void setAlignas()      { flags |= ALIGNAS; }
+
+    version (IN_LLVM) version (CRuntime_Microsoft)
+    {
+        /* Make sure the D host compiler treats this struct as a non-POD for
+         * MSVC++, exploiting the MSVC++ special case that any constructor makes
+         * a struct a non-POD.
+         * The *private* fields in the C++ header apparently make it a non-POD
+         * too, but LDC host compilers don't handle that special case yet.
+         */
+        this(ushort value, ubyte flags = 0)
+        {
+            this.value = value;
+            this.flags = flags;
+        }
+    }
 }
 
 /// Use to return D arrays from C++ functions

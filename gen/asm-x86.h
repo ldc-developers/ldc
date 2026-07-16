@@ -2341,13 +2341,13 @@ struct AsmProcessor {
     using namespace dmd;
 
     if (type == Arg_Integer) {
-      if (e->type->isUnsigned()) {
-        insnTemplate << "$$" << e->toUInteger();
+      if (dmd::isUnsigned(e->type)) {
+        insnTemplate << "$$" << dmd::toUInteger(e);
       } else {
 #ifndef ASM_X86_64
-        insnTemplate << "$$" << static_cast<sinteger_t>(e->toInteger());
+        insnTemplate << "$$" << static_cast<sinteger_t>(dmd::toInteger(e));
 #else
-        insnTemplate << "$$" << e->toInteger();
+        insnTemplate << "$$" << dmd::toInteger(e);
 #endif
       }
     } else {
@@ -3120,6 +3120,11 @@ struct AsmProcessor {
   }
 #endif
 
+  Reg regFromRegExp(Expression *exp) {
+    assert(isRegExp(exp));
+    return static_cast<Reg>(static_cast<IntegerExp *>(exp)->value);
+  }
+
   void slotExp(Expression *exp) {
     /*
       if offset, make a note
@@ -3145,7 +3150,7 @@ struct AsmProcessor {
       if (is_offset) {
         invalidExpression();
       }
-      operand->constDisplacement += exp->toInteger();
+      operand->constDisplacement += dmd::toInteger(exp);
       if (!operand->inBracket) {
         operand->hasNumber = 1;
       }
@@ -3155,15 +3160,15 @@ struct AsmProcessor {
       }
       if (!operand->inBracket) {
         if (operand->reg == Reg_Invalid) {
-          operand->reg = static_cast<Reg>(exp->toInteger());
+          operand->reg = regFromRegExp(exp);
         } else {
           error(stmt->loc, "too many registers in operand (use brackets)");
         }
       } else {
         if (operand->baseReg == Reg_Invalid) {
-          operand->baseReg = static_cast<Reg>(exp->toInteger());
+          operand->baseReg = regFromRegExp(exp);
         } else if (operand->indexReg == Reg_Invalid) {
-          operand->indexReg = static_cast<Reg>(exp->toInteger());
+          operand->indexReg = regFromRegExp(exp);
           operand->scale = 1;
         } else {
           error(stmt->loc, "too many registers memory operand");
@@ -3178,7 +3183,7 @@ struct AsmProcessor {
           operand->hasNumber = 1;
         }
       } else {
-        if (v && v->type->isScalar()) {
+        if (v && dmd::isScalar(v->type)) {
           // DMD doesn't check Tcomplex*, and counts Tcomplex32 as
           // Tfloat64
           TY ty = v->type->toBasetype()->ty;
@@ -3235,7 +3240,7 @@ struct AsmProcessor {
     Expression *exp = parseAsmExp();
     slotExp(exp);
     if (isRegExp(exp)) {
-      operand->dataSize = static_cast<PtrType>(regInfo[exp->toInteger()].size);
+      operand->dataSize = static_cast<PtrType>(regInfo[regFromRegExp(exp)].size);
     }
   }
 
@@ -3251,7 +3256,7 @@ struct AsmProcessor {
       }
       nextToken();
       Expression *exp3 = parseCondExp();
-      exp = exp->toUInteger() ? exp2 : exp3;
+      exp = dmd::toUInteger(exp) ? exp2 : exp3;
     }
     return exp;
   }
@@ -3442,8 +3447,8 @@ struct AsmProcessor {
         return true;
       }
 
-      operand->indexReg = static_cast<Reg>(e1->toInteger());
-      operand->scale = e2->toInteger();
+      operand->indexReg = regFromRegExp(e1);
+      operand->scale = dmd::toInteger(e2);
       switch (operand->scale) {
       case 1:
       case 2:
@@ -3741,7 +3746,7 @@ struct AsmProcessor {
         // DMD uses labels secondarily to other symbols, so check
         // if IdentifierExp::semantic won't find anything.
         Dsymbol *scopesym;
-        if (!sc->search(stmt->loc, ident, scopesym)) {
+        if (!dmd::search(sc, stmt->loc, ident, scopesym)) {
           if (LabelDsymbol *labelsym = sc->func->searchLabel(ident, stmt->loc)) {
             e = createDsymbolExp(stmt->loc, labelsym);
             if (opTakesLabel()) {
@@ -3758,7 +3763,7 @@ struct AsmProcessor {
       // Special case for floating point constant declarations.
       if (e->op == EXP::float64) {
         Dsymbol *scopesym;
-        Dsymbol *sym = sc->search(stmt->loc, ident, scopesym);
+        Dsymbol *sym = dmd::search(sc, stmt->loc, ident, scopesym);
         if (sym) {
           VarDeclaration *v = sym->isVarDeclaration();
           if (v) {
@@ -3795,7 +3800,7 @@ struct AsmProcessor {
     // parse primary: DMD allows 'MyAlign' (const int) but not '2+2'
     // GAS is padding with NOPs last time I checked.
     Expression *e = ctfeInterpret(parseAsmExp());
-    uinteger_t align = e->toUInteger();
+    uinteger_t align = dmd::toUInteger(e);
 
     if ((align & (align - 1)) == 0) {
 // FIXME: This printf is not portable. The use of `align` varies from

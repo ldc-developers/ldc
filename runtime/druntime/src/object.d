@@ -102,7 +102,7 @@ version (LDC) // note: there's a copy for importC in __importc_builtins.di
         version (ARM)
             public import core.stdc.stdarg : __va_list;
         else version (AArch64)
-            public import core.internal.vararg.aarch64 : __va_list;
+            public import core.internal.vararg.aapcs64 : __va_list;
     }
 }
 
@@ -127,7 +127,8 @@ else version (X86_64)
 else version (AArch64)
 {
     // Apple uses a trivial varargs implementation
-    version (OSX) {}
+    version (DigitalMars) version = WithArgTypes; // is this needed?
+    else version (OSX) {}
     else version (iOS) {}
     else version (TVOS) {}
     else version (WatchOS) {}
@@ -547,11 +548,15 @@ unittest
 // https://issues.dlang.org/show_bug.cgi?id=23291
 @system unittest
 {
+    import core.atomic : atomicLoad;
+
     static shared class C { bool opEquals(const(shared(C)) rhs) const shared  { return true;}}
     const(C) c = new C();
     const(C)[] a = [c];
     const(C)[] b = [c];
-    assert(a[0] == b[0]);
+    // Call the shared-aware overload directly to avoid `==` introducing
+    // additional shared reads during lowering.
+    assert(atomicLoad(a[0]).opEquals(atomicLoad(b[0])));
 }
 
 private extern(C) void _d_setSameMutex(shared Object ownee, shared Object owner) nothrow;
@@ -570,6 +575,8 @@ void setSameMutex(shared Object ownee, shared Object owner)
 
 @system unittest
 {
+    import core.atomic : atomicLoad;
+
     shared Object obj1 = new Object;
     synchronized class C
     {
@@ -581,7 +588,7 @@ void setSameMutex(shared Object ownee, shared Object owner)
     assert(obj1.__monitor != obj2.__monitor);
     assert(obj1.__monitor is null);
 
-    setSameMutex(obj1, obj2);
+    setSameMutex(atomicLoad(obj1), atomicLoad(obj2));
     assert(obj1.__monitor == obj2.__monitor);
     assert(obj1.__monitor !is null);
 }
@@ -3897,7 +3904,7 @@ private size_t getArrayHash(const scope TypeInfo element, const scope void* ptr,
     return hash;
 }
 
-/// Provide the .dup array property.
+/// Provide the .dup array property, which creates a duplicate.
 @property auto dup(T)(T[] a)
     if (!is(const(T) : T))
 {
@@ -3929,7 +3936,7 @@ private size_t getArrayHash(const scope TypeInfo element, const scope void* ptr,
 }
 
 
-/// Provide the .idup array property.
+/// Provide the .idup array property, which creates an immutable duplicate.
 @property immutable(T)[] idup(T)(T[] a)
 {
     import core.internal.array.duplication : _dup;
@@ -3954,6 +3961,7 @@ private size_t getArrayHash(const scope TypeInfo element, const scope void* ptr,
 }
 
 
+import core.internal.array.capacity : _d_arraygetcapacity;
 // HACK:  This is a lie.  `_d_arraysetcapacity` is neither `nothrow` nor `pure`, but this lie is
 // necessary for now to prevent breaking code.
 import core.internal.array.capacity : _d_arraysetcapacityPureNothrow;
@@ -3973,9 +3981,7 @@ Note: The _capacity of a slice may be impacted by operations on other slices.
 @property size_t capacity(T)(T[] arr) pure nothrow @trusted
 {
     const isshared = is(T == shared);
-    alias Unqual_T = Unqual!T;
-    // The postblit of T may be impure, so we need to use the `pure nothrow` wrapper
-    return _d_arraysetcapacityPureNothrow!Unqual_T(0, cast(void[]*)&arr, isshared);
+    return _d_arraygetcapacity(T.sizeof, cast(void[]*)&arr, isshared);
 }
 
 ///
@@ -3999,6 +4005,18 @@ Note: The _capacity of a slice may be impacted by operations on other slices.
         assert(a.capacity == b.capacity + 1); //both a and b share the same tail
     }
     assert(c.capacity == 0);              //an append to c must relocate c.
+}
+
+// https://github.com/dlang/dmd/issues/23102
+@safe unittest
+{
+    static struct S
+    {
+        @disable this(this);
+    }
+
+    S[] s;
+    auto c = s.capacity;
 }
 
 /**

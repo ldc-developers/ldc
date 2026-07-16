@@ -49,9 +49,9 @@ bool DtoIsInMemoryOnly(Type *type) {
 
 void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs) {
   type = type->toBasetype();
-  if (type->isIntegral() && type->ty != TY::Tvector && size(type) <= 2) {
-    attrs.addAttribute(type->isUnsigned() ? LLAttribute::ZExt
-                                          : LLAttribute::SExt);
+  if (isIntegral(type) && type->ty != TY::Tvector && size(type) <= 2) {
+    attrs.addAttribute(isUnsigned(type) ? LLAttribute::ZExt
+                                        : LLAttribute::SExt);
   }
 }
 

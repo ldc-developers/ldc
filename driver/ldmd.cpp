@@ -245,6 +245,8 @@ Where:\n\
                     use <filespec> as source file for <package.module>\n\
   -noboundscheck    no array bounds checking (deprecated, use -boundscheck=off)\n\
   -nothrow          assume no Exceptions will be thrown\n\
+  -nothrow-optimizations\n\
+                    allow skipping destructors when an Error unwinds through a nothrow function\n\
   -O                optimize\n\
   -o-               do not write object file\n\
   -od=<directory>   write object & library files to directory\n\
@@ -434,7 +436,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        */
       else if (startsWith(p + 1, "check=")) {
         // Parse:
-        //      -check=[assert|bounds|in|invariant|out|switch][=[on|off]]
+        //      -check=[assert|bounds|in|invariant|out|switch|nullderef][=[on|off]]
         const char *arg = p + 7;
         if (strcmp(arg, "on") == 0) {
           ldcArgs.push_back("-boundscheck=on");
@@ -478,6 +480,10 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
 
           if (kindLength == 6 && memcmp(arg, "bounds", 6) == 0) {
             ldcArgs.push_back(enabled ? "-boundscheck=on" : "-boundscheck=off");
+          } else if (kindLength == 9 && memcmp(arg, "nullderef", 9) == 0) {
+            // TODO: implement?
+            if (enabled)
+              goto Lnot_in_ldc;
           } else if (!(check(6, "assert", "asserts") ||
                        check(2, "in", "preconditions") ||
                        check(9, "invariant", "invariants") ||
@@ -694,6 +700,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        */
       else if (strcmp(p + 1, "nothrow") == 0) {
         ldcArgs.push_back("-fno-exceptions");
+      } else if (strcmp(p + 1, "nothrow-optimizations") == 0) {
+        ldcArgs.push_back("-foptimize-nothrow");
       }
       /* -unittest
        * -I

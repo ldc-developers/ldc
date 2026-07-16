@@ -48,15 +48,15 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc loc,
 
   // x86
   if (triple.getArch() == llvm::Triple::x86) {
-    if (rt->isIntegral() || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
+    if (isIntegral(rt) || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
         rt->ty == TY::Taarray) {
       if (size(rt) == 8) {
         as->out.c = "=A,";
       } else {
         as->out.c = "={ax},";
       }
-    } else if (rt->isFloating()) {
-      if (rt->isComplex()) {
+    } else if (isFloating(rt)) {
+      if (isComplex(rt)) {
         if (fdecl->_linkage() == LINK::d) {
           // extern(D) always returns on the FPU stack
           as->out.c = "={st},={st(1)},";
@@ -112,10 +112,10 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc loc,
 
   // x86_64
   else if (triple.getArch() == llvm::Triple::x86_64) {
-    if (rt->isIntegral() || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
+    if (isIntegral(rt) || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
         rt->ty == TY::Taarray) {
       as->out.c = "={ax},";
-    } else if (rt->isFloating()) {
+    } else if (isFloating(rt)) {
       const bool isWin64 = triple.isOSWindows();
 
       if (rt == Type::tcomplex80 && !isWin64) {
@@ -136,7 +136,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc loc,
           as->out.c = "={xmm0},";
           asmblock->retty = LLType::getDoubleTy(gIR->context());
         }
-      } else if (rt->isComplex()) {
+      } else if (isComplex(rt)) {
         if (isWin64) {
           // Win64: cdouble and creal are returned via sret
           // don't add anything!
