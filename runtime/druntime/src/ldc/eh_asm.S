@@ -51,3 +51,18 @@ _d_eh_resume_unwind:
 	pop	{r1-r3,lr}      // restore regs to state at entry
 	b	_Unwind_Resume  // r0 has returned ucb
 #endif //__ARM_EABI
+
+// TODO: remove this when we can link against libunwind
+#if __wasm__
+.globl __cpp_exception
+
+#if defined(__wasm32__)
+    .tagtype __cpp_exception i32
+#elif defined(__wasm64__)
+    .tagtype __cpp_exception i64
+#else
+#error "Unsupported Wasm architecture"
+#endif
+__cpp_exception:
+
+#endif //__wasm__
