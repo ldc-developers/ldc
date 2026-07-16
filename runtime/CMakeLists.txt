@@ -8,6 +8,14 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} "${PROJECT_PARENT_DIR}
 include(LdcCommon)
 include(CheckIncludeFile)
 
+# When the CMake target system is set to WASI, the object file extension
+# ends up being `.obj` (it's `.o` on UNIX, and `.obj` otherwise).
+# LDC emits `.o` for Wasm, so match that (otherwise things break).
+if (WASI)
+  set(CMAKE_C_OUTPUT_EXTENSION .o)
+  set(CMAKE_ASM_OUTPUT_EXTENSION .o)
+endif()
+
 # Verify required variables if this CMake project is NOT embedded in the LDC CMake project.
 if(NOT LDC_EXE)
     if(NOT LDC_EXE_FULL)
@@ -83,6 +91,13 @@ endif()
 
 if("${TARGET_SYSTEM}" MATCHES "UNIX|WASI")
     ENABLE_LANGUAGE(ASM)
+endif()
+
+# Enable switches needed for EH on Wasm/WASI
+if("${TARGET_SYSTEM}" MATCHES "WASI")
+    list(APPEND D_FLAGS "--wasm-enable-eh")
+    list(APPEND D_FLAGS "--mattr=+exception-handling")
+    list(APPEND D_FLAGS "--wasm-use-legacy-eh=false")
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -207,9 +222,9 @@ elseif("${TARGET_SYSTEM}" MATCHES "UNIX")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_OPENBSD})
     elseif("${TARGET_SYSTEM}" MATCHES "SunOS")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_SOLARIS})
-    elseif("${TARGET_SYSTEM}" MATCHES "WASI")
-        list(APPEND DRUNTIME_D ${DRUNTIME_D_WASI})
     endif()
+elseif("${TARGET_SYSTEM}" MATCHES "WASI")
+    list(APPEND DRUNTIME_D ${DRUNTIME_D_WASI})
 endif()
 
 # druntime C parts
@@ -957,6 +972,10 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
     elseif("${TARGET_SYSTEM}" MATCHES "MSVC")
         set(c_libs ${C_SYSTEM_LIBS_SHARED})
         set(full_dflags ${full_dflags} -link-defaultlib-shared) # to dllimport data
+    endif()
+
+    if (TARGET_SYSTEM MATCHES "WASI")
+      set(c_libs ${c_libs} c-printscan-long-double)
     endif()
 
     compile_testrunner("${full_dflags}" "${is_shared}" "${target_suffix}" "")
