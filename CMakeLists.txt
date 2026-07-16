@@ -976,6 +976,10 @@ makeConfSection(NAME "60-target-any-wasi"
     # no Phobos, so can't builds libs just yet
     #LIB_DIRS ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}
 )
+makeConfSection(NAME "61-target-wasi"
+    SECTION "^wasm32-.*-wasi$"
+    SWITCHES "-gcc=wasm32-wasi-clang"
+)
 makeConfSection(NAME "61-target-wasip1"
     SECTION "^wasm32-.*-wasip1$"
     SWITCHES "-gcc=wasm32-wasip1-clang"
