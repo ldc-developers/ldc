@@ -95,9 +95,14 @@ endif()
 
 # Enable switches needed for EH on Wasm/WASI
 if("${TARGET_SYSTEM}" MATCHES "WASI")
-    list(APPEND D_FLAGS "--wasm-enable-eh")
-    list(APPEND D_FLAGS "--mattr=+exception-handling")
-    list(APPEND D_FLAGS "--wasm-use-legacy-eh=false")
+    list(APPEND D_FLAGS --wasm-enable-eh)
+    list(APPEND D_FLAGS --mattr=+exception-handling)
+    
+    if(LLVM_VERSION_MAJOR GREATER_EQUAL 20)
+      list (APPEND D_FLAGS --wasm-use-legacy-eh=false)
+    elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 19)
+      list (APPEND D_FLAGS --wasm-enable-exnref)
+    endif()
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)

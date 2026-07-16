@@ -963,7 +963,11 @@ endif()
 # Enable EH
 list (APPEND wasi_switches --wasm-enable-eh)
 list (APPEND wasi_switches --mattr=+exception-handling)
-list (APPEND wasi_switches --wasm-use-legacy-eh=false)
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 20)
+  list (APPEND wasi_switches --wasm-use-legacy-eh=false)
+elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 19)
+  list (APPEND wasi_switches --wasm-enable-exnref)
+endif()
 
 makeConfSection(NAME "60-target-any-wasi"
     SECTION "^wasm32-.*-wasi"
