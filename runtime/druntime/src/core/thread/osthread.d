@@ -1869,7 +1869,9 @@ version (LDC)
         private extern(D) void* getStackTop() nothrow @nogc
         {
             import ldc.intrinsics;
-            return llvm_stackaddress();
+
+            static if (LLVM_major >= 22) return llvm_stackaddress();
+            else return llvm_stacksave();
         }
     }
     else

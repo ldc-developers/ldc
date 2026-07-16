@@ -4,7 +4,6 @@ LDC – the LLVM-based D Compiler
 [![Latest release](https://img.shields.io/github/v/release/ldc-developers/ldc?include_prereleases&label=latest)][8]
 [![Latest stable release](https://img.shields.io/github/v/release/ldc-developers/ldc?label=stable)][0]
 [![Build status](https://img.shields.io/circleci/project/github/ldc-developers/ldc/master?logo=CircleCI&label=CircleCI)][3]
-[![Build status](https://img.shields.io/cirrus/github/ldc-developers/ldc/master?label=Cirrus%20CI&logo=Cirrus%20CI)][4]
 [![Build status](https://img.shields.io/github/actions/workflow/status/ldc-developers/ldc/main.yml?branch=master&label=GitHub%20Actions%20%28main%29&logo=github)][7]
 [![Build status](https://img.shields.io/github/actions/workflow/status/ldc-developers/ldc/supported_llvm_versions.yml?branch=master&label=GitHub%20Actions%20%28LLVM%29&logo=github)][7]
 
@@ -112,6 +111,5 @@ Feedback of any kind is very much appreciated!
 
 [0]: https://github.com/ldc-developers/ldc/releases/latest
 [3]: https://circleci.com/gh/ldc-developers/ldc/tree/master
-[4]: https://cirrus-ci.com/github/ldc-developers/ldc/master
 [7]: https://github.com/ldc-developers/ldc/actions?query=branch%3Amaster
 [8]: https://github.com/ldc-developers/ldc/releases

@@ -8,7 +8,7 @@ runs:
 
     - name: 'Posix: Run defaultlib unittests & druntime integration tests'
       if: runner.os != 'Windows'
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ../build

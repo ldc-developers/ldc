@@ -10,7 +10,7 @@ runs:
   steps:
 
     - name: Install LDC # into ../install/
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..
@@ -47,9 +47,25 @@ runs:
           cp ldc/packaging/README install/
         fi
 
+        if [[ "$(uname -s)" == FreeBSD ]]; then
+          if [[ "$(install/bin/ldc2 --version | head -n 2)" =~ and\ LLVM\ ([0-9]+)\. ]]; then
+            cat > install/etc/ldc2.conf/31-compiler-default-CC.conf <<EOF
+        // Default to the clang version matching LDC's LLVM version.
+        "default":
+        {
+            switches ~= [ "-gcc=clang${BASH_REMATCH[1]}" ];
+        };
+        EOF
+            cat install/etc/ldc2.conf/31-compiler-default-CC.conf
+          else
+            echo "ERROR: Failed to parse LLVM version from LDC --version output"
+            exit 1
+          fi
+        fi
+
     - name: 'Windows: Copy curl & MinGW-w64-based libs'
       if: runner.os == 'Windows'
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..

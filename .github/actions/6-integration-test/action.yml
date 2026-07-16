@@ -7,11 +7,11 @@ runs:
   steps:
 
     - name: Generate hello.d
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > ../hello.d
 
     - name: Run hello-world integration test with shared libs
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..
@@ -27,7 +27,7 @@ runs:
         fi
 
     - name: Run hello-world integration test with LTO
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..
@@ -41,7 +41,7 @@ runs:
         done
 
     - name: Run dynamic-compile integration test
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..
@@ -56,7 +56,7 @@ runs:
         installed/bin/ldc2 -enable-dynamic-compile -run ldc/tests/dynamiccompile/array.d
 
     - name: Run ImportC integration test
-      shell: bash
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..
