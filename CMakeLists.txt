@@ -946,6 +946,49 @@ makeConfSection(NAME "55-target-wasm"
     LIB_DIRS OVERRIDE
 )
 
+set(wasi_switches)
+# no Phobos, so can't builds libs just yet
+# list(APPEND wasi_switches -defaultlib=druntime-ldc,phobos2-ldc)
+
+# We don't want to export any bloat. Assume that the entrypoint (i.e. main)
+# is the only export needed in most cases. Additional exports can be marked
+# with an LLVM attribute if needed (normal D `export` won't suffice).
+list (APPEND wasi_switches -L--no-export-dynamic)
+
+# Make sure `wasi-sdk` Clang (-gcc) gets invoked as the link-driver
+if(LDC_WITH_LLD)
+  list (APPEND wasi_switches -link-internally=0)
+endif()
+
+# Enable EH
+list (APPEND wasi_switches --wasm-enable-eh)
+list (APPEND wasi_switches --mattr=+exception-handling)
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 20)
+  list (APPEND wasi_switches --wasm-use-legacy-eh=false)
+elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 19)
+  list (APPEND wasi_switches --wasm-enable-exnref)
+endif()
+
+makeConfSection(NAME "60-target-any-wasi"
+    SECTION "^wasm32-.*-wasi"
+    SWITCHES ${wasi_switches}
+
+    # no Phobos, so can't builds libs just yet
+    #LIB_DIRS ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}
+)
+makeConfSection(NAME "61-target-wasi"
+    SECTION "^wasm32-.*-wasi$"
+    SWITCHES "-gcc=wasm32-wasi-clang"
+)
+makeConfSection(NAME "61-target-wasip1"
+    SECTION "^wasm32-.*-wasip1$"
+    SWITCHES "-gcc=wasm32-wasip1-clang"
+)
+makeConfSection(NAME "61-target-wasip2"
+    SECTION "^wasm32-.*-wasip2$"
+    SWITCHES "-gcc=wasm32-wasip2-clang"
+)
+
 if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
     message(STATUS "Adding ${COMPILER_RT_LIBDIR_CONFIG} to lib-dirs in configuration file")
 
