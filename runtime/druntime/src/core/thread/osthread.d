@@ -1755,6 +1755,19 @@ in (fn)
             asm pure nothrow @nogc { ( "st.d $fp, %0") : "=m" (regs[17]); }
             asm pure nothrow @nogc { ( "st.d $sp, %0") : "=m" (sp); }
         }
+        else version (WebAssembly)
+        {
+            // Wasm is special in that this isn't really possible
+            // to dump "registers" (Wasm locals & value stack) onto
+            // the linear-memory "C" stack easily.
+            //
+            // Spilling has to be done somehow else.
+
+            import ldc.intrinsics;
+
+            static if (LLVM_major >= 22) sp = llvm_stackaddress();
+            else sp = llvm_stacksave();
+        }
         else
         {
             static assert(false, "Architecture not supported.");
