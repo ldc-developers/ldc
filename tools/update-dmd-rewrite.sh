@@ -31,7 +31,7 @@ This reverts commit 4b76bfcb2eb24bb8786bd293201a5711fbf747fe==>This reverts comm
 EOF
 
 # clone DMD monorepo
-git clone git@github.com:dlang/dmd.git dmd.tmp
+git clone https://github.com/dlang/dmd.git dmd.tmp
 cd dmd.tmp
 
 # only for initialization:
@@ -86,7 +86,11 @@ git branch --no-track "${refs_prefix}master" master
 git branch --no-track "${refs_prefix}stable" stable
 
 # add LDC repo as `ldc` remote
-git remote add ldc git@github.com:ldc-developers/ldc.git
+if [[ -v GITHUB_TOKEN ]]; then
+  git remote add ldc https://git:${GITHUB_TOKEN}@github.com/ldc-developers/ldc.git
+else
+  git remote add ldc git@github.com:ldc-developers/ldc.git
+fi
 
 # check for newly added DMD source files
 if [[ "$initialize" != 1 ]]; then
