@@ -450,20 +450,57 @@ bool WasmPointersSpill::run(Function &F) {
 #endif
     AllocaInst *ai = SpillAllocas[NextSpillPointerIdx++];
 
-    BasicBlock::iterator After;
-    {
-      std::optional<BasicBlock::iterator> MaybeAfter = I->getInsertionPointAfterDef();
-      assert(MaybeAfter.has_value() && "Cannot spill value as it has no valid insertion point after it.");
-      After = *MaybeAfter;
+    BasicBlock::iterator SpillInsertPoint;
+
+    assert(!I->isTerminator() || isa<InvokeInst>(I));
+
+    BasicBlock *BB = I->getParent();
+
+    if (auto *Invoke = dyn_cast<InvokeInst>(I)) {
+      if (Invoke->getNormalDest()->hasNPredecessors(1)) {
+        SpillInsertPoint = Invoke->getNormalDest()->getFirstInsertionPt();
+      } else {
+        // The destination block has predecessors other
+        // than this invoke, so split the CFG edge
+        // (to make the invoke/def dominate the spill)
+
+        BasicBlock *newBB = BasicBlock::Create(F.getContext(), ai->getName() + ".bb", &F);
+        Builder.SetInsertPoint(newBB);
+        Builder.CreateBr(Invoke->getNormalDest());
+        newBB->moveAfter(BB);
+
+        Invoke->getNormalDest()->replacePhiUsesWith(BB, newBB);
+        Invoke->replaceSuccessorWith(Invoke->getNormalDest(), newBB);
+
+        SpillInsertPoint = newBB->begin();
+      }
+    } else if (isa<PHINode>(I)) {
+      if (isa<CatchSwitchInst>(BB->getTerminator())) {
+        // Having a catchswitch for a terminator means no instructions other
+        // than PHI can be here. And since all successors must be catchpad
+        // we can't split the edge either.
+        //
+        // However, Wasm EH associates each catchswitch with a single catchpad.
+        // So spill at the start of that single successor.
+
+        BasicBlock *Succ = BB->getSingleSuccessor();
+        assert(Succ && "catchswitch with multiple catchpads?");
+
+        SpillInsertPoint = Succ->getFirstInsertionPt();
+      } else {
+        // After all the PHI
+        SpillInsertPoint = BB->getFirstInsertionPt();
+      }
+    } else {
+      SpillInsertPoint = std::next(I->getIterator());
     }
 
-    while (auto *Intrinsic = dyn_cast<IntrinsicInst>(&*After)) {
+    while (auto *Intrinsic = dyn_cast<IntrinsicInst>(&*SpillInsertPoint)) {
       if (Intrinsic->getIntrinsicID() != Intrinsic::lifetime_end) break;
-      After = std::next(After);
+      SpillInsertPoint = std::next(SpillInsertPoint);
     }
 
-
-    Builder.SetInsertPoint(After);
+    Builder.SetInsertPoint(SpillInsertPoint);
     Builder.CreateCall(
       LifetimeStartFn,
 #if LLVM_VERSION_MAJOR >= 22
