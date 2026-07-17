@@ -13,17 +13,19 @@ jobs:
   update-dmd-rewrite:
     name: Update DMD rewrite
     if: github.repository == 'ldc-developers/ldc'  # don't run for forks
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:22.04  # we need git v2.34 from vanilla Ubuntu 22.04
     timeout-minutes: 20
     steps:
+      - name: Install git v2.34 and git-filter-repo v2.34.0
+        run: |
+          set -eux
+          apt-get -q update
+          apt-get install -yq git git-filter-repo
       - uses: actions/checkout@v6
         with:
           submodules: false
-      - name: Install git-filter-repo v2.34.0
-        run: |
-          set -eux
-          sudo apt-get -q update
-          sudo apt-get install -yq git-filter-repo
       - run: tools/update-dmd-rewrite.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
