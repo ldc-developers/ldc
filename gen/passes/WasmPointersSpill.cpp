@@ -287,12 +287,6 @@ bool WasmPointersSpill::run(Function &F) {
     NewLiveIn |= Uses[BB];
     NewLiveIn.reset(Defs[BB]);
 
-
-    // Liveliness specifically of call crossing
-    BitVector NewLiveInAcrossCall = BBLiveOutAcrossCall;
-    NewLiveInAcrossCall |= UsesAcrossCall[BB];
-    NewLiveInAcrossCall.reset(Defs[BB]);
-
 #if LLVM_VERSION_MAJOR >= 20
     unsigned BBNum = BB->getNumber();
 #else
@@ -301,8 +295,13 @@ bool WasmPointersSpill::run(Function &F) {
     if (HasCalls[BBNum]) {
       BitVector Tmp = BBLiveOut;
       Tmp.reset(DefsAfterAllCalls[BB]);
-      NewLiveInAcrossCall |= Tmp;
+      BBLiveOutAcrossCall |= Tmp;
     }
+
+    // Liveliness specifically of call crossing
+    BitVector NewLiveInAcrossCall = BBLiveOutAcrossCall;
+    NewLiveInAcrossCall |= UsesAcrossCall[BB];
+    NewLiveInAcrossCall.reset(Defs[BB]);
 
 
     if (NewLiveIn != LiveIn[BB] || NewLiveInAcrossCall != LiveInAcrossCall[BB]) {
