@@ -712,20 +712,22 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
     # Posix: when compiling both static and shared Phobos *and* compiling the modules separately
     # (by default, only for the unittests), only compile once to save build time.
     set(phobos2_common "")
-    if((NOT "${TARGET_SYSTEM}" MATCHES "Windows") AND BUILD_SHARED_LIBS STREQUAL "BOTH"
-       AND NOT ${all_d_files_at_once})
-        set(phobos2_o "")
-        set(phobos2_bc "")
-        compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public;-dllimport=all"
-                        "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
-                        "${emit_bc}" "${all_d_files_at_once}" "OFF" phobos2_o phobos2_bc)
-
-        # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
-        # (custom commands) as dependency for static+shared Phobos libs.
-        # Otherwise building both libs in parallel may result in conflicting Phobos module compilations
-        # (at least with the make generator), a known CMake issue.
-        set(phobos2_common phobos2-ldc${target_suffix}-common)
-        add_custom_target(${phobos2_common} DEPENDS ${phobos2_o} ${phobos2_bc})
+    if (PHOBOS2_DIR)
+      if((NOT "${TARGET_SYSTEM}" MATCHES "Windows") AND BUILD_SHARED_LIBS STREQUAL "BOTH"
+        AND NOT ${all_d_files_at_once})
+          set(phobos2_o "")
+          set(phobos2_bc "")
+          compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public;-dllimport=all"
+                          "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
+                          "${emit_bc}" "${all_d_files_at_once}" "OFF" phobos2_o phobos2_bc)
+  
+          # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
+          # (custom commands) as dependency for static+shared Phobos libs.
+          # Otherwise building both libs in parallel may result in conflicting Phobos module compilations
+          # (at least with the make generator), a known CMake issue.
+          set(phobos2_common phobos2-ldc${target_suffix}-common)
+          add_custom_target(${phobos2_common} DEPENDS ${phobos2_o} ${phobos2_bc})
+      endif()
     endif()
 
     set(druntime_d_flags ${d_flags})
@@ -741,11 +743,13 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
                          "${emit_bc}" "${all_d_files_at_once}" "OFF" druntime_o druntime_bc)
 
         # compile Phobos (with hidden visibility on Windows)
-        if(phobos2_common STREQUAL "")
-            set(phobos2_o "")
-            set(phobos2_bc "")
-            compile_phobos2("${phobos2_d_flags}" "${lib_suffix}" "${path_suffix}"
-                            "${emit_bc}" "${all_d_files_at_once}" "OFF" phobos2_o phobos2_bc)
+        if (PHOBOS2_DIR)
+          if(phobos2_common STREQUAL "")
+              set(phobos2_o "")
+              set(phobos2_bc "")
+              compile_phobos2("${phobos2_d_flags}" "${lib_suffix}" "${path_suffix}"
+                              "${emit_bc}" "${all_d_files_at_once}" "OFF" phobos2_o phobos2_bc)
+          endif()
         endif()
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
