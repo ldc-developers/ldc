@@ -897,18 +897,28 @@ void registerPredefinedTargetVersions() {
     break;
   case llvm::Triple::IOS:
     VersionCondition::addPredefinedGlobalIdent("iOS");
+    VersionCondition::addPredefinedGlobalIdent("Apple");
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_LLVM");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang"); // legacy
     break;
   case llvm::Triple::TvOS:
     VersionCondition::addPredefinedGlobalIdent("TVOS");
+    VersionCondition::addPredefinedGlobalIdent("Apple");
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_LLVM");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang"); // legacy
     break;
   case llvm::Triple::WatchOS:
     VersionCondition::addPredefinedGlobalIdent("WatchOS");
+    VersionCondition::addPredefinedGlobalIdent("Apple");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_LLVM");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang"); // legacy
+    break;
+  case llvm::Triple::XROS:
+    VersionCondition::addPredefinedGlobalIdent("VisionOS");
+    VersionCondition::addPredefinedGlobalIdent("Apple");
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_LLVM");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang"); // legacy
