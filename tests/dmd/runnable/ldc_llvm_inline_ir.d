@@ -4,23 +4,23 @@ pragma(LDC_inline_ir)
 alias inlineIR!(`
     %rp = alloca i32
     %ip = alloca i32
-    store i32 1, i32* %rp
-    store i32 %0, i32* %ip
+    store i32 1, ptr %rp
+    store i32 %0, ptr %ip
     %cond = icmp sgt i32 %0, 0
     br i1 %cond, label %loop, label %end
 
     loop:
-        %i = load i32, i32* %ip
-        %r = load i32, i32* %rp
+        %i = load i32, ptr %ip
+        %r = load i32, ptr %rp
         %rnext = mul i32 %r, %i
         %inext = sub i32 %i, 1
-        store i32 %rnext, i32* %rp
-        store i32 %inext, i32* %ip
+        store i32 %rnext, ptr %rp
+        store i32 %inext, ptr %ip
         %cond1 = icmp sgt i32 %inext, 0
         br i1 %cond1, label %loop, label %end
 
     end:
-        %ret = load i32, i32* %rp
+        %ret = load i32, ptr %rp
         ret i32 %ret`,
     int, int) factorial;
 
@@ -31,7 +31,7 @@ alias inlineIR!(`
     ret <4 x i32> %ret`,
     int4, int4, int4) shuffle;
 
-alias inlineIR!(`store i16 %0, i16* %1`, void, short, short*) store;
+alias inlineIR!(`store i16 %0, ptr %1`, void, short, short*) store;
 
 alias inlineIR!(`
     %cmp = fcmp olt double %0, %1
@@ -44,7 +44,7 @@ alias inlineIR!(`
     %r = fadd <4 x float> %0, %1
     ret <4 x float> %r`, float4, float4, float4) foo;
 
-alias inlineIR!(`store i32 %1, i32* %0`, void, int*, int) bar;
+alias inlineIR!(`store i32 %1, ptr %0`, void, int*, int) bar;
 
 void main()
 {
@@ -62,4 +62,3 @@ void main()
     assert(lt(0, 1) == -1);
     assert(lt(1, 0) == 0);
 }
-
