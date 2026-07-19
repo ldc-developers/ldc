@@ -1,0 +1,41 @@
+name: "WASI: Cross-compile & libraries & copy to install dir"
+inputs:
+  os:
+    required: true
+  arch:
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        os='${{ inputs.os }}'
+        arch='${{ inputs.arch }}'
+        triple="$arch-unknown-$os"
+
+        if [ "$os" = 'wasi' ]; then
+          # legacy `wasm32-wasi` triple
+          toolchain_suffix=''
+        else
+          # newer `wasm32-wasipX` triples
+          toolchain_suffix=-`echo "$os" | cut -c 5-`
+        fi
+
+        # Normally set by 3-build-cross
+        echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
+
+        # use bootstrap-ldc, which is guaranteed to be native
+        bootstrap-ldc/bin/ldc-build-runtime \
+          --ninja \
+          --dFlags="-mtriple=$triple" \
+          --ldcSrcDir="$PWD/ldc" \
+          --installWithSuffix="-$os-$arch" \
+          --testrunners \
+          CMAKE_INSTALL_PREFIX="$PWD/install" \
+          CONF_INST_DIR= \
+          PHOBOS2_DIR= \
+          CMAKE_TOOLCHAIN_FILE="$PWD/wasi-sdk/share/cmake/wasi-sdk${toolchain_suffix}.cmake" \
+          BUILD_LTO_LIBS=ON
