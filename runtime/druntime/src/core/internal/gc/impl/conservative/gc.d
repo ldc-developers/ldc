@@ -29,7 +29,9 @@ module core.internal.gc.impl.conservative.gc;
 //debug = VALGRIND;             // Valgrind memcheck integration
 
 /***************************************************/
-version = COLLECT_PARALLEL;  // parallel scanning
+version (WASI) {} // WASI is single-threaded
+else version = COLLECT_PARALLEL;  // parallel scanning
+
 version (Posix)
     version = COLLECT_FORK;
 
@@ -3339,7 +3341,9 @@ Lmark:
                 rangesLock.unlock();
                 rootsLock.unlock();
             }
-            thread_suspendAll();
+
+            version (WASI) {} // WASI is single-threaded
+            else thread_suspendAll();
 
             prepare();
 
