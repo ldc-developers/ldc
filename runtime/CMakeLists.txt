@@ -24,9 +24,6 @@ if(NOT LDC_EXE)
     if(NOT DEFINED DMDFE_MINOR_VERSION OR NOT DEFINED DMDFE_PATCH_VERSION)
         message(FATAL_ERROR "Please define the CMake variables DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
     endif()
-    if(NOT DEFINED LLVM_VERSION_MAJOR)
-        message(FATAL_ERROR "Please define the CMake variable LLVM_VERSION_MAJOR.")
-    endif()
 endif()
 
 #
@@ -98,13 +95,20 @@ endif()
 
 # Enable switches needed for EH on Wasm/WASI
 if("${TARGET_SYSTEM}" MATCHES "WASI")
+    # Make sure LLVM_VERSION_MAJOR is defined
+    # (particularly if this CMake project is NOT
+    # embedded in the LDC CMake project)
+    if(NOT DEFINED LLVM_VERSION_MAJOR)
+        message(FATAL_ERROR "Please define the CMake variable LLVM_VERSION_MAJOR.")
+    endif()
+    
     list(APPEND D_FLAGS --wasm-enable-eh)
     list(APPEND D_FLAGS --mattr=+exception-handling)
     
     if(LLVM_VERSION_MAJOR GREATER_EQUAL 20)
-      list (APPEND D_FLAGS --wasm-use-legacy-eh=false)
+        list (APPEND D_FLAGS --wasm-use-legacy-eh=false)
     elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 19)
-      list (APPEND D_FLAGS --wasm-enable-exnref)
+        list (APPEND D_FLAGS --wasm-enable-exnref)
     endif()
 endif()
 
