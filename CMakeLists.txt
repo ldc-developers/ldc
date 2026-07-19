@@ -947,8 +947,8 @@ makeConfSection(NAME "55-target-wasm"
 )
 
 set(wasi_switches)
-# no Phobos, so can't builds libs just yet
-# list(APPEND wasi_switches -defaultlib=druntime-ldc,phobos2-ldc)
+# TODO: Phobos
+list(APPEND wasi_switches -defaultlib=druntime-ldc)
 
 # We don't want to export any bloat. Assume that the entrypoint (i.e. main)
 # is the only export needed in most cases. Additional exports can be marked
@@ -979,14 +979,17 @@ makeConfSection(NAME "60-target-any-wasi"
 makeConfSection(NAME "61-target-wasi"
     SECTION "^wasm32-.*-wasi$"
     SWITCHES "-gcc=wasm32-wasi-clang"
+    LIB_DIRS ${PROJECT_BINARY_DIR}/lib-wasi-wasm32
 )
 makeConfSection(NAME "61-target-wasip1"
     SECTION "^wasm32-.*-wasip1$"
     SWITCHES "-gcc=wasm32-wasip1-clang"
+    LIB_DIRS ${PROJECT_BINARY_DIR}/lib-wasip1-wasm32
 )
 makeConfSection(NAME "61-target-wasip2"
     SECTION "^wasm32-.*-wasip2$"
     SWITCHES "-gcc=wasm32-wasip2-clang"
+    LIB_DIRS ${PROJECT_BINARY_DIR}/lib-wasip2-wasm32
 )
 
 if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
