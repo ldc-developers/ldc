@@ -24,6 +24,9 @@ if(NOT LDC_EXE)
     if(NOT DEFINED DMDFE_MINOR_VERSION OR NOT DEFINED DMDFE_PATCH_VERSION)
         message(FATAL_ERROR "Please define the CMake variables DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
     endif()
+    if(NOT DEFINED LLVM_VERSION_MAJOR)
+        message(FATAL_ERROR "Please define the CMake variable LLVM_VERSION_MAJOR.")
+    endif()
 endif()
 
 #
