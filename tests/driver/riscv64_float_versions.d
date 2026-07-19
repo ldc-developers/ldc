@@ -1,5 +1,3 @@
-// REQUIRES: target_RISCV
-
 // Default float ABI is hard (lp64d-style).
 // RUN: %ldc -c -o- %s -mtriple=riscv64-unknown-linux-gnu -d-version=HARD
 // RUN: %ldc -c -o- %s -mtriple=riscv64-unknown-linux-gnu -float-abi=soft -d-version=SOFT
