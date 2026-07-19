@@ -1036,6 +1036,8 @@ class Thread : ThreadBase
         assert(thr.priority == PRIORITY_MAX);
     }
 
+    version (WASI) {} // WASI is single-threaded
+    else
     unittest // Bugzilla 8960
     {
         import core.sync.semaphore;
@@ -1207,6 +1209,8 @@ private extern(D) static void thread_yield() @nogc nothrow
 }
 
 ///
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     class DerivedThread : Thread
@@ -1236,6 +1240,8 @@ unittest
     }).start();
 }
 
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     int x = 0;
@@ -1247,7 +1253,8 @@ unittest
     assert( x == 1 );
 }
 
-
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     enum MSG = "Test message.";
@@ -1268,7 +1275,8 @@ unittest
     }
 }
 
-
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     // use >pageSize to avoid stack overflow (e.g. in an syscall)
@@ -1276,7 +1284,8 @@ unittest
     thr.join();
 }
 
-
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     import core.memory : GC;
@@ -1293,6 +1302,8 @@ unittest
     t2.join();
 }
 
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     import core.sync.semaphore;
@@ -3572,6 +3583,8 @@ void joinLowLevelThread(ThreadID tid) nothrow @nogc
     }
 }
 
+version (WASI) {} // WASI is single-threaded
+else
 nothrow @nogc unittest
 {
     struct TaskWithContect

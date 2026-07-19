@@ -343,6 +343,11 @@ else
     real ldexp(real n, int exp);     /* intrinsic */ /// ditto
 }
 
+// Wasm is always cross-compiled, so we are subject to
+// https://wiki.dlang.org/Cross-compiling_with_LDC#Limitations
+// (precision issues with `real`)
+version (WebAssembly) {}
+else
 unittest {
     static if (real.mant_dig == 113)
     {

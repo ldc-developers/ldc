@@ -560,7 +560,8 @@ private:
 // Unit Tests
 ////////////////////////////////////////////////////////////////////////////////
 
-
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     import core.atomic, core.thread, core.sync.semaphore;
@@ -697,6 +698,8 @@ unittest
     runTest(ReadWriteMutex.Policy.PREFER_WRITERS);
 }
 
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     import core.atomic, core.thread;
@@ -773,6 +776,8 @@ unittest
     }
 }
 
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     import core.atomic, core.thread, core.sync.semaphore;
@@ -909,6 +914,8 @@ unittest
     runTest(ReadWriteMutex.Policy.PREFER_WRITERS);
 }
 
+version (WASI) {} // WASI is single-threaded
+else
 unittest
 {
     import core.atomic, core.thread;
