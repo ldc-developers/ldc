@@ -292,17 +292,18 @@ bool WasmPointersSpill::run(Function &F) {
 #else
     unsigned BBNum = BBIdx[BB];
 #endif
-    if (HasCalls[BBNum]) {
-      BitVector Tmp = BBLiveOut;
-      Tmp.reset(DefsAfterAllCalls[BB]);
-      BBLiveOutAcrossCall |= Tmp;
-    }
 
     // Liveliness specifically of call crossing
     BitVector NewLiveInAcrossCall = BBLiveOutAcrossCall;
+
+    if (HasCalls[BBNum]) {
+      BitVector Tmp = BBLiveOut;
+      Tmp.reset(DefsAfterAllCalls[BB]);
+      NewLiveInAcrossCall |= Tmp;
+    }
+
     NewLiveInAcrossCall |= UsesAcrossCall[BB];
     NewLiveInAcrossCall.reset(Defs[BB]);
-
 
     if (NewLiveIn != LiveIn[BB] || NewLiveInAcrossCall != LiveInAcrossCall[BB]) {
       LiveIn[BB] = NewLiveIn;
@@ -404,7 +405,32 @@ bool WasmPointersSpill::run(Function &F) {
     for (auto &BB : F) {
       if(!SpillKills[&BB][Idx]) continue;
 
-      if (UsesAcrossCall[&BB][Idx]) {
+      if (LiveOut[&BB][Idx]) {
+        // SpillKills says there are no more calls between the
+        // end of this block and its future use (if any), but it IS
+        // still used, so keep the spill alive until the final
+        // call in this block.
+        #if LLVM_VERSION_MAJOR >= 20
+            unsigned BBNum = BB.getNumber();
+        #else
+            unsigned BBNum = BBIdx[&BB];
+        #endif
+        if (!HasCalls[BBNum]) {
+          Builder.SetInsertPoint(BB.getFirstInsertionPt());
+        } else {
+          for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
+            if (isa<CallBase>(&IterI)) {
+              if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
+                Builder.SetInsertPoint(Invoke->getNormalDest()->getFirstInsertionPt());
+              } else {
+                assert(!IterI.isTerminator());
+                Builder.SetInsertPoint(std::next(IterI.getIterator()));
+              }
+              break;
+            }
+          }
+        }
+      } else if (UsesAcrossCall[&BB][Idx]) {
         bool Found = false;
         for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
           for (Use &Op : IterI.operands()) {
@@ -427,7 +453,8 @@ bool WasmPointersSpill::run(Function &F) {
           }
         }
       } else {
-        Builder.SetInsertPoint(BB.getFirstInsertionPt());
+        // How'd we get here?
+        assert(0);
       }
       Builder.CreateCall(
         LifetimeEndFn,
