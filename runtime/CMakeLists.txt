@@ -688,12 +688,14 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
             "${c_flags}" "${ld_flags}" OFF
         )
 
-        add_library(phobos2-ldc-lto${target_suffix} STATIC ${phobos2_bc})
-        link_zlib(phobos2-ldc-lto${target_suffix} STATIC)
-        set_common_library_properties(phobos2-ldc-lto${target_suffix}
-            phobos2-ldc-lto${lib_suffix} ${output_path}
-            "${c_flags}" "${ld_flags}" OFF
-        )
+        if (PHOBOS2_DIR)
+          add_library(phobos2-ldc-lto${target_suffix} STATIC ${phobos2_bc})
+          link_zlib(phobos2-ldc-lto${target_suffix} STATIC)
+          set_common_library_properties(phobos2-ldc-lto${target_suffix}
+              phobos2-ldc-lto${lib_suffix} ${output_path}
+              "${c_flags}" "${ld_flags}" OFF
+          )
+        endif()
     endif()
 endmacro()
 
@@ -772,12 +774,14 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
         set(rt_dso_o "${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso${CMAKE_C_OUTPUT_EXTENSION}")
 
         # compile Phobos with public visibility (and preferably to a single object file)
-        if(phobos2_common STREQUAL "")
-            set(phobos2_o "")
-            set(phobos2_bc "")
-            compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public;-dllimport=all"
-                            "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
-                            "OFF" "${all_d_files_at_once}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+        if (PHOBOS2_DIR)
+          if(phobos2_common STREQUAL "")
+              set(phobos2_o "")
+              set(phobos2_bc "")
+              compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public;-dllimport=all"
+                              "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
+                              "OFF" "${all_d_files_at_once}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+          endif()
         endif()
 
         # also link-in special rt.dso druntime module
@@ -854,9 +858,15 @@ build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "
 
 # Add the (static- and release-only) bitcode libraries.
 if(BUILD_LTO_LIBS AND (NOT ${BUILD_SHARED_LIBS} STREQUAL "ON"))
-    list(APPEND libs_to_install druntime-ldc-lto phobos2-ldc-lto)
+    list(APPEND libs_to_install druntime-ldc-lto)
+    if (PHOBOS2_DIR)
+      list(APPEND libs_to_install phobos2-ldc-lto)
+    endif()
     if(MULTILIB)
-        list(APPEND libs_to_install druntime-ldc-lto_${MULTILIB_SUFFIX} phobos2-ldc-lto_${MULTILIB_SUFFIX})
+        list(APPEND libs_to_install druntime-ldc-lto_${MULTILIB_SUFFIX})
+        if (PHOBOS2_DIR)
+          list(APPEND libs_to_install phobos2-ldc-lto_${MULTILIB_SUFFIX})
+        endif()
     endif()
 endif()
 
