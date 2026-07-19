@@ -345,16 +345,7 @@ else version (Solaris) enum ClockType
     second = 6,
     threadCPUTime = 7,
 }
-else version (WASIp1) enum ClockType
-{
-    normal = 0,
-    coarse = 2,
-    precise = 3,
-    processCPUTime = 4,
-    second = 6,
-    threadCPUTime = 7,
-}
-else version (WASIp2) enum ClockType
+else version (WASI) enum ClockType
 {
     normal = 0,
     coarse = 2,
@@ -494,9 +485,7 @@ version (WASIp1)
             case coarse: return ClockID.monotonic;
             case normal: return ClockID.monotonic;
             case precise: return ClockID.monotonic;
-            case processCPUTime: return ClockID.processCPUTimeID;
             case second: assert(0);
-            case threadCPUTime: return ClockID.threadCPUTimeID;
         }
     }
 }
