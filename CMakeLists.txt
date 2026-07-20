@@ -909,10 +909,7 @@ add_subdirectory(tools)
 # Compiler ldc2.conf configuration
 #
 
-set(switches)
-
-list(APPEND switches "-defaultlib=phobos2-ldc,druntime-ldc")
-
+set(switches "-defaultlib=phobos2-ldc,druntime-ldc")
 makeConfSection(NAME "30-compiler" SECTION "default"
     BUILD
     SWITCHES ${switches}
@@ -928,77 +925,53 @@ makeConfSection(NAME "30-compiler" SECTION "default"
     POST_SWITCHES "-I${INCLUDE_INSTALL_DIR}"
 )
 
-set(wasm_switches)
-list(APPEND wasm_switches -defaultlib=)
-# Default wasm stack is only 64kb, this is rather small, let's bump it to 1mb
-list(APPEND wasm_switches -L-z -Lstack-size=1048576)
-# Protect from stack overflow overwriting global memory
-list(APPEND wasm_switches -L--stack-first)
-if(LDC_WITH_LLD)
-    list(APPEND wasm_switches -link-internally)
-endif()
-# LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
-list(APPEND wasm_switches -L--export-dynamic)
-
-makeConfSection(NAME "55-target-wasm"
+# Add a base config for all wasm targets, setting some linker defaults.
+makeConfSection(NAME "50-target-wasm-base"
     SECTION "^wasm(32|64)-"
-    SWITCHES ${wasm_switches}
+    SWITCHES
+        # Default wasm stack is only 64kb, this is rather small, let's bump it to 1mb
+        -L-z -Lstack-size=1048576
+        # Protect from stack overflow overwriting global memory
+        -L--stack-first
+        # LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
+        -L--export-dynamic
+)
+
+# Add a convenience config for *naked* wasm targets, omitting druntime/Phobos
+# (and preferring built-in lld for linking) automatically.
+set(wasm_naked_link_internally)
+if(LDC_WITH_LLD)
+    set(wasm_naked_link_internally -link-internally)
+endif()
+makeConfSection(NAME "55-target-wasm-naked"
+    SECTION "^wasm(32|64)-.*-(unknown|none)"
+    SWITCHES
+        -defaultlib=
+        ${wasm_naked_link_internally}
     LIB_DIRS OVERRIDE
 )
 
-set(wasi_switches)
-# TODO: Phobos
-list(APPEND wasi_switches -defaultlib=druntime-ldc)
-
-# We don't want to export any bloat. Assume that the entrypoint (i.e. main)
-# is the only export needed in most cases. Additional exports can be marked
-# with an LLVM attribute if needed (normal D `export` won't suffice).
-list (APPEND wasi_switches -L--no-export-dynamic)
-
-# Make sure `wasi-sdk` Clang (-gcc) gets invoked as the link-driver
-if(LDC_WITH_LLD)
-  list (APPEND wasi_switches -link-internally=0)
-endif()
-
-# Enable EH
-list (APPEND wasi_switches --wasm-enable-eh)
-list (APPEND wasi_switches --mattr=+exception-handling)
+# Add a base config for all WASI targets.
+set(wasi_eh_switches --wasm-enable-eh --mattr=+exception-handling)
 if(LLVM_VERSION_MAJOR GREATER_EQUAL 20)
-  list (APPEND wasi_switches --wasm-use-legacy-eh=false)
+    list(APPEND wasi_eh_switches --wasm-use-legacy-eh=false)
 elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 19)
-  list (APPEND wasi_switches --wasm-enable-exnref)
+    list(APPEND wasi_eh_switches --wasm-enable-exnref)
 endif()
-
 # A hack to make sure EH actually gets enabled, even though
 # the EH model should be implied by `--wasm-enable-eh`
 # 
 # I don't know what broke it for 21, but this fixes it for 23:
 # https://github.com/llvm/llvm-project/pull/177542
 if((LLVM_VERSION_MAJOR EQUAL 21) OR (LLVM_VERSION_MAJOR EQUAL 22))
-  list(APPEND wasi_switches --exception-model=wasm)
+    list(APPEND wasi_eh_switches --exception-model=wasm)
 endif()
-
-makeConfSection(NAME "60-target-any-wasi"
-    SECTION "^wasm32-.*-wasi"
-    SWITCHES ${wasi_switches}
-
-    # no Phobos, so can't builds libs just yet
-    #LIB_DIRS ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}
-)
-makeConfSection(NAME "61-target-wasi"
-    SECTION "^wasm32-.*-wasi$"
-    SWITCHES "-gcc=wasm32-wasi-clang"
-    LIB_DIRS ${PROJECT_BINARY_DIR}/lib-wasi-wasm32
-)
-makeConfSection(NAME "61-target-wasip1"
-    SECTION "^wasm32-.*-wasip1$"
-    SWITCHES "-gcc=wasm32-wasip1-clang"
-    LIB_DIRS ${PROJECT_BINARY_DIR}/lib-wasip1-wasm32
-)
-makeConfSection(NAME "61-target-wasip2"
-    SECTION "^wasm32-.*-wasip2$"
-    SWITCHES "-gcc=wasm32-wasip2-clang"
-    LIB_DIRS ${PROJECT_BINARY_DIR}/lib-wasip2-wasm32
+makeConfSection(NAME "50-target-wasi-base"
+    SECTION "^wasm(32|64)-.*-wasi"
+    SWITCHES
+        # TODO: Phobos
+        -defaultlib=druntime-ldc
+        ${wasi_eh_switches}
 )
 
 if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
