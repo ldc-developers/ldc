@@ -24,18 +24,36 @@ runs:
           toolchain_suffix=-`echo "$os" | cut -c 5-`
         fi
 
-        # Normally set by 3-build-cross
-        echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
+        absInstallDir="$PWD/install"
 
-        # use bootstrap-ldc, which is guaranteed to be native
+        # cross-compile druntime (incl. test runners) and install
         bootstrap-ldc/bin/ldc-build-runtime \
           --ninja \
           --dFlags="-mtriple=$triple" \
           --ldcSrcDir="$PWD/ldc" \
           --installWithSuffix="-$os-$arch" \
           --testrunners \
-          CMAKE_INSTALL_PREFIX="$PWD/install" \
-          CONF_INST_DIR= \
+          CMAKE_INSTALL_PREFIX="$absInstallDir" \
+          RT_CONF_TRIPLE_REGEX="$arch-.*-$os" \
           PHOBOS2_DIR= \
           CMAKE_TOOLCHAIN_FILE="$PWD/wasi-sdk/share/cmake/wasi-sdk${toolchain_suffix}.cmake" \
           BUILD_LTO_LIBS=ON
+
+        # make the installed .conf portable
+        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" install/etc/ldc2.conf/*.conf
+
+        # pack install/ dir to a .tar.xz archive
+        artifactsDir='${{ github.workspace }}/artifacts'
+        mkdir $artifactsDir
+        chmod -R go=rX install
+        sudo chown -R 0:0 install
+        cd install
+        tar -cf - * | 7z a $artifactsDir/ldc2-addon-$os-$arch.tar.xz -si -txz -mx9
+        cd ..
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: addon-${{ inputs.os }}-${{ inputs.arch }}
+        path: artifacts/
+        compression-level: 0
