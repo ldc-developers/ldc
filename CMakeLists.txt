@@ -926,7 +926,7 @@ makeConfSection(NAME "30-compiler" SECTION "default"
 )
 
 # Add a base config for all wasm targets, setting some linker defaults.
-makeConfSection(NAME "50-target-wasm-base"
+makeConfSection(NAME "51-target-wasm-base"
     SECTION "^wasm(32|64)-"
     SWITCHES
         # Default wasm stack is only 64kb, this is rather small, let's bump it to 1mb
@@ -934,21 +934,8 @@ makeConfSection(NAME "50-target-wasm-base"
         # Protect from stack overflow overwriting global memory
         -L--stack-first
         # LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
+        # TODO: revise
         -L--export-dynamic
-)
-
-# Add a convenience config for *naked* wasm targets, omitting druntime/Phobos
-# (and preferring built-in lld for linking) automatically.
-set(wasm_naked_link_internally)
-if(LDC_WITH_LLD)
-    set(wasm_naked_link_internally -link-internally)
-endif()
-makeConfSection(NAME "55-target-wasm-naked"
-    SECTION "^wasm(32|64)-.*-(unknown|none)"
-    SWITCHES
-        -defaultlib=
-        ${wasm_naked_link_internally}
-    LIB_DIRS OVERRIDE
 )
 
 # Add a base config for all WASI targets.
@@ -966,12 +953,23 @@ endif()
 if((LLVM_VERSION_MAJOR EQUAL 21) OR (LLVM_VERSION_MAJOR EQUAL 22))
     list(APPEND wasi_eh_switches --exception-model=wasm)
 endif()
-makeConfSection(NAME "50-target-wasi-base"
+makeConfSection(NAME "52-target-wasi-base"
     SECTION "^wasm(32|64)-.*-wasi"
+    SWITCHES ${wasi_eh_switches}
+)
+
+# Add a convenience config for *naked* wasm targets, omitting druntime/Phobos
+# (and preferring built-in lld for linking) automatically.
+set(wasm_naked_link_internally)
+if(LDC_WITH_LLD)
+    set(wasm_naked_link_internally -link-internally)
+endif()
+makeConfSection(NAME "55-target-wasm-naked"
+    SECTION "^wasm(32|64)-.*-(unknown|none)"
     SWITCHES
-        # TODO: Phobos
-        -defaultlib=druntime-ldc
-        ${wasi_eh_switches}
+        -defaultlib=
+        ${wasm_naked_link_internally}
+    LIB_DIRS OVERRIDE
 )
 
 if(DEFINED COMPILER_RT_LIBDIR_CONFIG)

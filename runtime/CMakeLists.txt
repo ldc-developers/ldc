@@ -315,6 +315,11 @@ elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
     set(switches "-link-defaultlib-shared=false")
 endif()
 
+# Only have druntime, no Phobos? Then set -defaultlib appropriately.
+if(NOT PHOBOS2_DIR)
+    list(APPEND switches -defaultlib=druntime-ldc)
+endif()
+
 set(build_libdir "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
 set(install_libdir "${CMAKE_INSTALL_LIBDIR}")
 
