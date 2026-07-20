@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "dmd/errors.h"
+#include "dmd/declaration.h"
 #include "dmd/expression.h"
 #include "dmd/statement.h"
 #include "gen/irstate.h"
@@ -175,6 +176,33 @@ public:
     return _isIndirectOperand[operandIndex];
   }
 };
+
+// C11 6.5.3.2: `"m"` / `"=m"` GCC asm constraints take the address of their
+// operand; register variables cannot be used that way (see issue #4967).
+VarDeclaration *asmOperandVar(Expression *e) {
+  for (;;) {
+    if (auto ve = e->isVarExp())
+      return ve->var->isVarDeclaration();
+    if (auto ce = e->isCastExp()) {
+      e = ce->e1;
+      continue;
+    }
+    if (auto pe = e->isParenExp()) {
+      e = pe->e1;
+      continue;
+    }
+    return nullptr;
+  }
+}
+
+void checkRegisterMemoryAsmOperand(Loc loc, Expression *e) {
+  if (auto vd = asmOperandVar(e)) {
+    if (vd->storage_class & STCregister) {
+      error(loc, "cannot take address of register variable `%s`", vd->toChars());
+      fatal();
+    }
+  }
+}
 }
 
 void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
@@ -211,6 +239,9 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
       Expression *e = (*stmt->args)[i];
       const bool isOutput = (i < stmt->outputargs);
       const bool isIndirect = constraintsBuilder.isIndirectOperand(i);
+
+      if (isIndirect)
+        checkRegisterMemoryAsmOperand(e->loc, e);
 
       if (isOutput) {
         assert(dmd::isLvalue(e) && "should have been caught by front-end");
