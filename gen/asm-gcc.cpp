@@ -187,10 +187,6 @@ VarDeclaration *asmOperandVar(Expression *e) {
       e = ce->e1;
       continue;
     }
-    if (auto pe = e->isParenExp()) {
-      e = pe->e1;
-      continue;
-    }
     return nullptr;
   }
 }
