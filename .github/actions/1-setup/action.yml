@@ -96,7 +96,7 @@ runs:
         arch='${{ inputs.arch }}'
 
         # use assertions for untagged builds
-        assertsSuffix="-withAsserts"
+        assertsSuffix=""
         if [[ '${{ github.ref }}' = refs/tags/* ]]; then
           assertsSuffix=""
         fi
@@ -111,15 +111,15 @@ runs:
           cd ..
         else
           if [[ '${{ runner.os }}' == Linux ]]; then
-            os=linux
+            os=Linux
           elif [[ '${{ runner.os }}' == macOS ]]; then
             os=osx
           fi
-          curl -fL --retry 3 --max-time 300 -o llvm.tar.zst \
-            https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-$os-$arch$assertsSuffix.tar.zst
+          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz \
+            https://github.com/ldc-developers/llvm-project/releases/download/$tag/LLVM-$version-$os-$arch$assertsSuffix.tar.xz
           mkdir llvm
-          tar -xf llvm.tar.zst --zstd --strip 1 -C llvm
-          rm llvm.tar.zst
+          tar -xf llvm.tar.xz --strip 1 -C llvm
+          rm llvm.tar.xz
         fi
 
         llvm/bin/llvm-config --version
