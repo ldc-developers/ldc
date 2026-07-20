@@ -969,6 +969,15 @@ elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 19)
   list (APPEND wasi_switches --wasm-enable-exnref)
 endif()
 
+# A hack to make sure EH actually gets enabled, even though
+# the EH model should be implied by `--wasm-enable-eh`
+# 
+# I don't know what broke it for 21, but this fixes it for 23:
+# https://github.com/llvm/llvm-project/pull/177542
+if((LLVM_VERSION_MAJOR EQUAL 21) OR (LLVM_VERSION_MAJOR EQUAL 22))
+  list(APPEND wasi_switches --exception-model=wasm)
+endif()
+
 makeConfSection(NAME "60-target-any-wasi"
     SECTION "^wasm32-.*-wasi"
     SWITCHES ${wasi_switches}
