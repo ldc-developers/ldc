@@ -393,7 +393,7 @@ jobs:
             os: wasip2
             arch: wasm32
     name: ${{ matrix.job_name }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 60
     env:
       GHA_BASH_SHELL: bash
@@ -406,7 +406,7 @@ jobs:
         with:
           llvm_version: ${{ env.LLVM_VERSION }}
           clang_major: ${{ env.CLANG_MAJOR }}
-          arch: x86_64
+          arch: aarch64
       - name: 'WASI: Install additional prerequisites'
         if: startsWith(matrix.os, 'wasi')
         uses: ./.github/actions/1a-setup-wasi
