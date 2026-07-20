@@ -332,18 +332,68 @@ jobs:
             extra_cmake_flags: >-
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64-android
 
-          - job_name: WASIp1 wasm32
-            host_os: ubuntu-22.04
-            os: wasip1
-            arch: wasm32
-
-          - job_name: WASIp2 wasm32
-            host_os: ubuntu-22.04
-            os: wasip2
-            arch: wasm32
-
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.host_os }}
+    timeout-minutes: 60
+    env:
+      GHA_BASH_SHELL: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Install prerequisites
+        uses: ./.github/actions/1-setup
+        with:
+          llvm_version: ${{ env.LLVM_VERSION }}
+          clang_major: ${{ env.CLANG_MAJOR }}
+          arch: x86_64
+      - name: Build bootstrap LDC
+        uses: ./.github/actions/2-build-bootstrap
+      - name: Build LDC with PGO instrumentation & gather profile from compiling default libs
+        if: matrix.with_pgo
+        uses: ./.github/actions/2a-build-pgo
+      - name: Cross-compile LDC to ${{ matrix.os }}-${{ matrix.arch }}
+        uses: ./.github/actions/3-build-cross
+        with:
+          arch: ${{ matrix.arch }}
+          os: ${{ matrix.os }}
+          llvm_version: ${{ env.LLVM_VERSION }}
+          cmake_flags: ${{ matrix.extra_cmake_flags }}
+          with_pgo: ${{ matrix.with_pgo }}
+
+      - name: Install LDC
+        uses: ./.github/actions/5-install
+        with:
+          cross_compiling: true
+      - name: 'Android: Cross-compile ${{ matrix.android_x86_arch }} libraries & copy to install dir'
+        if: matrix.os == 'android'
+        uses: ./.github/actions/5a-android-x86
+        with:
+          arch: ${{ matrix.android_x86_arch }}
+      - name: Make portable
+        uses: ./.github/actions/5b-make-portable
+
+      - name: Create package & upload artifact(s)
+        uses: ./.github/actions/7-package
+        with:
+          arch: ${{ matrix.arch }}
+          os: ${{ matrix.os }}
+          cross_target_triple: ${{ env.CROSS_TRIPLE }}
+
+
+  build-cross-libs-only:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job_name: WASIp1 wasm32
+            os: wasip1
+            arch: wasm32
+          - job_name: WASIp2 wasm32
+            os: wasip2
+            arch: wasm32
+    name: ${{ matrix.job_name }}
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
       GHA_BASH_SHELL: bash
@@ -365,53 +415,24 @@ jobs:
           wasmtime_version: 46.0.1
       - name: Build bootstrap LDC
         uses: ./.github/actions/2-build-bootstrap
-      - name: Build LDC with PGO instrumentation & gather profile from compiling default libs
-        if: matrix.with_pgo
-        uses: ./.github/actions/2a-build-pgo
-      - name: Cross-compile LDC to ${{ matrix.os }}-${{ matrix.arch }}
-        if: ${{ !startsWith(matrix.os, 'wasi') }}
-        uses: ./.github/actions/3-build-cross
-        with:
-          arch: ${{ matrix.arch }}
-          os: ${{ matrix.os }}
-          llvm_version: ${{ env.LLVM_VERSION }}
-          cmake_flags: ${{ matrix.extra_cmake_flags }}
-          with_pgo: ${{ matrix.with_pgo }}
-
-      - name: Install LDC
-        if: ${{ !startsWith(matrix.os, 'wasi') }}
-        uses: ./.github/actions/5-install
-        with:
-          cross_compiling: true
-      - name: 'Android: Cross-compile ${{ matrix.android_x86_arch }} libraries & copy to install dir'
-        if: matrix.os == 'android'
-        uses: ./.github/actions/5a-android-x86
-        with:
-          arch: ${{ matrix.android_x86_arch }}
-      - name: 'WASI: Cross-compile libraries & copy to install dir'
-        if: startsWith(matrix.os, 'wasi')
+      - name: 'WASI: Cross-compile druntime incl. test runners'
         uses: ./.github/actions/5a-wasi
         with:
           os: ${{ matrix.os }}
           arch: ${{ matrix.arch }}
-      - name: 'WASI: Run druntime tests'
-        if: startsWith(matrix.os, 'wasi')
+      - name: 'WASI: Run druntime unittests'
         shell: bash
         run: |
           set -eux
           cd ..
-
           wasmtime/wasmtime -W exceptions ldc-build-runtime.tmp/druntime-test-runner
-      - name: Make portable
-        if: ${{ !startsWith(matrix.os, 'wasi') }}
-        uses: ./.github/actions/5b-make-portable
+          # the debug runner hits:
+          # Error: failed to compile: wasm[0]::function[676]::_D4core6int12810__unittestZ
+          # Caused by:
+          #     0: WebAssembly translation error
+          #     1: Invalid input WebAssembly code at offset 585213: too many locals: locals exceed maximum
+          #wasmtime/wasmtime -W exceptions ldc-build-runtime.tmp/druntime-test-runner-debug
 
-      - name: Create package & upload artifact(s)
-        uses: ./.github/actions/7-package
-        with:
-          arch: ${{ matrix.arch }}
-          os: ${{ matrix.os }}
-          cross_target_triple: ${{ env.CROSS_TRIPLE }}
 
   merge-macos:
     name: macOS universal
@@ -434,6 +455,7 @@ jobs:
           submodules: true # Phobos needed for building arm64 libs
       - name: Merge x64 & x86 packages to multilib one & build installer
         uses: ./.github/actions/merge-windows
+
 
   upload-to-github:
     name: Upload to GitHub
