@@ -1,4 +1,4 @@
-name: "WASI: Cross-compile & libraries & copy to install dir"
+name: "WASI: Cross-compile druntime incl. test runners, install libs + .conf, run druntime unittests"
 inputs:
   os:
     required: true
@@ -7,7 +7,8 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: bash
+    - name: Cross-compile druntime incl. test runners & install libs + .conf
+      shell: bash
       run: |
         set -eux
         cd ..
@@ -24,36 +25,30 @@ runs:
           toolchain_suffix=-`echo "$os" | cut -c 5-`
         fi
 
-        absInstallDir="$PWD/install"
-
-        # cross-compile druntime (incl. test runners) and install
         bootstrap-ldc/bin/ldc-build-runtime \
           --ninja \
           --dFlags="-mtriple=$triple" \
           --ldcSrcDir="$PWD/ldc" \
+          --buildDir="ldc-build-runtime.$os-$arch" \
           --installWithSuffix="-$os-$arch" \
           --testrunners \
-          CMAKE_INSTALL_PREFIX="$absInstallDir" \
+          CMAKE_INSTALL_PREFIX="$PWD/install" \
           RT_CONF_TRIPLE_REGEX="$arch-.*-$os" \
           PHOBOS2_DIR= \
           CMAKE_TOOLCHAIN_FILE="$PWD/wasi-sdk/share/cmake/wasi-sdk${toolchain_suffix}.cmake" \
           BUILD_LTO_LIBS=ON
 
-        # make the installed .conf portable
-        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" install/etc/ldc2.conf/*.conf
+    - name: Run druntime unittests
+      shell: bash
+      run: |
+        set -eux
+        cd ../ldc-build-runtime.${{ inputs.os }}-${{ inputs.arch }}
 
-        # pack install/ dir to a .tar.xz archive
-        artifactsDir='${{ github.workspace }}/artifacts'
-        mkdir $artifactsDir
-        chmod -R go=rX install
-        sudo chown -R 0:0 install
-        cd install
-        tar -cf - * | 7z a $artifactsDir/ldc2-addon-$os-$arch.tar.xz -si -txz -mx9
-        cd ..
+        ../wasmtime/wasmtime -W exceptions ./druntime-test-runner
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v6
-      with:
-        name: addon-${{ inputs.os }}-${{ inputs.arch }}
-        path: artifacts/
-        compression-level: 0
+        # the debug runner hits:
+        # Error: failed to compile: wasm[0]::function[676]::_D4core6int12810__unittestZ
+        # Caused by:
+        #     0: WebAssembly translation error
+        #     1: Invalid input WebAssembly code at offset 585213: too many locals: locals exceed maximum
+        #../wasmtime/wasmtime -W exceptions ./druntime-test-runner-debug
