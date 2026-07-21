@@ -77,6 +77,25 @@ llvm::SmallVector<std::string, 2> findCCFallback() {
   } else if (triple.isOSDarwin()) {
     // Cross-compiling for Apple is most probably done on an Apple machine
     choices = { { "cc" } };
+  } else if (triple.isOSWASI() && triple.isArch32Bit()) {
+    // default to cross-clang names from WASI SDK
+    switch (triple.getOS()) {
+#if LLVM_VERSION_MAJOR >= 22
+    case llvm::Triple::WASIp1:
+      choices = {{"wasm32-wasip1-clang"}};
+      break;
+    case llvm::Triple::WASIp2:
+      choices = {{"wasm32-wasip2-clang"}};
+      break;
+    case llvm::Triple::WASIp3:
+      choices = {{"wasm32-wasip3-clang"}};
+      break;
+#endif
+    case llvm::Triple::WASI:
+    default:
+      choices = {{"wasm32-wasi-clang"}};
+      break;
+    }
   } else {
     const auto tripleString = triple.getTriple();
     choices = {

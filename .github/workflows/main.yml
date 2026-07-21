@@ -381,6 +381,67 @@ jobs:
           cross_target_triple: ${{ env.CROSS_TRIPLE }}
 
 
+  build-cross-libs-only:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job_name: WASI wasm32
+            arch: wasm32
+    name: ${{ matrix.job_name }}
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 60
+    env:
+      GHA_BASH_SHELL: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Install prerequisites
+        uses: ./.github/actions/1-setup
+        with:
+          llvm_version: ${{ env.LLVM_VERSION }}
+          clang_major: ${{ env.CLANG_MAJOR }}
+          arch: aarch64
+      - name: 'WASI: Install additional prerequisites'
+        uses: ./.github/actions/1a-setup-wasi
+      - name: Build bootstrap LDC
+        uses: ./.github/actions/2-build-bootstrap
+      - name: 'WASIp1: Cross-compile druntime incl. test runners & run druntime unittests'
+        uses: ./.github/actions/5a-wasi
+        with:
+          os: wasip1
+          arch: ${{ matrix.arch }}
+      - name: 'WASIp2: Cross-compile druntime incl. test runners & run druntime unittests'
+        uses: ./.github/actions/5a-wasi
+        with:
+          os: wasip2
+          arch: ${{ matrix.arch }}
+      - name: Make installed .conf files portable
+        uses: ./.github/actions/5b-make-portable
+      - name: Create addon package & upload artifact
+        uses: ./.github/actions/7-package
+        with:
+          arch: ${{ matrix.arch }}
+          os: wasi
+          is_addon: true
+      - name: Smoke-test add-on package
+        run: |
+          set -eux
+          # unpack addon archive into ../bootstrap-ldc
+          cd ../bootstrap-ldc
+          tar xf ${{ github.workspace }}/artifacts/*-addon-*.tar.xz
+          # generate hello.d
+          echo 'void main() { import core.stdc.stdio; printf("Hello world, %d bits\n", size_t.sizeof * 8); }' > hello.d
+          # put WASI-SDK clang onto PATH
+          export PATH="$PWD/../wasi-sdk/bin:$PATH"
+          # build & run hello-world
+          for os in wasip1 wasip2; do
+            bin/ldc2 -mtriple=${{ matrix.arch }}-unknown-$os hello.d
+            ../wasmtime/wasmtime -W exceptions ./hello.wasm
+          done
+
+
   merge-macos:
     name: macOS universal
     runs-on: macos-latest
@@ -412,6 +473,7 @@ jobs:
     needs:
       - build-native
       - build-cross
+      - build-cross-libs-only
       - merge-macos
       - merge-windows
     permissions:

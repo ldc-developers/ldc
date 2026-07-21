@@ -1,0 +1,54 @@
+name: "WASI: Cross-compile druntime incl. test runners, install libs + .conf, run druntime unittests"
+inputs:
+  os:
+    required: true
+  arch:
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Cross-compile druntime incl. test runners & install libs + .conf
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        os='${{ inputs.os }}'
+        arch='${{ inputs.arch }}'
+        triple="$arch-unknown-$os"
+
+        if [ "$os" = 'wasi' ]; then
+          # legacy `wasm32-wasi` triple
+          toolchain_suffix=''
+        else
+          # newer `wasm32-wasipX` triples
+          toolchain_suffix=-`echo "$os" | cut -c 5-`
+        fi
+
+        bootstrap-ldc/bin/ldc-build-runtime \
+          --ninja \
+          --dFlags="-mtriple=$triple" \
+          --ldcSrcDir="$PWD/ldc" \
+          --buildDir="ldc-build-runtime.$os-$arch" \
+          --installWithSuffix="-$os-$arch" \
+          --testrunners \
+          CMAKE_INSTALL_PREFIX="$PWD/install" \
+          RT_CONF_TRIPLE_REGEX="$arch-.*-$os" \
+          PHOBOS2_DIR= \
+          CMAKE_TOOLCHAIN_FILE="$PWD/wasi-sdk/share/cmake/wasi-sdk${toolchain_suffix}.cmake" \
+          BUILD_LTO_LIBS=ON
+
+    - name: Run druntime unittests
+      shell: bash
+      run: |
+        set -eux
+        cd ../ldc-build-runtime.${{ inputs.os }}-${{ inputs.arch }}
+
+        ../wasmtime/wasmtime -W exceptions ./druntime-test-runner
+
+        # the debug runner hits:
+        # Error: failed to compile: wasm[0]::function[676]::_D4core6int12810__unittestZ
+        # Caused by:
+        #     0: WebAssembly translation error
+        #     1: Invalid input WebAssembly code at offset 585213: too many locals: locals exceed maximum
+        #../wasmtime/wasmtime -W exceptions ./druntime-test-runner-debug
