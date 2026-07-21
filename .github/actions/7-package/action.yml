@@ -10,13 +10,13 @@ inputs:
     default: ''
   is_addon:
     required: false
-    default: false
+    default: ''
 runs:
   using: composite
   steps:
 
     - name: Set DMD environment variable
-      if: '!inputs.is_addon'
+      if: inputs.is_addon == ''
       shell: bash  # don't run in VM, but host runner (for exporting env vars)
       run: |
         set -eux
@@ -30,7 +30,7 @@ runs:
         echo "DMD=$DMD" >> $GITHUB_ENV
 
     - name: Build & copy dub
-      if: '!inputs.is_addon'
+      if: inputs.is_addon == ''
       shell: ${{ env.GHA_BASH_SHELL }} ${{ startsWith(env.GHA_BASH_SHELL, 'cpa.sh') && '--environment-variables DMD' || '' }}
       run: |
         set -eux
@@ -47,7 +47,7 @@ runs:
         fi
 
     - name: Build & copy dlang tools
-      if: '!inputs.is_addon'
+      if: inputs.is_addon == ''
       shell: ${{ env.GHA_BASH_SHELL }} ${{ startsWith(env.GHA_BASH_SHELL, 'cpa.sh') && '--environment-variables DMD' || '' }}
       run: |
         set -eux
@@ -68,7 +68,7 @@ runs:
         cp bin/{rdmd,ddemangle,dustmite} ../installed/bin/
 
     - name: Build & copy reggae
-      if: '!inputs.is_addon'
+      if: inputs.is_addon == ''
       shell: ${{ env.GHA_BASH_SHELL }} ${{ startsWith(env.GHA_BASH_SHELL, 'cpa.sh') && '--environment-variables DMD' || '' }}
       run: |
         set -eux
@@ -99,7 +99,7 @@ runs:
         fi
 
     - name: 'Linux: List executable dependencies'
-      if: runner.os == 'Linux' && !inputs.is_addon
+      if: runner.os == 'Linux' && inputs.is_addon == ''
       shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -euxo pipefail
@@ -138,7 +138,7 @@ runs:
           fi
         fi
 
-        is_addon='${{ inputs.is_addon && '1' || '0' }}'
+        is_addon='${{ inputs.is_addon != '' && '1' || '0' }}'
         artifactName="ldc2-$artifactID"
         if [[ "$is_addon" == 1 ]]; then
           artifactName+="-addon"
