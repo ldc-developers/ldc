@@ -408,11 +408,7 @@ jobs:
           clang_major: ${{ env.CLANG_MAJOR }}
           arch: aarch64
       - name: 'WASI: Install additional prerequisites'
-        if: startsWith(matrix.os, 'wasi')
         uses: ./.github/actions/1a-setup-wasi
-        with:
-          wasi_sdk_version: 33
-          wasmtime_version: 46.0.1
       - name: Build bootstrap LDC
         uses: ./.github/actions/2-build-bootstrap
       - name: 'WASI: Cross-compile druntime incl. test runners'

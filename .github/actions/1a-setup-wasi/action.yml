@@ -1,31 +1,31 @@
 name: "WASI: Install additional prerequisites"
 inputs:
   wasi_sdk_version:
-    required: true
+    required: false
+    default: 33
   wasmtime_version:
-    required: true
+    required: false
+    default: 46.0.1
 runs:
   using: composite
   steps:
-    - name: "Linux: Install wasi-sdk"
-      if: runner.os == 'Linux'
+    - name: "Install wasi-sdk" # into ../wasi-sdk
       shell: bash
       run: |
         set -eux
         cd ..
 
         WASI_SDK_VERSION='${{ inputs.wasi_sdk_version }}'
-        curl -OL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION}.0-arm64-linux.tar.gz
+        curl -fOL --retry 3 --max-time 120 https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION}.0-arm64-linux.tar.gz
         tar -xzf wasi-sdk-${WASI_SDK_VERSION}.0-arm64-linux.tar.gz
         mv wasi-sdk-${WASI_SDK_VERSION}.0-arm64-linux wasi-sdk
-    - name: "Linux: Install wasmtime"
-      if: runner.os == 'Linux'
+    - name: "Install wasmtime" # into ../wasmtime
       shell: bash
       run: |
         set -eux
         cd ..
 
         WASMTIME_VERSION='${{ inputs.wasmtime_version }}'
-        curl -OL https://github.com/bytecodealliance/wasmtime/releases/download/v${WASMTIME_VERSION}/wasmtime-v${WASMTIME_VERSION}-aarch64-linux.tar.xz
+        curl -fOL --retry 3 --max-time 60 https://github.com/bytecodealliance/wasmtime/releases/download/v${WASMTIME_VERSION}/wasmtime-v${WASMTIME_VERSION}-aarch64-linux.tar.xz
         tar -xf wasmtime-v${WASMTIME_VERSION}-aarch64-linux.tar.xz
         mv wasmtime-v${WASMTIME_VERSION}-aarch64-linux wasmtime
