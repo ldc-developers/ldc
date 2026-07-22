@@ -44,11 +44,7 @@ runs:
         set -eux
         cd ../ldc-build-runtime.${{ inputs.os }}-${{ inputs.arch }}
 
+        export WASMTIME_BACKTRACE_DETAILS=1
         ../wasmtime/wasmtime -W exceptions ./druntime-test-runner
-
-        # the debug runner hits:
-        # Error: failed to compile: wasm[0]::function[676]::_D4core6int12810__unittestZ
-        # Caused by:
-        #     0: WebAssembly translation error
-        #     1: Invalid input WebAssembly code at offset 585213: too many locals: locals exceed maximum
+        # FIXME: hangs at one point after core.internal.container.treap
         #../wasmtime/wasmtime -W exceptions ./druntime-test-runner-debug

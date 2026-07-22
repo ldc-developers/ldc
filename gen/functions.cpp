@@ -654,9 +654,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
     irFunc->setNeverInline();
   } else {
     if (fdecl->inlining == PINLINE::always) {
-      // If the function contains DMD-style inline assembly.
-      if (fdecl->hasInlineAsm()) {
-        // The presence of DMD-style inline assembly in a function causes that
+      if (fdecl->isUnitTestDeclaration()) {
+        // makes no sense: https://github.com/ldc-developers/ldc/issues/5210
+      } else if (fdecl->hasInlineAsm()) {
+        // The presence of *DMD-style* inline assembly in a function causes that
         // function to become never-inline. So, if this function contains DMD-style
         // inline assembly we'll emit an error as it can't be made always-inline.
         // However, we'll make an exception for C functions, as the C standard doesn't
