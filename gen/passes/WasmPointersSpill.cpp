@@ -32,22 +32,19 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Analysis/CFG.h"
 
-
 using namespace llvm;
 
-class LLVM_LIBRARY_VISIBILITY WasmPointersSpillLegacyPass : public FunctionPass {
+class LLVM_LIBRARY_VISIBILITY WasmPointersSpillLegacyPass
+    : public FunctionPass {
   WasmPointersSpill pass;
 
 public:
   static char ID; // Pass identification
   WasmPointersSpillLegacyPass() : FunctionPass(ID) {}
 
-  bool runOnFunction(Function &F) override {
-    return pass.run(F);
-  }
+  bool runOnFunction(Function &F) override { return pass.run(F); }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-  }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {}
 };
 char WasmPointersSpillLegacyPass::ID = 0;
 
@@ -78,7 +75,7 @@ static bool TypeContainsPointers(LLType *ty) {
   }
 
   case LLType::FixedVectorTyID:
-      return TypeContainsPointers(cast<VectorType>(ty)->getElementType());
+    return TypeContainsPointers(cast<VectorType>(ty)->getElementType());
 
   default:
     return false;
@@ -102,7 +99,6 @@ bool WasmPointersSpill::run(Function &F) {
   }
 #endif
 
-
   // for SetVector determinstic iteration
   SmallSetVector<Instruction *, 0> PotentialPointers;
 
@@ -117,10 +113,12 @@ bool WasmPointersSpill::run(Function &F) {
         if (auto *Store = dyn_cast<StoreInst>(&I)) {
           Value *StorePtr = Store->getPointerOperand();
           AllocaInst *Alloca = findAllocaForValue(StorePtr);
-          if (Alloca) ValuesStoredInAlloca[Alloca].insert(Store->getValueOperand());
+          if (Alloca)
+            ValuesStoredInAlloca[Alloca].insert(Store->getValueOperand());
         }
 
-        if (isa<AllocaInst>(I)) continue; // the result of `alloca` can't be a GC pointer
+        if (isa<AllocaInst>(I)) // the result of `alloca` can't be a GC pointer
+          continue;
 
         if (TypeContainsPointers(I.getType())) {
           PotentialPointers.insert(&I);
@@ -139,12 +137,12 @@ bool WasmPointersSpill::run(Function &F) {
             // if it's a load from an `alloca`, any stores
             // into said `alloca` might be hidden pointers
 
-            if (WorklistSeen.insert(&I).second) Worklist.push_back(&I);
+            if (WorklistSeen.insert(&I).second)
+              Worklist.push_back(&I);
           }
         }
       }
     }
-
 
     auto markValue = [&](Value *V) {
       // If the op is/has a pointer, it's not a concern for
@@ -152,10 +150,12 @@ bool WasmPointersSpill::run(Function &F) {
       //
       // However, we want to still trace loads back through memory
       // regardless to help catch `store`s with mismatching type.
-      if (TypeContainsPointers(V->getType()) && !isa<LoadInst>(V)) return;
+      if (TypeContainsPointers(V->getType()) && !isa<LoadInst>(V))
+        return;
 
       if (auto *OpInst = dyn_cast<Instruction>(V)) {
-        if (WorklistSeen.insert(OpInst).second) Worklist.push_back(OpInst);
+        if (WorklistSeen.insert(OpInst).second)
+          Worklist.push_back(OpInst);
       }
     };
 
@@ -163,13 +163,16 @@ bool WasmPointersSpill::run(Function &F) {
       auto *I = Worklist.back();
       Worklist.pop_back();
 
-      if (I->getType()->isVoidTy()) continue; // we don't care about non-values
-      if (isa<AllocaInst>(I)) continue; // the result of `alloca` can't be a GC pointer
+      if (I->getType()->isVoidTy()) // we don't care about non-values
+        continue;
+      if (isa<AllocaInst>(I)) // the result of `alloca` can't be a GC pointer
+        continue;
 
       // small integers (and bools) can't hold values large enough to
       // be in the GC heap; assuming we have at least 64K of stack space + data
-      if (I->getType()->isIntegerTy()
-          && I->getType()->getScalarSizeInBits() <= 16) continue;
+      if (I->getType()->isIntegerTy() &&
+          I->getType()->getScalarSizeInBits() <= 16)
+        continue;
 
       PotentialPointers.insert(I);
 
@@ -189,7 +192,8 @@ bool WasmPointersSpill::run(Function &F) {
       //
       // However, we can only assume that for D function calls
       // Not intrinsics LLVM might insert.
-      if (isa<CallBase>(I) && !isa<IntrinsicInst>(I)) continue;
+      if (isa<CallBase>(I) && !isa<IntrinsicInst>(I))
+        continue;
 
       for (Use &Op : I->operands()) {
         Value *V = Op.get();
@@ -218,8 +222,8 @@ bool WasmPointersSpill::run(Function &F) {
   DenseMap<BasicBlock *, BitVector> DefsAfterAllCalls;
   BitVector HasCalls(BBCount);
 
-  ReversePostOrderTraversal<Function*> RPOT(&F);
-  for (BasicBlock* BB : make_range(RPOT.begin(), RPOT.end())) {
+  ReversePostOrderTraversal<Function *> RPOT(&F);
+  for (BasicBlock *BB : make_range(RPOT.begin(), RPOT.end())) {
     LiveIn[BB].resize(NumVRegs);
     LiveInAcrossCall[BB].resize(NumVRegs);
     LiveOut[BB].resize(NumVRegs);
@@ -256,7 +260,8 @@ bool WasmPointersSpill::run(Function &F) {
       if (InstIdx.contains(&I)) {
         auto Idx = InstIdx[&I];
         BBDefs.set(Idx);
-        if (!SeenCall) BBDefsAfterAllCalls.set(Idx);
+        if (!SeenCall)
+          BBDefsAfterAllCalls.set(Idx);
         BBUses.reset(Idx);
         TmpUses.reset(Idx);
       }
@@ -276,7 +281,6 @@ bool WasmPointersSpill::run(Function &F) {
     Worklist.insert(BB);
   }
 
-
   while (!Worklist.empty()) {
     auto *BB = Worklist.back();
     Worklist.pop_back();
@@ -293,10 +297,12 @@ bool WasmPointersSpill::run(Function &F) {
 
       for (Instruction &I : *Succ) {
         auto *PHI = dyn_cast<PHINode>(&I);
-        if (!PHI) break;
+        if (!PHI)
+          break;
 
         int IncomingIdx = PHI->getBasicBlockIndex(BB);
-        if (IncomingIdx < 0) continue;
+        if (IncomingIdx < 0)
+          continue;
 
         Value *IncomingValue = PHI->getIncomingValue(IncomingIdx);
         if (auto *IncomingInst = dyn_cast<Instruction>(IncomingValue)) {
@@ -333,7 +339,8 @@ bool WasmPointersSpill::run(Function &F) {
     NewLiveInAcrossCall |= UsesAcrossCall[BB];
     NewLiveInAcrossCall.reset(Defs[BB]);
 
-    if (NewLiveIn != LiveIn[BB] || NewLiveInAcrossCall != LiveInAcrossCall[BB]) {
+    if (NewLiveIn != LiveIn[BB] ||
+        NewLiveInAcrossCall != LiveInAcrossCall[BB]) {
       LiveIn[BB] = NewLiveIn;
       LiveInAcrossCall[BB] = NewLiveInAcrossCall;
 
@@ -366,31 +373,19 @@ bool WasmPointersSpill::run(Function &F) {
   auto &DL = F.getParent()->getDataLayout();
 
 #if LLVM_VERSION_MAJOR >= 20
-  Function *LifetimeStartFn =
-    Intrinsic::getOrInsertDeclaration(
-      F.getParent(),
-      Intrinsic::lifetime_start,
-      {DL.getAllocaPtrType(F.getContext())}
-    );
+  Function *LifetimeStartFn = Intrinsic::getOrInsertDeclaration(
+      F.getParent(), Intrinsic::lifetime_start,
+      {DL.getAllocaPtrType(F.getContext())});
   Function *LifetimeEndFn =
-    Intrinsic::getOrInsertDeclaration(
-      F.getParent(),
-      Intrinsic::lifetime_end,
-      {DL.getAllocaPtrType(F.getContext())}
-  );
+      Intrinsic::getOrInsertDeclaration(F.getParent(), Intrinsic::lifetime_end,
+                                        {DL.getAllocaPtrType(F.getContext())});
 #else
   Function *LifetimeStartFn =
-    Intrinsic::getDeclaration(
-      F.getParent(),
-      Intrinsic::lifetime_start,
-      {DL.getAllocaPtrType(F.getContext())}
-    );
+      Intrinsic::getDeclaration(F.getParent(), Intrinsic::lifetime_start,
+                                {DL.getAllocaPtrType(F.getContext())});
   Function *LifetimeEndFn =
-    Intrinsic::getDeclaration(
-      F.getParent(),
-      Intrinsic::lifetime_end,
-      {DL.getAllocaPtrType(F.getContext())}
-  );
+      Intrinsic::getDeclaration(F.getParent(), Intrinsic::lifetime_end,
+                                {DL.getAllocaPtrType(F.getContext())});
 #endif
 
   IRBuilder<> Builder(&entryBB, allocaPoint);
@@ -408,18 +403,19 @@ bool WasmPointersSpill::run(Function &F) {
 #endif
   for (Instruction *I : PotentialPointers) {
     unsigned Idx = InstIdx[I];
-    if (!NeedsSpill[Idx]) continue;
+    if (!NeedsSpill[Idx])
+      continue;
 
     Changed = true;
 
     SpillAllocas.push_back(Builder.CreateAlloca(
-      I->getType(), nullptr,
-      "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg")
-    ));
+        I->getType(), nullptr,
+        "stackSpill." + (I->hasName() ? I->getName() : "unnamedVreg")));
     SpillPointers.push_back(I);
 
 #if LLVM_VERSION_MAJOR < 22
-    SpillSizes.push_back(ConstantInt::get(I64Type, DL.getTypeAllocSize(I->getType())));
+    SpillSizes.push_back(
+        ConstantInt::get(I64Type, DL.getTypeAllocSize(I->getType())));
 #endif
   }
 
@@ -434,9 +430,11 @@ bool WasmPointersSpill::run(Function &F) {
 #endif
     AllocaInst *ai = SpillAllocas[NextSpillPointerIdx++];
     for (auto &BB : F) {
-      if (NewBlocks.contains(&BB)) continue;
+      if (NewBlocks.contains(&BB))
+        continue;
 
-      if(!LiveInAcrossCall[&BB][Idx] && !Defs[&BB][Idx]) continue;
+      if (!LiveInAcrossCall[&BB][Idx] && !Defs[&BB][Idx])
+        continue;
 
       if (LiveOutAcrossCall[&BB][Idx]) {
         // We want to find the specific edges that the spill dies across
@@ -449,7 +447,8 @@ bool WasmPointersSpill::run(Function &F) {
         SmallPtrSet<BasicBlock *, 4> EdgesToSplit;
 
         for (BasicBlock *Succ : successors(&BB)) {
-          if (NewBlocks.contains(Succ)) continue;
+          if (NewBlocks.contains(Succ))
+            continue;
 
           // Rather than going down the rabbit hole of trying to find a spot
           // to place the lifetime.end, we simply omit it for EH pad targets
@@ -471,14 +470,17 @@ bool WasmPointersSpill::run(Function &F) {
                 CriticalEdgeSplittingOptions().setPreserveLCSSA();
             Options.setMergeIdenticalEdges();
 
-            if (isCriticalEdge(LatchTerm, SuccNum, Options.MergeIdenticalEdges)) {
+            if (isCriticalEdge(LatchTerm, SuccNum,
+                               Options.MergeIdenticalEdges)) {
               // If this is a critical edge, let SplitKnownCriticalEdge do it.
-              BasicBlock *SplitBB = SplitKnownCriticalEdge(LatchTerm, SuccNum, Options, ai->getName() + ".lifetimeEnd.bb");
+              BasicBlock *SplitBB =
+                  SplitKnownCriticalEdge(LatchTerm, SuccNum, Options,
+                                         ai->getName() + ".lifetimeEnd.bb");
               NewBlocks.insert(SplitBB);
               Builder.SetInsertPoint(SplitBB->begin());
             } else {
-              // If the edge isn't critical, then BB has a single successor or Succ has a
-              // single pred. Set the insert point appropriately.
+              // If the edge isn't critical, then BB has a single successor or
+              // Succ has a single pred. Set the insert point appropriately.
 
               if (BasicBlock *SP = Succ->getUniquePredecessor()) {
                 // If the successor only has a single pred, insert at the top
@@ -488,41 +490,40 @@ bool WasmPointersSpill::run(Function &F) {
 
                 Builder.SetInsertPoint(Succ->getFirstInsertionPt());
               } else {
-                // Otherwise, if BB has a single successor, split it at the bottom of the
-                // block.
-                assert(BB.getUniqueSuccessor() &&
-                      "Should have a single succ!");
+                // Otherwise, if BB has a single successor, split it at the
+                // bottom of the block.
+                assert(BB.getUniqueSuccessor() && "Should have a single succ!");
                 Builder.SetInsertPoint(BB.end());
               }
             }
           }
 
-          Builder.CreateCall(
-            LifetimeEndFn,
-    #if LLVM_VERSION_MAJOR >= 22
-            {ai}
-    #else
-            {size, ai}
-    #endif
+          Builder.CreateCall(LifetimeEndFn,
+#if LLVM_VERSION_MAJOR >= 22
+                             { ai }
+#else
+                             {size, ai}
+#endif
           );
         }
       } else {
         if (LiveOut[&BB][Idx]) {
-          // There are no more calls between the end of this block and
-          // its future use (if any), but it IS still used, so keep the
-          // spill alive until the final call in this block.
-          #if LLVM_VERSION_MAJOR >= 20
-              unsigned BBNum = BB.getNumber();
-          #else
-              unsigned BBNum = BBIdx[&BB];
-          #endif
+// There are no more calls between the end of this block and
+// its future use (if any), but it IS still used, so keep the
+// spill alive until the final call in this block.
+#if LLVM_VERSION_MAJOR >= 20
+          unsigned BBNum = BB.getNumber();
+#else
+          unsigned BBNum = BBIdx[&BB];
+#endif
           if (!HasCalls[BBNum]) {
             Builder.SetInsertPoint(BB.getFirstInsertionPt());
           } else {
             for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
               if (isa<CallBase>(&IterI)) {
                 if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
-                  Builder.SetInsertPoint(Invoke->getNormalDest()->getFirstInsertionPt());
+                  Builder.SetInsertPoint(
+                      Invoke->getNormalDest()->getFirstInsertionPt());
                 } else {
                   assert(!IterI.isTerminator());
                   Builder.SetInsertPoint(std::next(IterI.getIterator()));
@@ -547,7 +548,8 @@ bool WasmPointersSpill::run(Function &F) {
 
             if (Found && isa<CallBase>(&IterI)) {
               if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
-                Builder.SetInsertPoint(Invoke->getNormalDest()->getFirstInsertionPt());
+                Builder.SetInsertPoint(
+                    Invoke->getNormalDest()->getFirstInsertionPt());
               } else {
                 assert(!IterI.isTerminator());
                 Builder.SetInsertPoint(std::next(IterI.getIterator()));
@@ -559,13 +561,12 @@ bool WasmPointersSpill::run(Function &F) {
           assert(0);
         }
 
-        Builder.CreateCall(
-          LifetimeEndFn,
-  #if LLVM_VERSION_MAJOR >= 22
-          {ai}
-  #else
-          {size, ai}
-  #endif
+        Builder.CreateCall(LifetimeEndFn,
+#if LLVM_VERSION_MAJOR >= 22
+                           { ai }
+#else
+                           {size, ai}
+#endif
         );
       }
     }
@@ -594,7 +595,9 @@ bool WasmPointersSpill::run(Function &F) {
         // than this invoke, so split the CFG edge
         // (to make the invoke/def dominate the spill)
 
-        SpillInsertPoint = SplitEdge(BB, Invoke->getNormalDest(), nullptr, nullptr, nullptr, ai->getName() + ".bb")->begin();
+        SpillInsertPoint = SplitEdge(BB, Invoke->getNormalDest(), nullptr,
+                                     nullptr, nullptr, ai->getName() + ".bb")
+                               ->begin();
       }
     } else if (isa<PHINode>(I)) {
       if (isa<CatchSwitchInst>(BB->getTerminator())) {
@@ -618,17 +621,17 @@ bool WasmPointersSpill::run(Function &F) {
     }
 
     while (auto *Intrinsic = dyn_cast<IntrinsicInst>(&*SpillInsertPoint)) {
-      if (Intrinsic->getIntrinsicID() != Intrinsic::lifetime_end) break;
+      if (Intrinsic->getIntrinsicID() != Intrinsic::lifetime_end)
+        break;
       SpillInsertPoint = std::next(SpillInsertPoint);
     }
 
     Builder.SetInsertPoint(SpillInsertPoint);
-    Builder.CreateCall(
-      LifetimeStartFn,
+    Builder.CreateCall(LifetimeStartFn,
 #if LLVM_VERSION_MAJOR >= 22
-      {ai}
+                       { ai }
 #else
-      {size, ai}
+                       {size, ai}
 #endif
     );
     Builder.CreateStore(I, ai, true);
