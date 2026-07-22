@@ -231,17 +231,20 @@ bool WasmPointersSpill::run(Function &F) {
     bool SeenCall = false;
 
     for (Instruction &I : make_range(BB->rbegin(), BB->rend())) {
-      for (Use &Op : I.operands()) {
-        Value *V = Op.get();
+      // Don't mark PHI operands as uses (cause those will) propogate
+      // to all predecessors, which is incorrect.
+      if (!isa<PHINode>(&I))
+        for (Use &Op : I.operands()) {
+          Value *V = Op.get();
 
-        if (auto *OpInst = dyn_cast<Instruction>(V)) {
-          if (InstIdx.contains(OpInst)) {
-            auto Idx = InstIdx[OpInst];
-            BBUses.set(Idx);
-            TmpUses.set(Idx);
+          if (auto *OpInst = dyn_cast<Instruction>(V)) {
+            if (InstIdx.contains(OpInst)) {
+              auto Idx = InstIdx[OpInst];
+              BBUses.set(Idx);
+              TmpUses.set(Idx);
+            }
           }
         }
-      }
 
       if (InstIdx.contains(&I)) {
         auto Idx = InstIdx[&I];
@@ -280,6 +283,25 @@ bool WasmPointersSpill::run(Function &F) {
     for (BasicBlock *Succ : successors(BB)) {
       BBLiveOut |= LiveIn[Succ];
       BBLiveOutAcrossCall |= LiveInAcrossCall[Succ];
+
+      for (Instruction &I : *Succ) {
+        auto *PHI = dyn_cast<PHINode>(&I);
+        if (!PHI) break;
+
+        int IncomingIdx = PHI->getBasicBlockIndex(BB);
+        if (IncomingIdx < 0) continue;
+
+        Value *IncomingValue = PHI->getIncomingValue(IncomingIdx);
+        if (auto *IncomingInst = dyn_cast<Instruction>(IncomingValue)) {
+          if (InstIdx.contains(IncomingInst)) {
+            unsigned Idx = InstIdx[IncomingInst];
+            BBLiveOut.set(Idx);
+
+            if (LiveInAcrossCall[Succ][Idx])
+              BBLiveOutAcrossCall.set(Idx);
+          }
+        }
+      }
     }
 
     // Normal liveliness
@@ -287,15 +309,14 @@ bool WasmPointersSpill::run(Function &F) {
     NewLiveIn |= Uses[BB];
     NewLiveIn.reset(Defs[BB]);
 
+    // Liveliness specifically of call crossing
+    BitVector NewLiveInAcrossCall = BBLiveOutAcrossCall;
+
 #if LLVM_VERSION_MAJOR >= 20
     unsigned BBNum = BB->getNumber();
 #else
     unsigned BBNum = BBIdx[BB];
 #endif
-
-    // Liveliness specifically of call crossing
-    BitVector NewLiveInAcrossCall = BBLiveOutAcrossCall;
-
     if (HasCalls[BBNum]) {
       BitVector Tmp = BBLiveOut;
       Tmp.reset(DefsAfterAllCalls[BB]);
@@ -320,6 +341,18 @@ bool WasmPointersSpill::run(Function &F) {
   for (auto &BB : F) {
     NeedsSpill |= UsesAcrossCall[&BB];
     NeedsSpill |= LiveOutAcrossCall[&BB];
+
+#if LLVM_VERSION_MAJOR >= 20
+    unsigned BBNum = BB.getNumber();
+#else
+    unsigned BBNum = BBIdx[&BB];
+#endif
+
+    if (HasCalls[BBNum]) {
+      BitVector Tmp = LiveOut[&BB];
+      Tmp.reset(DefsAfterAllCalls[&BB]);
+      NeedsSpill |= Tmp;
+    }
 
     BitVector Tmp(NumVRegs);
     Tmp |= LiveInAcrossCall[&BB];
