@@ -8,7 +8,8 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: bash
+    - name: Cross-compile iOS libraries, copy to install dir & extend ldc2.conf
+      shell: bash
       run: |
         set -eux
         cd ..
