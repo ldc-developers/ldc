@@ -45,6 +45,5 @@ runs:
         cd ../ldc-build-runtime.${{ inputs.os }}-${{ inputs.arch }}
 
         export WASMTIME_BACKTRACE_DETAILS=1
+        ../wasmtime/wasmtime -W exceptions ./druntime-test-runner-debug
         ../wasmtime/wasmtime -W exceptions ./druntime-test-runner
-        # FIXME: hangs at one point after core.internal.container.treap
-        #../wasmtime/wasmtime -W exceptions ./druntime-test-runner-debug
