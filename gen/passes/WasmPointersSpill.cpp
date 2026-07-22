@@ -29,6 +29,8 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Analysis/CFG.h"
 
 
 using namespace llvm;
@@ -84,6 +86,12 @@ static bool TypeContainsPointers(LLType *ty) {
 }
 
 bool WasmPointersSpill::run(Function &F) {
+  bool Changed = false;
+
+  // Make sure we don't have any dead code that'll be missed by RPOT
+  // and cause issues down the line.
+  Changed = EliminateUnreachableBlocks(F);
+
 #if LLVM_VERSION_MAJOR >= 20
   unsigned BBCount = F.getMaxBlockNumber();
 #else
@@ -94,7 +102,6 @@ bool WasmPointersSpill::run(Function &F) {
   }
 #endif
 
-  bool Changed = false;
 
   // for SetVector determinstic iteration
   SmallSetVector<Instruction *, 0> PotentialPointers;
@@ -337,7 +344,6 @@ bool WasmPointersSpill::run(Function &F) {
   }
 
   BitVector NeedsSpill(NumVRegs);
-  DenseMap<BasicBlock *, BitVector> SpillKills;
   for (auto &BB : F) {
     NeedsSpill |= UsesAcrossCall[&BB];
     NeedsSpill |= LiveOutAcrossCall[&BB];
@@ -347,19 +353,11 @@ bool WasmPointersSpill::run(Function &F) {
 #else
     unsigned BBNum = BBIdx[&BB];
 #endif
-
     if (HasCalls[BBNum]) {
       BitVector Tmp = LiveOut[&BB];
       Tmp.reset(DefsAfterAllCalls[&BB]);
       NeedsSpill |= Tmp;
     }
-
-    BitVector Tmp(NumVRegs);
-    Tmp |= LiveInAcrossCall[&BB];
-    Tmp |= Defs[&BB];
-    Tmp.reset(LiveOutAcrossCall[&BB]);
-
-    SpillKills[&BB] = Tmp;
   }
 
   auto &entryBB = F.getEntryBlock();
@@ -427,6 +425,7 @@ bool WasmPointersSpill::run(Function &F) {
 
   unsigned NextSpillPointerIdx = 0;
 
+  SmallPtrSet<BasicBlock *, 8> NewBlocks;
   // do `lifetime.end` first
   for (Instruction *I : SpillPointers) {
     unsigned Idx = InstIdx[I];
@@ -434,25 +433,119 @@ bool WasmPointersSpill::run(Function &F) {
     ConstantInt *size = SpillSizes[NextSpillPointerIdx];
 #endif
     AllocaInst *ai = SpillAllocas[NextSpillPointerIdx++];
-
     for (auto &BB : F) {
-      if(!SpillKills[&BB][Idx]) continue;
+      if (NewBlocks.contains(&BB)) continue;
 
-      if (LiveOut[&BB][Idx]) {
-        // SpillKills says there are no more calls between the
-        // end of this block and its future use (if any), but it IS
-        // still used, so keep the spill alive until the final
-        // call in this block.
-        #if LLVM_VERSION_MAJOR >= 20
-            unsigned BBNum = BB.getNumber();
-        #else
-            unsigned BBNum = BBIdx[&BB];
-        #endif
-        if (!HasCalls[BBNum]) {
-          Builder.SetInsertPoint(BB.getFirstInsertionPt());
-        } else {
+      if(!LiveInAcrossCall[&BB][Idx] && !Defs[&BB][Idx]) continue;
+
+      if (LiveOutAcrossCall[&BB][Idx]) {
+        // We want to find the specific edges that the spill dies across
+        // (if any), split them (if needed), and insert a lifetime.end.
+        // We add redundant branching in the IR, but tighten the lifetime.
+        //
+        // Hopefully optimizations during codegen will dissolve the empty BB
+        // after the lifetime.end is lowered away.
+
+        SmallPtrSet<BasicBlock *, 4> EdgesToSplit;
+
+        for (BasicBlock *Succ : successors(&BB)) {
+          if (NewBlocks.contains(Succ)) continue;
+
+          // Rather than going down the rabbit hole of trying to find a spot
+          // to place the lifetime.end, we simply omit it for EH pad targets
+          // (e.g. the unwind target of `invoke`). Worst case is the stack
+          // alloca lives longer than necessary. Better than having to e.g.
+          // duplicate the whole EH funclet to slot it in.
+          if (!LiveInAcrossCall[Succ][Idx] && !Succ->isEHPad())
+            EdgesToSplit.insert(Succ);
+        }
+
+        for (BasicBlock *Succ : EdgesToSplit) {
+          { // SplitEdge, but tweaked to merge identical edges, and only
+            // split when needed (otherwise just set the insert point).
+            unsigned SuccNum = GetSuccessorNumber(&BB, Succ);
+
+            Instruction *LatchTerm = BB.getTerminator();
+
+            CriticalEdgeSplittingOptions Options =
+                CriticalEdgeSplittingOptions().setPreserveLCSSA();
+            Options.setMergeIdenticalEdges();
+
+            if (isCriticalEdge(LatchTerm, SuccNum, Options.MergeIdenticalEdges)) {
+              // If this is a critical edge, let SplitKnownCriticalEdge do it.
+              BasicBlock *SplitBB = SplitKnownCriticalEdge(LatchTerm, SuccNum, Options, ai->getName() + ".lifetimeEnd.bb");
+              NewBlocks.insert(SplitBB);
+              Builder.SetInsertPoint(SplitBB->begin());
+            } else {
+              // If the edge isn't critical, then BB has a single successor or Succ has a
+              // single pred. Set the insert point appropriately.
+
+              if (BasicBlock *SP = Succ->getUniquePredecessor()) {
+                // If the successor only has a single pred, insert at the top
+                // of the successor block.
+                assert(SP == &BB && "CFG broken");
+                (void)SP;
+
+                Builder.SetInsertPoint(Succ->getFirstInsertionPt());
+              } else {
+                // Otherwise, if BB has a single successor, split it at the bottom of the
+                // block.
+                assert(BB.getUniqueSuccessor() &&
+                      "Should have a single succ!");
+                Builder.SetInsertPoint(BB.end());
+              }
+            }
+          }
+
+          Builder.CreateCall(
+            LifetimeEndFn,
+    #if LLVM_VERSION_MAJOR >= 22
+            {ai}
+    #else
+            {size, ai}
+    #endif
+          );
+        }
+      } else {
+        if (LiveOut[&BB][Idx]) {
+          // There are no more calls between the end of this block and
+          // its future use (if any), but it IS still used, so keep the
+          // spill alive until the final call in this block.
+          #if LLVM_VERSION_MAJOR >= 20
+              unsigned BBNum = BB.getNumber();
+          #else
+              unsigned BBNum = BBIdx[&BB];
+          #endif
+          if (!HasCalls[BBNum]) {
+            Builder.SetInsertPoint(BB.getFirstInsertionPt());
+          } else {
+            for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
+              if (isa<CallBase>(&IterI)) {
+                if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
+                  Builder.SetInsertPoint(Invoke->getNormalDest()->getFirstInsertionPt());
+                } else {
+                  assert(!IterI.isTerminator());
+                  Builder.SetInsertPoint(std::next(IterI.getIterator()));
+                }
+                break;
+              }
+            }
+          }
+        } else if (UsesAcrossCall[&BB][Idx]) {
+          // No need to keep it around past this block.
+          // End its lifetime after the last call before its last use.
+          bool Found = false;
           for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
-            if (isa<CallBase>(&IterI)) {
+            for (Use &Op : IterI.operands()) {
+              Value *V = Op.get();
+
+              if (V == I) {
+                Found = true;
+                break;
+              }
+            }
+
+            if (Found && isa<CallBase>(&IterI)) {
               if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
                 Builder.SetInsertPoint(Invoke->getNormalDest()->getFirstInsertionPt());
               } else {
@@ -462,41 +555,19 @@ bool WasmPointersSpill::run(Function &F) {
               break;
             }
           }
+        } else {
+          assert(0);
         }
-      } else if (UsesAcrossCall[&BB][Idx]) {
-        bool Found = false;
-        for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
-          for (Use &Op : IterI.operands()) {
-            Value *V = Op.get();
 
-            if (V == I) {
-              Found = true;
-              break;
-            }
-          }
-
-          if (Found && isa<CallBase>(&IterI)) {
-            if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
-              Builder.SetInsertPoint(Invoke->getNormalDest()->getFirstInsertionPt());
-            } else {
-              assert(!IterI.isTerminator());
-              Builder.SetInsertPoint(std::next(IterI.getIterator()));
-            }
-            break;
-          }
-        }
-      } else {
-        // How'd we get here?
-        assert(0);
+        Builder.CreateCall(
+          LifetimeEndFn,
+  #if LLVM_VERSION_MAJOR >= 22
+          {ai}
+  #else
+          {size, ai}
+  #endif
+        );
       }
-      Builder.CreateCall(
-        LifetimeEndFn,
-#if LLVM_VERSION_MAJOR >= 22
-        {ai}
-#else
-        {size, ai}
-#endif
-      );
     }
   }
 
@@ -523,15 +594,7 @@ bool WasmPointersSpill::run(Function &F) {
         // than this invoke, so split the CFG edge
         // (to make the invoke/def dominate the spill)
 
-        BasicBlock *newBB = BasicBlock::Create(F.getContext(), ai->getName() + ".bb", &F);
-        Builder.SetInsertPoint(newBB);
-        Builder.CreateBr(Invoke->getNormalDest());
-        newBB->moveAfter(BB);
-
-        Invoke->getNormalDest()->replacePhiUsesWith(BB, newBB);
-        Invoke->replaceSuccessorWith(Invoke->getNormalDest(), newBB);
-
-        SpillInsertPoint = newBB->begin();
+        SpillInsertPoint = SplitEdge(BB, Invoke->getNormalDest(), nullptr, nullptr, nullptr, ai->getName() + ".bb")->begin();
       }
     } else if (isa<PHINode>(I)) {
       if (isa<CatchSwitchInst>(BB->getTerminator())) {
