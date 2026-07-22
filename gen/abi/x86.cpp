@@ -135,8 +135,7 @@ struct X86TargetABI : TargetABI {
     }
 
     // force sret for non-POD structs
-    const bool excludeStructsWithCtor = isMSVCpp;
-    if (!isPOD(rt, excludeStructsWithCtor))
+    if (!isPOD(rt, isMSVCpp))
       return true;
 
     // return aggregates of a power-of-2 size <= 8 bytes in register(s),
