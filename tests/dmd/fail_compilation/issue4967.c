@@ -1,9 +1,10 @@
-/* TEST_OUTPUT:
+/*
+TEST_OUTPUT:
 ---
-fail_compilation/issue4967.c(10): Error: cannot take address of register variable `ax`
-fail_compilation/issue4967.c(11): Error: cannot take address of register variable `ax`
+fail_compilation/issue4967.c(12): Error: cannot take address of register variable `ax`
+fail_compilation/issue4967.c(13): Error: cannot take address of register variable `ax`
 ---
- */
+*/
 
 void f()
 {

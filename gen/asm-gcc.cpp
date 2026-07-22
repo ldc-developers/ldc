@@ -179,6 +179,8 @@ public:
 
 // C11 6.5.3.2: `"m"` / `"=m"` GCC asm constraints take the address of their
 // operand; register variables cannot be used that way (see issue #4967).
+// Do not call fatal() here — ImportC may have several such asms in one
+// function, and fail_compilation tests expect every diagnostic (like GDC).
 VarDeclaration *asmOperandVar(Expression *e) {
   for (;;) {
     if (auto ve = e->isVarExp())
@@ -191,13 +193,15 @@ VarDeclaration *asmOperandVar(Expression *e) {
   }
 }
 
-void checkRegisterMemoryAsmOperand(Loc loc, Expression *e) {
+// Returns true if an error was reported.
+bool checkRegisterMemoryAsmOperand(Loc loc, Expression *e) {
   if (auto vd = asmOperandVar(e)) {
     if (vd->storage_class & STCregister) {
       error(loc, "cannot take address of register variable `%s`", vd->toChars());
-      fatal();
+      return true;
     }
   }
+  return false;
 }
 }
 
@@ -231,13 +235,22 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
   LLSmallVector<LLType *, 8> indirectTypes;
   LLSmallVector<LLValue *, 8> operands;
   if (stmt->args) {
+    // Diagnose all illegal register+memory operands first (no fatal), then
+    // skip IR for this statement so later asm statements still get checked.
+    bool registerMemError = false;
+    for (size_t i = 0; i < stmt->args->length; ++i) {
+      if (constraintsBuilder.isIndirectOperand(i) &&
+          checkRegisterMemoryAsmOperand((*stmt->args)[i]->loc,
+                                        (*stmt->args)[i]))
+        registerMemError = true;
+    }
+    if (registerMemError)
+      return;
+
     for (size_t i = 0; i < stmt->args->length; ++i) {
       Expression *e = (*stmt->args)[i];
       const bool isOutput = (i < stmt->outputargs);
       const bool isIndirect = constraintsBuilder.isIndirectOperand(i);
-
-      if (isIndirect)
-        checkRegisterMemoryAsmOperand(e->loc, e);
 
       if (isOutput) {
         assert(dmd::isLvalue(e) && "should have been caught by front-end");
