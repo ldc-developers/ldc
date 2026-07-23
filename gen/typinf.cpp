@@ -503,7 +503,8 @@ class DeclareOrDefineVisitor : public Visitor {
     }
 
     irstruct->getTypeInfoSymbol(/*define=*/true);
-    setLinkOnceODRLinkageAndVisibility(ti); // override
+    // override existing linkage and visibility (based on the struct)
+    setLinkOnceODRLinkageAndVisibility(ti);
   }
 
   // Only declare class TypeInfos. They are defined once in their owning module

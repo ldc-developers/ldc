@@ -247,13 +247,7 @@ LLGlobalValue::LinkageTypes DtoLinkageOnly(Dsymbol *sym) {
 }
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
-  const auto linkage = DtoLinkageOnly(sym);
-  const bool inCOMDAT = needsCOMDAT() ||
-                        // ELF needs some help for ODR linkages:
-                        // https://github.com/ldc-developers/ldc/issues/3589
-                        (linkage == templateLinkage &&
-                         global.params.targetTriple->isOSBinFormatELF());
-  return {linkage, inCOMDAT};
+  return {DtoLinkageOnly(sym), needsCOMDAT()};
 }
 
 bool needsCOMDAT() {
@@ -270,8 +264,15 @@ bool needsCOMDAT() {
 
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
   obj->setLinkage(lwc.first);
-  obj->setComdat(lwc.second ? gIR->module.getOrInsertComdat(obj->getName())
-                            : nullptr);
+
+  const bool inCOMDAT = lwc.second ||
+                        // ELF needs some help for ODR linkages:
+                        // https://github.com/ldc-developers/ldc/issues/3589
+                        (global.params.targetTriple->isOSBinFormatELF() &&
+                         (lwc.first == LLGlobalValue::LinkOnceODRLinkage ||
+                          lwc.first == LLGlobalValue::WeakODRLinkage));
+  obj->setComdat(inCOMDAT ? gIR->module.getOrInsertComdat(obj->getName())
+                          : nullptr);
 }
 
 namespace {
