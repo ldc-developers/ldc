@@ -1,4 +1,8 @@
-// REQUIRES: target_WebAssembly, link_WebAssembly
+// REQUIRES: target_WebAssembly, link_WebAssembly, atleast_llvm22
+
+// atleast_llvm22 because the lifetime intrinsic signatures changed.
+// It works on older; the lifetime.start and .end markers just have
+// an additional size parameter based on the size of the spilled type
 
 // optimize to create SSA IR
 // RUN: %ldc -mtriple=wasm32-unknown-unknown -O3 -c -output-ll -of=%t.ll %s
