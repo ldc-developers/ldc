@@ -5,7 +5,8 @@
 pragma(LDC_no_moduleinfo); // prevent ModuleInfo from referencing class TypeInfos
 
 
-// CHECK: _D50TypeInfo_S18pragma_no_typeinfo18StructWithTypeInfo6__initZ = linkonce_odr global %object.TypeInfo_Struct
+// note: no `hidden` on Windows (DLL storage classes instead)
+// CHECK: _D50TypeInfo_S18pragma_no_typeinfo18StructWithTypeInfo6__initZ = linkonce_odr{{( hidden)?}} global %object.TypeInfo_Struct
 struct StructWithTypeInfo {}
 // force emission
 auto ti = typeid(StructWithTypeInfo);

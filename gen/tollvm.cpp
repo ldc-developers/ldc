@@ -274,11 +274,6 @@ void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
                             : nullptr);
 }
 
-void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
-  setLinkage(DtoLinkage(sym), obj);
-  setVisibility(sym, obj);
-}
-
 namespace {
 bool hasExportedLinkage(llvm::GlobalObject *obj) {
   const auto l = obj->getLinkage();
@@ -286,15 +281,16 @@ bool hasExportedLinkage(llvm::GlobalObject *obj) {
          l == LLGlobalValue::WeakODRLinkage ||
          l == LLGlobalValue::WeakAnyLinkage;
 }
-}
 
-void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
+void setVisibility(bool isExplicitlyExported, bool maybeInstantiatedAsWeakODR,
+                   llvm::GlobalObject *obj) {
   const auto &triple = *global.params.targetTriple;
 
   const bool hasHiddenUDA = obj->hasHiddenVisibility();
 
   if (triple.isOSWindows()) {
-    bool isExported = sym->isExport();
+    bool isExported = isExplicitlyExported;
+
     // Also export (non-linkonce_odr) symbols
     // * with -fvisibility=public without @hidden, or
     // * if declared with dllimport (so potentially imported from other object
@@ -312,7 +308,7 @@ void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
     obj->setDLLStorageClass(isExported ? LLGlobalValue::DLLExportStorageClass
                                        : LLGlobalValue::DefaultStorageClass);
   } else {
-    if (sym->isExport()) {
+    if (isExplicitlyExported) {
       obj->setVisibility(LLGlobalValue::DefaultVisibility); // overrides @hidden
     } else if (!obj->hasLocalLinkage() && !hasHiddenUDA) {
       // Hide with -fvisibility=hidden, or linkonce_odr etc.
@@ -325,11 +321,33 @@ void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
           (opts::symbolVisibility == opts::SymbolVisibility::default_ &&
            triple.isOSBinFormatWasm()) ||
           (!hasExportedLinkage(obj) &&
-           !(triple.isOSDarwin() && sym->isInstantiated()))) {
+           !(triple.isOSDarwin() && maybeInstantiatedAsWeakODR))) {
         obj->setVisibility(LLGlobalValue::HiddenVisibility);
       }
     }
   }
+}
+
+void setLinkageAndVisibility(LinkageWithCOMDAT lwc, bool isExplicitlyExported,
+                             bool maybeInstantiatedAsWeakODR,
+                             llvm::GlobalObject *obj) {
+  setLinkage(lwc, obj);
+  setVisibility(isExplicitlyExported, maybeInstantiatedAsWeakODR, obj);
+}
+}
+
+void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
+  setLinkageAndVisibility(sym, DtoLinkage(sym), obj);
+}
+
+void setLinkageAndVisibility(Dsymbol *sym, LinkageWithCOMDAT lwc,
+                             llvm::GlobalObject *obj) {
+  setLinkageAndVisibility(lwc, sym->isExport(), sym->isInstantiated(), obj);
+}
+
+void setLinkOnceODRLinkageAndVisibility(llvm::GlobalObject *obj) {
+  setLinkageAndVisibility({LLGlobalValue::LinkOnceODRLinkage, needsCOMDAT()},
+                          false, false, obj);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

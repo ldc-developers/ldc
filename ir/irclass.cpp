@@ -591,13 +591,11 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
 
     llvm::Function *thunk = gIR->module.getFunction(thunkIRMangle);
     if (!thunk) {
-      const LinkageWithCOMDAT lwc(LLGlobalValue::LinkOnceODRLinkage,
-                                  needsCOMDAT());
       const auto callee = irFunc->getLLVMCallee();
-      thunk = LLFunction::Create(
-          callee->getFunctionType(), lwc.first,
-          thunkIRMangle, &gIR->module);
-      setLinkage(lwc, thunk);
+      thunk = LLFunction::Create(callee->getFunctionType(),
+                                 LLGlobalValue::LinkOnceODRLinkage,
+                                 thunkIRMangle, &gIR->module);
+      setLinkOnceODRLinkageAndVisibility(thunk);
       thunk->copyAttributesFrom(callee);
 
       // Thunks themselves don't have an identity, only the target function has.

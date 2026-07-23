@@ -1023,8 +1023,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage and visibility
       const auto lwc = lowerFuncLinkage(fd);
-      setLinkage(lwc, func);
-      setVisibility(fd, func);
+      setLinkageAndVisibility(fd, lwc, func);
     }
     return;
   }
@@ -1180,8 +1179,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
            lwc.first != llvm::GlobalValue::ExternalWeakLinkage &&
            lwc.first != llvm::GlobalValue::LinkOnceAnyLinkage);
   } else {
-    setLinkage(lwc, func);
-    setVisibility(fd, func);
+    setLinkageAndVisibility(fd, lwc, func);
   }
 
   // function attributes

@@ -330,9 +330,17 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   // Create a global symbol with the above initialiser.
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
   b.finalize(moduleInfoSym);
+
+  // We don't use setLinkageAndVisibility() here, in order to handle the
+  // visibility manually - a module cannot be selectively exported, so the
+  // visibility of its ModuleInfo cannot be controlled in user code. Handle it
+  // by:
+  // * Posix: never hiding it (ignore `-fvisibility=hidden` for ModuleInfos)
+  // * Windows: DLL-exporting it with an explicit `-fvisibility=public`
   setLinkage({LLGlobalValue::ExternalLinkage, needsCOMDAT()}, moduleInfoSym);
   if (global.params.dllexport) {
     moduleInfoSym->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
   }
+
   return moduleInfoSym;
 }
