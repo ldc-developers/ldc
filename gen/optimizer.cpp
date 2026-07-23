@@ -69,6 +69,8 @@
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 
+#include "dmd/globals.h"
+
 using namespace llvm;
 
 static cl::opt<signed char> optimizeLevel(
@@ -525,7 +527,7 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
 
   pb.registerOptimizerLastEPCallback(addStripExternalsPass);
 
-  if (TM->getTargetTriple().isWasm()) {
+  if (TM->getTargetTriple().isWasm() && global.params.useGC) {
     pb.registerOptimizerLastEPCallback(addWasmPointersSpillPass);
   }
 
