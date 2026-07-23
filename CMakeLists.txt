@@ -933,9 +933,6 @@ makeConfSection(NAME "51-target-wasm-base"
         -L-z -Lstack-size=1048576
         # Protect from stack overflow overwriting global memory
         -L--stack-first
-        # LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
-        # TODO: revise
-        -L--export-dynamic
 )
 
 # Add a base config for all WASI targets.

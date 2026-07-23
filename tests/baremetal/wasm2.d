@@ -3,7 +3,7 @@
 // REQUIRES: target_WebAssembly
 // REQUIRES: link_WebAssembly
 
-// RUN: %ldc -mtriple=wasm32-unknown-unknown-wasm -betterC -w %s -of=%t.wasm
+// RUN: %ldc -mtriple=wasm32-unknown-unknown-wasm -betterC -w -L--export-dynamic %s -of=%t.wasm
 
 // make sure the .wasm file contains `myExportedFoo` (https://github.com/ldc-developers/ldc/issues/3023)
 // RUN: grep myExportedFoo %t.wasm
