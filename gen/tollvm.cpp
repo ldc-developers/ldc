@@ -322,6 +322,8 @@ void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
       // weak_odr symbols from non-linkonce-templates code (e.g., Phobos), so
       // don't hide instantiated symbols for Mac.
       if (opts::symbolVisibility == opts::SymbolVisibility::hidden ||
+          (opts::symbolVisibility == opts::SymbolVisibility::default_ &&
+           triple.isOSBinFormatWasm()) ||
           (!hasExportedLinkage(obj) &&
            !(triple.isOSDarwin() && sym->isInstantiated()))) {
         obj->setVisibility(LLGlobalValue::HiddenVisibility);
