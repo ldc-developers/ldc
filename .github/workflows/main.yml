@@ -438,6 +438,7 @@ jobs:
           # build & run hello-world
           for os in wasip1 wasip2; do
             bin/ldc2 -mtriple=${{ matrix.arch }}-unknown-$os hello.d
+            ls -l hello.wasm
             ../wasmtime/wasmtime -W exceptions ./hello.wasm
           done
 
