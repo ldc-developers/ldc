@@ -529,6 +529,7 @@ bool WasmPointersSpill::run(Function &F) {
           // or a successor does (making it LiveOutAcrossCall).
           assert(HasCalls[BBNum] && "VReg is spilled, is LiveOut, BB has no "
                                     "calls, yet it dies here?");
+          (void)BBNum;
 
           for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
             if (isa<CallBase>(&IterI)) {
