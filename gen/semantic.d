@@ -15,7 +15,16 @@ import dmd.dmodule;
 
 extern(C++) void dcomputeSemanticAnalysis(Module m);
 extern(C) int hasComputeAttr(Dsymbol m);
+extern(C++) void runAllPreSemanticAnalysisPlugins(Module m);
 extern(C++) void runAllSemanticAnalysisPlugins(Module m);
+
+extern(C++) void extraLDCSpecificPreSemanticAnalysis(ref Modules modules)
+{
+    foreach(m; modules[])
+    {
+        runAllPreSemanticAnalysisPlugins(m);
+    }
+}
 
 extern(C++) void extraLDCSpecificSemanticAnalysis(ref Modules modules)
 {
