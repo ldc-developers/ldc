@@ -96,6 +96,11 @@ for version in range(18, config.llvm_major+1):
 for version in range(config.llvm_major, 30):
     config.available_features.add("atmost_llvm%d" % version)
 
+# LLVM 23+: IR scalar type b8 (e.g. Type::getByte8Ty); used by -fc-interop-llvm-byte.
+# Matches LDC sources gated with LLVM_VERSION_MAJOR >= 23.
+if config.llvm_major >= 23:
+    config.available_features.add("llvm_ir_b8")
+
 # Define OS as available feature (Windows, Darwin, Linux, FreeBSD...)
 config.available_features.add(platform.system())
 
@@ -166,6 +171,7 @@ config.substitutions.append( ('%buildplugin', config.ldcbuildplugin_bin + " --ld
 config.substitutions.append( ('%timetrace2txt', config.timetrace2txt_bin) )
 config.substitutions.append( ('%llvm-spirv', os.path.join(config.llvm_tools_dir, 'llvm-spirv')) )
 config.substitutions.append( ('%llc', os.path.join(config.llvm_tools_dir, 'llc')) )
+config.substitutions.append( ('%llvm-as', os.path.join(config.llvm_tools_dir, 'llvm-as')) )
 config.substitutions.append( ('%runtimedir', config.ldc2_runtime_dir ) )
 
 # Add platform-dependent file extension substitutions

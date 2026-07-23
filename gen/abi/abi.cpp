@@ -9,6 +9,7 @@
 
 #include "gen/abi/abi.h"
 
+#include "driver/cl_options.h"
 #include "dmd/argtypes.h"
 #include "dmd/expression.h"
 #include "dmd/id.h"
@@ -131,6 +132,28 @@ bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
 
 bool TargetABI::isExternD(TypeFunction *tf) {
   return tf->linkage == LINK::d && tf->parameterList.varargs != VARARGvariadic;
+}
+
+bool TargetABI::shouldUseLLVMByteInExternSignature(TypeFunction *tf) {
+#if LLVM_VERSION_MAJOR < 23
+  (void)tf;
+  return false;
+#else
+  if (!opts::fCInteropLLVMByte)
+    return false;
+
+  switch (tf->linkage) {
+  case LINK::c:
+  case LINK::cpp:
+  case LINK::windows:
+  case LINK::objc:
+  case LINK::system:
+    return true;
+  case LINK::d:
+  case LINK::default_:
+    return false;
+  }
+#endif
 }
 
 bool TargetABI::skipReturnValueRewrite(IrFuncTy &fty) {
