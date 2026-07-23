@@ -343,28 +343,174 @@ void* test13(size_t n)
     return ptr;
 }
 
-
+// CHECK-LABEL: define {{.*}}_D24wasm_spill_pointers_pass6test14FZv()
 // Spill are positioned correctly after invokes.
-// TODO: add CHECK
 void test14()
 {
+    // CHECK-NEXT: [[spill1:%stackSpill\..+]] = alloca ptr
+    // CHECK-NEXT: [[spill2:%stackSpill\..+]] = alloca ptr
+    // CHECK-NEXT: [[spill3:%stackSpill\..+]] = alloca ptr
+
     scope(failure) blackbox();
 
+    // CHECK-NEXT: [[ptr:%[0-9]+]] = invoke ptr @_D24wasm_spill_pointers_pass6getPtrFZPv()
+    // CHECK-NEXT: to label %[[postinvoke:.+]] unwind label %[[catch_dispatch:[^ ]+]]
+
+    // CHECK: [[postinvoke]]:
+    // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill1]])
+    // CHECK-NEXT: store volatile ptr [[ptr]], ptr [[spill1]]
+
+    // CHECK-NEXT: invoke void @_D24wasm_spill_pointers_pass6usePtrFPvZv(ptr [[ptr]])
+    // CHECK-NEXT: to label %[[try_success:.+]] unwind label %[[catch_dispatch]]
     usePtr(getPtr());
+
+
+    // --- For scope(failure) ---
+    // CHECK: [[catch_dispatch]]:
+    // CHECK-NEXT: [[catchswitch:%.+]] = catchswitch within none [label %[[catch_start:.+]]] unwind to caller
+
+    // CHECK: [[catch_start]]:
+    // CHECK-NEXT: [[catchpad:%.+]] = catchpad within [[catchswitch]] [ptr @_D6object9Throwable7__ClassZ]
+    // CHECK-NEXT: [[eh_obj:%.+]] = tail call ptr @llvm.wasm.get.exception(token [[catchpad]])
+    // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill2]])
+    // CHECK-NEXT: store volatile ptr [[eh_obj]], ptr [[spill2]]
+    // CHECK-NEXT: [[selector:%.+]] = tail call i32 @llvm.wasm.get.ehselector(token [[catchpad]])
+    // CHECK-NEXT: [[typeid:%.+]] = tail call i32 @llvm.eh.typeid.for.p0(ptr nonnull @_D6object9Throwable7__ClassZ)
+    // CHECK-NEXT: [[is_match:%.+]] = icmp eq i32 [[selector]], [[typeid]]
+    // CHECK-NEXT: br i1 [[is_match]], label %[[catch_match:.+]], label %[[catch_mismatch:.+]]
+
+    // CHECK: [[catch_mismatch]]:
+    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill2]])
+    // CHECK-NEXT: call void @llvm.wasm.rethrow() [ "funclet"(token [[catchpad]]) ]
+    // CHECK-NEXT: unreachable
+
+    // CHECK: [[catch_match]]:
+    // CHECK-NEXT: [[catch_ptr:%.+]] = call ptr @_d_eh_enter_catch(ptr [[eh_obj]]) [ "funclet"(token [[catchpad]]) ]
+    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill2]])
+    // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill3]])
+    // CHECK-NEXT: store volatile ptr [[catch_ptr]], ptr [[spill3]]
+    // CHECK-NEXT: catchret from [[catchpad]] to label %[[catch_handler:.+]]
+
+    // CHECK: [[catch_handler]]:
+    // CHECK-NEXT: tail call void @_D24wasm_spill_pointers_pass8blackboxFZv()
+
+    // CHECK-NEXT: tail call void @_d_throw_exception(ptr [[catch_ptr]])
+    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill3]])
+    // CHECK-NEXT: unreachable
+    // -----------------------
+
+    // CHECK: [[try_success]]:
+    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill1]])
+    // CHECK-NEXT: ret void
 }
 
+// CHECK-LABEL: define {{.*}}_D24wasm_spill_pointers_pass6test15FZPv
 // Spills are placed correctly when PHIs occur in a catchswitch
-// TODO: add CHECK
-void* test15(int cond, int value) {
+void* test15() {
+    // CHECK-NEXT: [[spill1:%stackSpill\..+]] = alloca ptr
+    // CHECK-NEXT: [[spill2:%stackSpill\..+]] = alloca ptr
+    // CHECK-NEXT: [[spill3:%stackSpill\..+]] = alloca ptr
+
     void* ptr;
-
     try {
+        // CHECK-NEXT: [[ptr0:%[0-9]+]] = invoke ptr @_D24wasm_spill_pointers_pass6getPtrFZPv()
+        // CHECK-NEXT: to label %[[postinvoke:.+]] unwind label %[[catch_dispatch:[^ ]+]]
+        // CHECK: [[postinvoke]]:
+        // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill1]])
+        // CHECK-NEXT: store volatile ptr [[ptr0]], ptr [[spill1]]
         ptr = getPtr();
-        blackbox();
-    } catch (Exception e) {}
 
+        // CHECK-NEXT: invoke void @_D24wasm_spill_pointers_pass8blackboxFZv()
+        // CHECK-NEXT: to label %[[try_success:.+]] unwind label %[[catch_dispatch]]
+        blackbox();
+    }
+    // CHECK: [[catch_dispatch]]:
+    // CHECK-NEXT: [[ptr_phi:%.+]] = phi ptr [ [[ptr0]], %[[postinvoke]] ], [ null, %0 ]
+    // CHECK-NEXT: [[catchswitch:%.+]] = catchswitch within none [label %[[catch_start:.+]]] unwind to caller
+
+    // CHECK: [[catch_start]]:
+    // CHECK-NEXT: [[catchpad:%.+]] = catchpad within [[catchswitch]] [ptr @_D9Exception7__ClassZ]
+    // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill2]])
+    // CHECK-NEXT: store volatile ptr [[ptr_phi]], ptr [[spill2]]
+    // CHECK-NEXT: [[eh_obj:%.+]] = tail call ptr @llvm.wasm.get.exception(token [[catchpad]])
+    // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill3]])
+    // CHECK-NEXT: store volatile ptr [[eh_obj]], ptr [[spill3]]
+    // CHECK-NEXT: [[selector:%.+]] = tail call i32 @llvm.wasm.get.ehselector(token [[catchpad]])
+    // CHECK-NEXT: [[typeid:%.+]] = tail call i32 @llvm.eh.typeid.for.p0(ptr nonnull @_D9Exception7__ClassZ)
+    // CHECK-NEXT: [[is_match:%.+]] = icmp eq i32 [[selector]], [[typeid]]
+    // CHECK-NEXT: br i1 [[is_match]], label %[[catch_match:.+]], label %[[catch_mismatch:.+]]
+
+    // CHECK: [[catch_mismatch]]:
+    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill3]])
+    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill2]])
+    // CHECK-NEXT: call void @llvm.wasm.rethrow() [ "funclet"(token [[catchpad]]) ]
+    // CHECK-NEXT: unreachable
+    catch (Exception e) {
+        // CHECK: [[catch_match]]:
+        // CHECK-NEXT: {{%.+}} = call ptr @_d_eh_enter_catch(ptr [[eh_obj]]) [ "funclet"(token [[catchpad]]) ]
+        // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill3]])
+        // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill2]])
+        // CHECK-NEXT: catchret from [[catchpad]] to label %[[try_success]]
+    }
+
+    // CHECK: [[try_success]]:
+    // CHECK-NEXT: [[ret_phi:%.+]] = phi ptr [ [[ptr0]], %[[postinvoke]] ], [ [[ptr_phi]], %[[catch_match]] ]
+    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill1]])
+    // CHECK-NEXT: ret ptr [[ret_phi]]
     return ptr;
 }
 
+// CHECK-LABEL: define {{.*}}_D24wasm_spill_pointers_pass6test16FZPv
+// Critical edge splitting for lifetime.end placement.
+// (and merging of split blocks for switches)
+void* test16() {
+    // CHECK-NEXT: [[spill:%stackSpill\..+]] = alloca ptr
 
-// TODO: more tests
+    // CHECK-NEXT: [[ptr:%[0-9]+]] = tail call ptr @_D24wasm_spill_pointers_pass6getPtrFZPv()
+    // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill]])
+    // CHECK-NEXT: store volatile ptr [[ptr]], ptr [[spill]]
+    void* ptr = getPtr();
+
+    // CHECK-NEXT: tail call void @_D24wasm_spill_pointers_pass8blackboxFZv()
+    blackbox();
+
+    // CHECK-NEXT: [[switch_val:%[0-9]+]] = tail call i32 @_D24wasm_spill_pointers_pass8getSizeTFZk()
+    // CHECK-NEXT: switch i32 [[switch_val]], label %[[switchend:.+]] [
+    // CHECK-NEXT:     i32 1, label %[[lifetime_end_bb:.+\.lifetimeEnd\.bb]]
+    // CHECK-NEXT:     i32 2, label %[[lifetime_end_bb]]
+    // CHECK-NEXT:     i32 3, label %[[case2:.+]]
+    // CHECK-NEXT: ]
+    switch (getSizeT()) {
+        case 1:
+        case 2:
+            // CHECK: [[lifetime_end_bb]]:
+            // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill]])
+            // CHECK-NEXT: br label %[[common_ret:.+]]
+
+            // CHECK: [[common_ret]]:
+            // CHECK-NEXT: [[ret_phi:%.+]] = phi ptr [ null, %[[switchend]] ], [ [[ptr]], %[[case2]] ], [ null, %[[lifetime_end_bb]] ]
+            // CHECK-NEXT: ret ptr [[ret_phi]]
+            return null;
+
+        case 3:
+            // CHECK: [[case2]]:
+
+            // CHECK-NEXT: tail call void @_D24wasm_spill_pointers_pass6usePtrFPvZv(ptr [[ptr]])
+            usePtr(ptr);
+            // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill]])
+
+            // CHECK-NEXT: br label %[[common_ret]]
+            return ptr;
+
+        default:
+            break;
+    }
+    // CHECK: [[switchend]]:
+    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill]])
+
+    // CHECK-NEXT: tail call void @_D24wasm_spill_pointers_pass8blackboxFZv()
+    blackbox();
+
+    // CHECK-NEXT: br label %[[common_ret]]
+    return null;
+}

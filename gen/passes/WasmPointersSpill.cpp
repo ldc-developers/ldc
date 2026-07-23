@@ -444,7 +444,7 @@ bool WasmPointersSpill::run(Function &F) {
         // Hopefully optimizations during codegen will dissolve the empty BB
         // after the lifetime.end is lowered away.
 
-        SmallPtrSet<BasicBlock *, 4> EdgesToSplit;
+        SmallPtrSet<BasicBlock *, 4> EdgesToKillOn;
 
         for (BasicBlock *Succ : successors(&BB)) {
           if (NewBlocks.contains(Succ))
@@ -456,10 +456,10 @@ bool WasmPointersSpill::run(Function &F) {
           // alloca lives longer than necessary. Better than having to e.g.
           // duplicate the whole EH funclet to slot it in.
           if (!LiveInAcrossCall[Succ][Idx] && !Succ->isEHPad())
-            EdgesToSplit.insert(Succ);
+            EdgesToKillOn.insert(Succ);
         }
 
-        for (BasicBlock *Succ : EdgesToSplit) {
+        for (BasicBlock *Succ : EdgesToKillOn) {
           { // SplitEdge, but tweaked to merge identical edges, and only
             // split when needed (otherwise just set the insert point).
             unsigned SuccNum = GetSuccessorNumber(&BB, Succ);
@@ -490,10 +490,12 @@ bool WasmPointersSpill::run(Function &F) {
 
                 Builder.SetInsertPoint(Succ->getFirstInsertionPt());
               } else {
-                // Otherwise, if BB has a single successor, split it at the
-                // bottom of the block.
-                assert(BB.getUniqueSuccessor() && "Should have a single succ!");
-                Builder.SetInsertPoint(BB.end());
+                /// If it is LiveOutAcrossCall, it must be LiveInAcrossCall
+                /// in one of the successors. If there is only one unique
+                /// successor, it must be live-in across that edge, which means
+                /// it won't be killed.
+                assert(0 && "VReg is LiveOutAcrossCall, has only on succ, yet "
+                            "dies across said only edge?");
               }
             }
           }
@@ -508,28 +510,42 @@ bool WasmPointersSpill::run(Function &F) {
         }
       } else {
         if (LiveOut[&BB][Idx]) {
-// There are no more calls between the end of this block and
-// its future use (if any), but it IS still used, so keep the
-// spill alive until the final call in this block.
+          // There are no more calls between the end of this block and
+          // its future use (if any), but it IS still used, so keep the
+          // spill alive until the final call in this block.
 #if LLVM_VERSION_MAJOR >= 20
           unsigned BBNum = BB.getNumber();
 #else
           unsigned BBNum = BBIdx[&BB];
 #endif
-          if (!HasCalls[BBNum]) {
-            Builder.SetInsertPoint(BB.getFirstInsertionPt());
-          } else {
-            for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
-              if (isa<CallBase>(&IterI)) {
-                if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
-                  Builder.SetInsertPoint(
-                      Invoke->getNormalDest()->getFirstInsertionPt());
-                } else {
-                  assert(!IterI.isTerminator());
-                  Builder.SetInsertPoint(std::next(IterI.getIterator()));
-                }
-                break;
+
+          // If it is Def in this block, then for it to spill it must
+          // have a UseAcrossCall in this block (and thus BB has calls), OR
+          // it is LiveOutAcrossCall (handled above) because a future block
+          // has a call before the reg is killed.
+          //
+          // If not Def, then it must be LiveInAcrossCall to be considered for
+          // killing here. Which again means either we have a relavent call,
+          // or a successor does (making it LiveOutAcrossCall).
+          assert(HasCalls[BBNum] && "VReg is spilled, is LiveOut, BB has no "
+                                    "calls, yet it dies here?");
+
+          for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
+            if (isa<CallBase>(&IterI)) {
+              if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
+                Builder.SetInsertPoint(
+                    Invoke->getNormalDest()->getFirstInsertionPt());
+
+                // This doesn't place a lifetime.end down the unwind path,
+                // as there is no guaranteed spot to put it. Can't split the
+                // unwind edge, and catchswitch (and the downstream catchpad)
+                // may have multiple predecessors. Have to accept the lifetime
+                // leak.
+              } else {
+                assert(!IterI.isTerminator());
+                Builder.SetInsertPoint(std::next(IterI.getIterator()));
               }
+              break;
             }
           }
         } else if (UsesAcrossCall[&BB][Idx]) {
@@ -588,17 +604,15 @@ bool WasmPointersSpill::run(Function &F) {
     BasicBlock *BB = I->getParent();
 
     if (auto *Invoke = dyn_cast<InvokeInst>(I)) {
-      if (Invoke->getNormalDest()->hasNPredecessors(1)) {
-        SpillInsertPoint = Invoke->getNormalDest()->getFirstInsertionPt();
-      } else {
-        // The destination block has predecessors other
-        // than this invoke, so split the CFG edge
-        // (to make the invoke/def dominate the spill)
-
-        SpillInsertPoint = SplitEdge(BB, Invoke->getNormalDest(), nullptr,
-                                     nullptr, nullptr, ai->getName() + ".bb")
-                               ->begin();
-      }
+      // The result of `invoke` will never be spilled if its normal
+      // destination/successor has multiple predecessors.
+      //
+      // The only way the value could be used in such sucessors would be in
+      // a PHI. And if there is a PHI (which must be first-thing in a block),
+      // and this `invoke` is a terminator, there's no way to have a call
+      // that uses the `invoke` result before its use in the PHI.
+      assert(Invoke->getNormalDest()->hasNPredecessors(1));
+      SpillInsertPoint = Invoke->getNormalDest()->getFirstInsertionPt();
     } else if (isa<PHINode>(I)) {
       if (isa<CatchSwitchInst>(BB->getTerminator())) {
         // Having a catchswitch for a terminator means no instructions other
