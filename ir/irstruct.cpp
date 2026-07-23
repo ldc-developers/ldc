@@ -65,8 +65,10 @@ LLGlobalVariable* IrStruct::getTypeInfoSymbol(bool define) {
 
   if (define) {
     auto init = getTypeInfoInit();
-    if (!typeInfo->hasInitializer())
-      defineGlobal(typeInfo, init, aggrdecl);
+    if (!typeInfo->hasInitializer()) {
+      defineGlobal(typeInfo, init, /*symbolForLinkageAndVisibility=*/nullptr);
+      setLinkOnceODRLinkageAndVisibility(typeInfo);
+    }
   }
 
   return typeInfo;
