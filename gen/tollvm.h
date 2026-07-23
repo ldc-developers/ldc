@@ -68,9 +68,6 @@ void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj);
 // Sets linkage and visibility of the specified IR symbol *definition*,
 // based on the specified D symbol (and -fvisibility).
 void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj);
-// Ditto, but enables overriding the default linkage-with-COMDAT.
-void setLinkageAndVisibility(Dsymbol *sym, LinkageWithCOMDAT lwc,
-                             llvm::GlobalObject *obj);
 // Helper variant for internal symbols only ever emitted as LinkOnceODR,
 // such as non-class TypeInfos (which are emitted into every referencing
 // object file).

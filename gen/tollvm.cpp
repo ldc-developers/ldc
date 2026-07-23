@@ -247,6 +247,11 @@ LLGlobalValue::LinkageTypes DtoLinkageOnly(Dsymbol *sym) {
 }
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
+  // Intrinsics are always external.
+  if (auto fd = sym->isFuncDeclaration())
+    if (DtoIsIntrinsic(fd))
+      return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
+
   return {DtoLinkageOnly(sym), needsCOMDAT()};
 }
 
@@ -335,15 +340,11 @@ void setLinkageAndVisibility(LinkageWithCOMDAT lwc, bool isExplicitlyExported,
   setLinkage(lwc, obj);
   setVisibility(isExplicitlyExported, maybeInstantiatedAsWeakODR, obj);
 }
-}
+} // anonymous namespace
 
 void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
-  setLinkageAndVisibility(sym, DtoLinkage(sym), obj);
-}
-
-void setLinkageAndVisibility(Dsymbol *sym, LinkageWithCOMDAT lwc,
-                             llvm::GlobalObject *obj) {
-  setLinkageAndVisibility(lwc, sym->isExport(), sym->isInstantiated(), obj);
+  setLinkageAndVisibility(DtoLinkage(sym), sym->isExport(),
+                          sym->isInstantiated(), obj);
 }
 
 void setLinkOnceODRLinkageAndVisibility(llvm::GlobalObject *obj) {
