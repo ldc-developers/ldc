@@ -9,6 +9,7 @@
 - Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
 - **dcompute**: Added support for Native device code Embedding (PTX and SPIR-V) into the host executable's `.rodata` section. (#5140)
 - The `@ldc.attributes.restrict` UDA is now supported for dynamic-array parameters too. Builtin array ops (`c[] = a[] * b[]` etc.) use it, enabling auto-vectorization. Note that for such array ops, the dlang spec prescribes that the slice on the left and any slices on the right must not overlap (https://dlang.org/spec/arrays.html#array-operations), and this knowledge is now used by the optimizer. (#5148, #5168, #5176)
+- WebAssembly: The default `-fvisibility` setting was changed to `hidden`, like clang, so that only explicit `export`ed symbols are not hidden. And `-L--export-dynamic` isn't used by default for linking anymore either; add it manually to export all non-hidden symbols, as for normal Posix targets. The net effect is that the size of linked wasm binaries shrinks significantly by default. (#5216)
 
 #### Platform support
 - Supports LLVM 18 - 22.
