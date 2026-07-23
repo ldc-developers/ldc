@@ -35,6 +35,8 @@
 #include "driver/cl_options_sanitizers.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
+
+#include "dmd/globals.h"
 #endif
 
 #include "llvm/TargetParser/Triple.h"
@@ -68,8 +70,6 @@
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
-
-#include "dmd/globals.h"
 
 using namespace llvm;
 
@@ -336,6 +336,7 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm,
   }
 }
 
+#ifndef IN_JITRT
 static void addWasmPointersSpillPass(ModulePassManager &mpm,
                                          OptimizationLevel level
 #if LLVM_VERSION_MAJOR >= 20
@@ -348,6 +349,7 @@ static void addWasmPointersSpillPass(ModulePassManager &mpm,
     mpm.addPass(VerifierPass());
   }
 }
+#endif
 
 #ifndef IN_JITRT
 static std::optional<PGOOptions> getPGOOptions() {
@@ -527,9 +529,13 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
 
   pb.registerOptimizerLastEPCallback(addStripExternalsPass);
 
+#ifndef IN_JITRT
+  // `global` can't be accessed in JITRT, and it doesn't support
+  // Wasm anyway.
   if (TM->getTargetTriple().isWasm() && global.params.useGC) {
     pb.registerOptimizerLastEPCallback(addWasmPointersSpillPass);
   }
+#endif
 
 #ifndef IN_JITRT
   registerAllPluginsWithPassBuilder(pb);
