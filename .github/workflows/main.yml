@@ -52,7 +52,7 @@ jobs:
 
           - job_name: Alpine musl x86_64
             os: ubuntu-latest
-            container_image: alpine:3.23
+            container_image: alpine:3.24
             arch: x86_64
             base_cmake_flags: >-
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=x86_64
@@ -74,7 +74,7 @@ jobs:
 
           - job_name: Alpine musl aarch64
             os: ubuntu-24.04-arm
-            container_image: alpine:3.23
+            container_image: alpine:3.24
             arch: aarch64
             base_cmake_flags: >-
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64
@@ -195,7 +195,7 @@ jobs:
             # make lld the default linker (note: /usr/bin/ld seems unused)
             ln -sf /usr/bin/ld.lld /usr/${{ matrix.arch }}-alpine-linux-musl/bin/ld
             # create ../llvm symlink to distro LLVM (no prebuilt LDC-LLVM for musl)
-            ln -s /usr/lib/llvm21 $(dirname $(pwd))/llvm
+            ln -s /usr/lib/llvm22 $(dirname $(pwd))/llvm
             ../llvm/bin/llvm-config --version
 
             # see https://github.com/actions/runner/issues/801#issuecomment-2976165281
