@@ -1155,17 +1155,16 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
 
+  setLinkageAndVisibility(fd, func);
   if (linkageAvailableExternally) {
-    func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
-    func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
     // Assert that we are not overriding a linkage type that disallows inlining
-    const auto lwc = DtoLinkage(fd);
-    (void)lwc;
-    assert(lwc.first != llvm::GlobalValue::WeakAnyLinkage &&
-           lwc.first != llvm::GlobalValue::ExternalWeakLinkage &&
-           lwc.first != llvm::GlobalValue::LinkOnceAnyLinkage);
-  } else {
-    setLinkageAndVisibility(fd, func);
+    assert(func->getLinkage() != llvm::GlobalValue::WeakAnyLinkage &&
+           func->getLinkage() != llvm::GlobalValue::ExternalWeakLinkage &&
+           func->getLinkage() != llvm::GlobalValue::LinkOnceAnyLinkage);
+
+    func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
+    func->setComdat(nullptr);
+    func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
   }
 
   // function attributes
