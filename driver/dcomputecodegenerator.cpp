@@ -28,6 +28,20 @@ DComputeCodeGenManager::~DComputeCodeGenManager() {}
 
 DComputeTarget *
 DComputeCodeGenManager::createComputeTarget(const std::string &s) {
+  if (s.substr(0, 7) == "vulkan-") {
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV && LLVM_VERSION_MAJOR >= 23
+#define VULKAN_VALID_VER_INIT 100, 110, 120, 130, 140
+    const std::array<int, 5> valid_vulkan_versions = {{VULKAN_VALID_VER_INIT}};
+
+    const int v = atoi(s.c_str() + 7);
+    if (std::find(valid_vulkan_versions.begin(), valid_vulkan_versions.end(), v) !=
+        valid_vulkan_versions.end()) {
+      return createVulkanTarget(ctx, v);
+    }
+#else
+    error(Loc(), "LDC was not built with Vulkan DCompute support.");
+#endif
+  }
   if (s.substr(0, 4) == "ocl-") {
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
 #define OCL_VALID_VER_INIT 100, 110, 120, 200, 210, 220
@@ -64,9 +78,10 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 
   error(Loc(),
         "Unrecognised or invalid DCompute targets: the format is ocl-xy0 "
-        "for OpenCl x.y and cuda-xy0 for CUDA CC x.y."
+        "for OpenCl x.y and cuda-xy0 for CUDA CC x.y, and vulkan-xy0 for Vulkan."
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
         " Valid version strings for OpenCl are ocl-{" XSTR(OCL_VALID_VER_INIT) "}."
+        " Valid version strings for Vulkan are vulkan-{" XSTR(VULKAN_VALID_VER_INIT) "}."
 #endif
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
         " Valid version strings for CUDA are cuda-{" XSTR(CUDA_VALID_VER_INIT) "}."
