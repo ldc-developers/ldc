@@ -57,10 +57,7 @@ void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs);
 // delegate helpers
 LLValue *DtoDelegateEquals(EXP op, LLValue *lhs, LLValue *rhs);
 
-// Returns the LLVM linkage to use for the definition of the given symbol,
-// based on whether it is a template or not.
 typedef std::pair<llvm::GlobalValue::LinkageTypes, bool> LinkageWithCOMDAT;
-LinkageWithCOMDAT DtoLinkage(Dsymbol *sym);
 
 bool needsCOMDAT();
 // Avoid this function and use setLinkageAndVisibility() instead.

@@ -244,7 +244,6 @@ LLGlobalValue::LinkageTypes DtoLinkageOnly(Dsymbol *sym) {
 
   return LLGlobalValue::ExternalLinkage;
 }
-}
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
   // Intrinsics are always external.
@@ -254,6 +253,7 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
 
   return {DtoLinkageOnly(sym), needsCOMDAT()};
 }
+} // anonymous namespace
 
 bool needsCOMDAT() {
   /* For MSVC targets (and probably MinGW too), linkonce[_odr] and weak[_odr]
