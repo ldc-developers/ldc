@@ -58,9 +58,9 @@ public:
     b.addAttribute("hlsl.shader", "compute");
     Expressions* elts = static_cast<ArrayLiteralExp*>((*(kernAttr->elements))[0])->elements;
     std::string numthreads = "";
-    numthreads += std::to_string((*elts)[0]->toInteger()) + ",";
-    numthreads += std::to_string((*elts)[1]->toInteger()) + ",";
-    numthreads += std::to_string((*elts)[2]->toInteger());
+    numthreads += std::to_string(toInteger((*elts)[0])) + ",";
+    numthreads += std::to_string(toInteger((*elts)[1])) + ",";
+    numthreads += std::to_string(toInteger((*elts)[2]));
 
     b.addAttribute("hlsl.numthreads", numthreads);
     //  ?  "hlsl.wavesize"="8,128,64"
