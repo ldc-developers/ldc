@@ -769,20 +769,6 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
-  // Intrinsics are always external.
-  if (DtoIsIntrinsic(fdecl)) {
-    return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
-  }
-
-  // A body-less declaration always needs to be marked as external in LLVM.
-  if (!fdecl->fbody) {
-    return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
-  }
-
-  return DtoLinkage(fdecl);
-}
-
 // LDC has the same problem with destructors of struct arguments in closures
 // as DMD, so we copy the failure detection
 void verifyScopedDestructionInClosure(FuncDeclaration *fd) {
@@ -1022,9 +1008,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     if (!linkageAvailableExternally &&
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage and visibility
-      const auto lwc = lowerFuncLinkage(fd);
-      setLinkage(lwc, func);
-      setVisibility(fd, func);
+      setLinkageAndVisibility(fd, func);
     }
     return;
   }
@@ -1171,17 +1155,17 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
 
-  const auto lwc = lowerFuncLinkage(fd);
   if (linkageAvailableExternally) {
     func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
     func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
     // Assert that we are not overriding a linkage type that disallows inlining
+    const auto lwc = DtoLinkage(fd);
+    (void)lwc;
     assert(lwc.first != llvm::GlobalValue::WeakAnyLinkage &&
            lwc.first != llvm::GlobalValue::ExternalWeakLinkage &&
            lwc.first != llvm::GlobalValue::LinkOnceAnyLinkage);
   } else {
-    setLinkage(lwc, func);
-    setVisibility(fd, func);
+    setLinkageAndVisibility(fd, func);
   }
 
   // function attributes

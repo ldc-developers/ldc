@@ -63,13 +63,15 @@ typedef std::pair<llvm::GlobalValue::LinkageTypes, bool> LinkageWithCOMDAT;
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym);
 
 bool needsCOMDAT();
+// Avoid this function and use setLinkageAndVisibility() instead.
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj);
-// Sets linkage and visibility of the specified IR symbol based on the specified
-// D symbol.
+// Sets linkage and visibility of the specified IR symbol *definition*,
+// based on the specified D symbol (and -fvisibility).
 void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj);
-// Hides or exports the specified IR symbol depending on its linkage,
-// `-fvisibility` and the specified D symbol's visibility.
-void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj);
+// Helper variant for internal symbols only ever emitted as LinkOnceODR,
+// such as non-class TypeInfos (which are emitted into every referencing
+// object file).
+void setLinkOnceODRLinkageAndVisibility(llvm::GlobalObject *obj);
 
 // some types
 LLIntegerType *DtoSize_t();
