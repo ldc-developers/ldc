@@ -26,6 +26,7 @@
 #include "gen/passes/GarbageCollect2Stack.h"
 #include "gen/passes/StripExternals.h"
 #include "gen/passes/SimplifyDRuntimeCalls.h"
+#include "gen/passes/WasmPointersSpill.h"
 #include "gen/passes/Passes.h"
 
 #ifndef IN_JITRT
@@ -34,6 +35,8 @@
 #include "driver/cl_options_sanitizers.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
+
+#include "dmd/globals.h"
 #endif
 
 #include "llvm/TargetParser/Triple.h"
@@ -334,6 +337,21 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm,
 }
 
 #ifndef IN_JITRT
+static void addWasmPointersSpillPass(ModulePassManager &mpm,
+                                         OptimizationLevel level
+#if LLVM_VERSION_MAJOR >= 20
+                                         ,
+                                         ThinOrFullLTOPhase
+#endif
+) {
+  mpm.addPass(createModuleToFunctionPassAdaptor(WasmPointersSpillPass()));
+  if (verifyEach) {
+    mpm.addPass(VerifierPass());
+  }
+}
+#endif
+
+#ifndef IN_JITRT
 static std::optional<PGOOptions> getPGOOptions() {
   // FIXME: Do we have these anywhere?
   bool debugInfoForProfiling = false;
@@ -510,6 +528,14 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
   }
 
   pb.registerOptimizerLastEPCallback(addStripExternalsPass);
+
+#ifndef IN_JITRT
+  // `global` can't be accessed in JITRT, and it doesn't support
+  // Wasm anyway.
+  if (TM->getTargetTriple().isWasm() && global.params.useGC) {
+    pb.registerOptimizerLastEPCallback(addWasmPointersSpillPass);
+  }
+#endif
 
 #ifndef IN_JITRT
   registerAllPluginsWithPassBuilder(pb);
