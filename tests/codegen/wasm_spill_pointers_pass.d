@@ -1,4 +1,4 @@
-// REQUIRES: target_WebAssembly, link_WebAssembly, atleast_llvm22
+// REQUIRES: atleast_llvm22
 
 // atleast_llvm22 because the lifetime intrinsic signatures changed.
 // It works on older; the lifetime.start and .end markers just have

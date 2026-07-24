@@ -111,6 +111,12 @@ static cl::opt<bool> disableGCToStack(
     "disable-gc2stack", cl::ZeroOrMore,
     cl::desc("Disable promotion of GC allocations to stack memory"));
 
+static cl::opt<bool> disableWasmPtrsSpill(
+    "disable-wasm-ptrs-spill", cl::ZeroOrMore,
+    cl::desc("Disable inserting stack spills of values to aid GC on Wasm."
+             "Doing so can cause GC collections to free memory referenced"
+             " only on the stack."));
+
 #ifndef IN_JITRT
 static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
     enableInlining(
@@ -532,7 +538,8 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
 #ifndef IN_JITRT
   // `global` can't be accessed in JITRT, and it doesn't support
   // Wasm anyway.
-  if (TM->getTargetTriple().isWasm() && global.params.useGC) {
+  if (!disableWasmPtrsSpill && TM->getTargetTriple().isWasm() &&
+      global.params.useGC) {
     pb.registerOptimizerLastEPCallback(addWasmPointersSpillPass);
   }
 #endif
