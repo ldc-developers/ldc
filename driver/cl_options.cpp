@@ -613,6 +613,11 @@ cl::opt<bool> fNoRTTI("fno-rtti", cl::ZeroOrMore,
                       cl::desc("Disable generation of TypeInfos"));
 
 cl::opt<bool>
+    fNoMInfoLocalClasses("fno-minfo-localclasses", cl::ZeroOrMore,
+                        cl::desc("Disable population of `localClasses`"
+                                 "in ModuleInfos"));
+
+cl::opt<bool>
     fSplitStack("fsplit-stack", cl::ZeroOrMore,
                 cl::desc("Use segmented stack (see Clang documentation)"));
 

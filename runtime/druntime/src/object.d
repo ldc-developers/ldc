@@ -289,11 +289,23 @@ class Object
 
     @system unittest
     {
-        Object valid_obj = Object.factory("object.Object");
-        Object invalid_obj = Object.factory("object.__this_class_doesnt_exist__");
+        const(ModuleInfo)* objectModule;
+        foreach (m; ModuleInfo) {
+            if (m.name == "object") {
+                objectModule = m;
+                break;
+            }
+        }
+        assert(objectModule !is null);
 
-        assert(valid_obj !is null);
-        assert(invalid_obj is null);
+        // don't try this if `-fno-minfo-localclasses` is enabled
+        if (objectModule.localClasses.length > 0) {
+            Object valid_obj = Object.factory("object.Object");
+            Object invalid_obj = Object.factory("object.__this_class_doesnt_exist__");
+
+            assert(valid_obj !is null);
+            assert(invalid_obj is null);
+        }
     }
 }
 

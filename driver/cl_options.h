@@ -104,6 +104,7 @@ extern cl::opt<bool> fNullPointerIsValid;
 extern cl::opt<bool> fNoExceptions;
 extern cl::opt<bool> fNoModuleInfo;
 extern cl::opt<bool> fNoRTTI;
+extern cl::opt<bool> fNoMInfoLocalClasses;
 extern cl::opt<bool> fSplitStack;
 
 // Arguments to -d-debug

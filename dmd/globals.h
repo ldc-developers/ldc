@@ -363,6 +363,8 @@ struct Param
     // Windows-specific:
     bool dllexport;      // dllexport ~all defined symbols?
     DLLImport dllimport; // dllimport data symbols not defined in any root module?
+
+    bool useMInfoLocalClasses = true;
 #endif // IN_LLVM
 };
 

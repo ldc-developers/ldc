@@ -348,6 +348,7 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.useExceptions = !fNoExceptions;
   global.params.useModuleInfo = !fNoModuleInfo;
   global.params.useTypeInfo = !fNoRTTI;
+  global.params.useMInfoLocalClasses = !fNoMInfoLocalClasses;
 
   // String options
   global.params.objname = opts::fromPathString(objectFile);
