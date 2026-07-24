@@ -12,6 +12,7 @@
 #include "dmd/errors.h"
 #include "dmd/mangle.h"
 #include "dmd/module.h"
+#include "driver/cl_options.h"
 #include "gen/abi/abi.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -185,7 +186,7 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
   getLocalClasses(m, aclasses);
 
   std::vector<LLConstant *> classInfoRefs;
-  if (global.params.useMInfoLocalClasses) {
+  if (!opts::fNoMInfoLocalClasses) {
     for (auto cd : aclasses) {
       DtoResolveClass(cd);
 
