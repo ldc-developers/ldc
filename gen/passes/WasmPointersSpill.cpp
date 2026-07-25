@@ -11,6 +11,29 @@
 // are live across calls (which may trigger GC) back to the stack so they can
 // be scanned in Wasm environments.
 //
+//
+// On WebAssembly, a working conservative GC is blocked on being able to see
+// pointers that might be held somewhere outside of Wasm's linear memory.
+//
+// Wasm has both an infinite set of "locals" (~registers), AND it's own
+// value stack (Wasm is a stack machine). Neither of these are easily
+// introspectable from arbitrary code. So unlike native platforms, we can't just
+// spill all the "registers" onto the in-memory stack and be done with it.
+///
+// Furthermore, due largely to `union`, there may be pointers smuggled in types
+// other than the appropriate `i32` on wasm32 or `i64` on wasm64.
+// E.g. `union U { double d; void* p }` holds a pointer in what LLVM sees
+// as just a double (and becomes Wasm f64).
+//
+// To work around this, we search for vregs/values that are detected as
+// potential pointers (are pointers, contain pointers, or are used to form a
+// pointer). Any such values that are alive any sort of call (which are assumed
+// may trigger GC collection) are `store volatile`d to a new stack slot to make
+// sure it is visible to the GC.
+//
+// `lifetime.start` and `lifetime.end` is placed to bound each `alloca`'s
+// lifetime as tightly as reasonable. EH unwinding in particular can extend
+// lifetimes longer than is strictly necessary.
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "wasm-ptrs-spill"
