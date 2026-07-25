@@ -2501,7 +2501,14 @@ private extern (D) bool suspend( Thread t ) nothrow @nogc
     }
     else version (WASI)
     {
-        onThreadError( "Unable to suspend thread" );
+        if ( t.m_addr != 1 ) // dummy main thread
+        {
+            onThreadError( "Unable to suspend thread" );
+        }
+        else if ( !t.m_lock )
+        {
+            t.m_curr.tstack = getStackTop();
+        }
     }
     return true;
 }
@@ -2524,8 +2531,6 @@ extern (C) void thread_preStopTheWorld() nothrow {
  */
 extern (C) void thread_suspendAll() nothrow
 {
-    version (WASI) onThreadError( "Unable to suspend all threads" );
-
     // NOTE: We've got an odd chicken & egg problem here, because while the GC
     //       is required to call thread_init before calling any other thread
     //       routines, thread_init may allocate memory which could in turn
@@ -2680,7 +2685,14 @@ private extern (D) void resume(ThreadBase _t) nothrow @nogc
     }
     else version (WASI)
     {
-        onThreadError( "Unable to resume thread" );
+        if ( t.m_addr != 1 ) // dummy main thread
+        {
+            onThreadError( "Unable to resume thread" );
+        }
+        else if ( !t.m_lock )
+        {
+            t.m_curr.tstack = t.m_curr.bstack;
+        }
     }
     else
         static assert(false, "Platform not supported.");

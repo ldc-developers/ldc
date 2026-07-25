@@ -14,7 +14,7 @@ version (WebAssembly) {} else static assert(0);
 
 // make sure TLS globals are emitted as regular __gshared globals:
 
-// CHECK: @_D4wasm13definedGlobali = global i32 123
+// CHECK: @_D4wasm13definedGlobali = hidden global i32 123
 int definedGlobal = 123;
 
 

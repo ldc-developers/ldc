@@ -22,7 +22,8 @@ runs:
   using: composite
   steps:
 
-    - if: runner.os != 'Windows'
+    - name: 'Posix: Build LDC'
+      if: runner.os != 'Windows'
       shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
@@ -43,7 +44,8 @@ runs:
         ninja obj/ldc2.o ${{ inputs.build_targets }}
 
     # Windows: invoke CMake & ninja in MSVC env
-    - if: runner.os == 'Windows'
+    - name: 'Windows: Build LDC'
+      if: runner.os == 'Windows'
       shell: cmd
       run: |
         call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }} || exit /b

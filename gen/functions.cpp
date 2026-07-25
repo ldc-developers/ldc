@@ -654,9 +654,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
     irFunc->setNeverInline();
   } else {
     if (fdecl->inlining == PINLINE::always) {
-      // If the function contains DMD-style inline assembly.
-      if (fdecl->hasInlineAsm()) {
-        // The presence of DMD-style inline assembly in a function causes that
+      if (fdecl->isUnitTestDeclaration()) {
+        // makes no sense: https://github.com/ldc-developers/ldc/issues/5210
+      } else if (fdecl->hasInlineAsm()) {
+        // The presence of *DMD-style* inline assembly in a function causes that
         // function to become never-inline. So, if this function contains DMD-style
         // inline assembly we'll emit an error as it can't be made always-inline.
         // However, we'll make an exception for C functions, as the C standard doesn't
@@ -767,20 +768,6 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
-  // Intrinsics are always external.
-  if (DtoIsIntrinsic(fdecl)) {
-    return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
-  }
-
-  // A body-less declaration always needs to be marked as external in LLVM.
-  if (!fdecl->fbody) {
-    return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
-  }
-
-  return DtoLinkage(fdecl);
-}
 
 // LDC has the same problem with destructors of struct arguments in closures
 // as DMD, so we copy the failure detection
@@ -1021,9 +1008,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     if (!linkageAvailableExternally &&
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage and visibility
-      const auto lwc = lowerFuncLinkage(fd);
-      setLinkage(lwc, func);
-      setVisibility(fd, func);
+      setLinkageAndVisibility(fd, func);
     }
     return;
   }
@@ -1170,17 +1155,16 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
 
-  const auto lwc = lowerFuncLinkage(fd);
+  setLinkageAndVisibility(fd, func);
   if (linkageAvailableExternally) {
-    func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
-    func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
     // Assert that we are not overriding a linkage type that disallows inlining
-    assert(lwc.first != llvm::GlobalValue::WeakAnyLinkage &&
-           lwc.first != llvm::GlobalValue::ExternalWeakLinkage &&
-           lwc.first != llvm::GlobalValue::LinkOnceAnyLinkage);
-  } else {
-    setLinkage(lwc, func);
-    setVisibility(fd, func);
+    assert(func->getLinkage() != llvm::GlobalValue::WeakAnyLinkage &&
+           func->getLinkage() != llvm::GlobalValue::ExternalWeakLinkage &&
+           func->getLinkage() != llvm::GlobalValue::LinkOnceAnyLinkage);
+
+    func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
+    func->setComdat(nullptr);
+    func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
   }
 
   // function attributes

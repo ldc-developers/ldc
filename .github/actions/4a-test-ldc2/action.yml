@@ -2,5 +2,6 @@ name: Run LDC D unittests
 runs:
   using: composite
   steps:
-    - run: cd ../build && ctest --output-on-failure -R "ldc2-unittest"
+    - name: Run ldc2-unittest runner
+      run: cd ../build && ctest --output-on-failure -R "ldc2-unittest"
       shell: ${{ env.GHA_BASH_SHELL }}

@@ -17,6 +17,4 @@
 
 // Make it easier to test new linkage types
 
-#define TYPEINFO_LINKAGE_TYPE LLGlobalValue::LinkOnceODRLinkage
-
 extern LLGlobalValue::LinkageTypes templateLinkage;

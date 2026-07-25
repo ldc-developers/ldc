@@ -93,7 +93,7 @@ if("${TARGET_SYSTEM}" MATCHES "UNIX|WASI")
     ENABLE_LANGUAGE(ASM)
 endif()
 
-# Enable switches needed for EH on Wasm/WASI
+# Enable switches needed on Wasm/WASI (normally inherited from etc/ldc2.conf/{51-target-wasm-base,52-target-wasi-base}.conf)
 if("${TARGET_SYSTEM}" MATCHES "WASI")
     # Make sure LLVM_VERSION_MAJOR is defined
     # (particularly if this CMake project is NOT
@@ -101,14 +101,25 @@ if("${TARGET_SYSTEM}" MATCHES "WASI")
     if(NOT DEFINED LLVM_VERSION_MAJOR)
         message(FATAL_ERROR "Please define the CMake variable LLVM_VERSION_MAJOR.")
     endif()
-    
+
+    append("-Wl,-z,stack-size=1048576 -Wl,--stack-first" LD_FLAGS)
+
     list(APPEND D_FLAGS --wasm-enable-eh)
     list(APPEND D_FLAGS --mattr=+exception-handling)
-    
+
     if(LLVM_VERSION_MAJOR GREATER_EQUAL 20)
         list (APPEND D_FLAGS --wasm-use-legacy-eh=false)
     elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 19)
         list (APPEND D_FLAGS --wasm-enable-exnref)
+    endif()
+
+    # A hack to make sure EH actually gets enabled, even though
+    # the EH model should be implied by `--wasm-enable-eh`
+    # 
+    # I don't know what broke it for 21, but this fixes it for 23:
+    # https://github.com/llvm/llvm-project/pull/177542
+    if((LLVM_VERSION_MAJOR EQUAL 21) OR (LLVM_VERSION_MAJOR EQUAL 22))
+      list(APPEND D_FLAGS --exception-model=wasm)
     endif()
 endif()
 
@@ -304,6 +315,11 @@ if(${BUILD_SHARED_LIBS} STREQUAL "ON")
     set(switches "-link-defaultlib-shared")
 elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
     set(switches "-link-defaultlib-shared=false")
+endif()
+
+# Only have druntime, no Phobos? Then set -defaultlib appropriately.
+if(NOT PHOBOS2_DIR)
+    list(APPEND switches -defaultlib=druntime-ldc)
 endif()
 
 set(build_libdir "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")

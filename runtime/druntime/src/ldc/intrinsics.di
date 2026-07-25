@@ -25,6 +25,7 @@ else version (LDC_LLVM_20) enum LLVM_major = 20;
 else version (LDC_LLVM_21) enum LLVM_major = 21;
 else version (LDC_LLVM_22) enum LLVM_major = 22;
 else version (LDC_LLVM_23) enum LLVM_major = 23;
+else version (LDC_LLVM_24) enum LLVM_major = 24;
 else static assert(false, "LDC LLVM version not supported");
 
 deprecated("please use LLVM_major")

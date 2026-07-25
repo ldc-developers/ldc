@@ -20,7 +20,8 @@ runs:
           /usr/local/share/gdb
         key: gdb-${{ inputs.arch }}
 
-    - shell: bash
+    - name: Build gdb if needed
+      shell: bash
       run: |
         set -eux
 

@@ -8,11 +8,15 @@ inputs:
   cross_target_triple:
     required: false
     default: ''
+  is_addon:
+    required: false
+    default: ''
 runs:
   using: composite
   steps:
 
     - name: Set DMD environment variable
+      if: inputs.is_addon == ''
       shell: bash  # don't run in VM, but host runner (for exporting env vars)
       run: |
         set -eux
@@ -26,6 +30,7 @@ runs:
         echo "DMD=$DMD" >> $GITHUB_ENV
 
     - name: Build & copy dub
+      if: inputs.is_addon == ''
       shell: ${{ env.GHA_BASH_SHELL }} ${{ startsWith(env.GHA_BASH_SHELL, 'cpa.sh') && '--environment-variables DMD' || '' }}
       run: |
         set -eux
@@ -42,6 +47,7 @@ runs:
         fi
 
     - name: Build & copy dlang tools
+      if: inputs.is_addon == ''
       shell: ${{ env.GHA_BASH_SHELL }} ${{ startsWith(env.GHA_BASH_SHELL, 'cpa.sh') && '--environment-variables DMD' || '' }}
       run: |
         set -eux
@@ -62,6 +68,7 @@ runs:
         cp bin/{rdmd,ddemangle,dustmite} ../installed/bin/
 
     - name: Build & copy reggae
+      if: inputs.is_addon == ''
       shell: ${{ env.GHA_BASH_SHELL }} ${{ startsWith(env.GHA_BASH_SHELL, 'cpa.sh') && '--environment-variables DMD' || '' }}
       run: |
         set -eux
@@ -92,7 +99,7 @@ runs:
         fi
 
     - name: 'Linux: List executable dependencies'
-      if: runner.os == 'Linux'
+      if: runner.os == 'Linux' && inputs.is_addon == ''
       shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -euxo pipefail
@@ -131,7 +138,12 @@ runs:
           fi
         fi
 
-        artifactName="ldc2-$artifactID-$os-${{ inputs.arch }}"
+        is_addon='${{ inputs.is_addon != '' && '1' || '0' }}'
+        artifactName="ldc2-$artifactID"
+        if [[ "$is_addon" == 1 ]]; then
+          artifactName+="-addon"
+        fi
+        artifactName+="-$os-${{ inputs.arch }}"
         mv installed $artifactName
         if [[ '${{ runner.os }}' == Windows ]]; then
           7z a -mx=9 artifacts/$artifactName.7z $artifactName >/dev/null
@@ -143,7 +155,14 @@ runs:
           elif [[ $os != alpine ]]; then
             sudo chown -R 0:0 $artifactName
           fi
-          tar -cf - $artifactName | 7z a artifacts/$artifactName.tar.xz -si -txz -mx9
+
+          if [[ "$is_addon" == 1 ]]; then
+            # no root dir, to be able to unpack the addon archive directly into an LDC install prefix
+            cd $artifactName
+            tar -cf - * | 7z a ../artifacts/$artifactName.tar.xz -si -txz -mx9
+          else
+            tar -cf - $artifactName | 7z a artifacts/$artifactName.tar.xz -si -txz -mx9
+          fi
         fi
 
         # export ARTIFACT_{ID,NAME}

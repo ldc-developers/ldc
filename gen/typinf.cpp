@@ -480,7 +480,7 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
   // define the TypeInfo global
   DefineVisitor v(gvar);
   decl->accept(&v);
-  setLinkage({TYPEINFO_LINKAGE_TYPE, needsCOMDAT()}, gvar);
+  setLinkOnceODRLinkageAndVisibility(gvar);
 }
 
 /* ========================================================================= */
@@ -503,7 +503,6 @@ class DeclareOrDefineVisitor : public Visitor {
     }
 
     irstruct->getTypeInfoSymbol(/*define=*/true);
-    ti->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
   }
 
   // Only declare class TypeInfos. They are defined once in their owning module

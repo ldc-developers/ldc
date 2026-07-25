@@ -706,12 +706,18 @@ void registerPredefinedTargetVersions() {
     break;
   case llvm::Triple::msp430:
     VersionCondition::addPredefinedGlobalIdent("MSP430");
+    // No hardware FPU; match AVR.
+    VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
     break;
   case llvm::Triple::riscv32:
     VersionCondition::addPredefinedGlobalIdent("RISCV32");
+    VersionCondition::addPredefinedGlobalIdent(
+        floatABI == FloatABI::Soft ? "D_SoftFloat" : "D_HardFloat");
     break;
   case llvm::Triple::riscv64:
     VersionCondition::addPredefinedGlobalIdent("RISCV64");
+    VersionCondition::addPredefinedGlobalIdent(
+        floatABI == FloatABI::Soft ? "D_SoftFloat" : "D_HardFloat");
     break;
   case llvm::Triple::sparc:
     // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
@@ -739,6 +745,7 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     VersionCondition::addPredefinedGlobalIdent("WebAssembly");
+    VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
     break;
   case llvm::Triple::loongarch32:
     VersionCondition::addPredefinedGlobalIdent("LoongArch32");
@@ -750,6 +757,8 @@ void registerPredefinedTargetVersions() {
     break;
   case llvm::Triple::xtensa:
     VersionCondition::addPredefinedGlobalIdent("Xtensa");
+    VersionCondition::addPredefinedGlobalIdent(
+        floatABI == FloatABI::Soft ? "D_SoftFloat" : "D_HardFloat");
     break;
   default:
     warning(Loc(), "unknown target CPU architecture: %s",

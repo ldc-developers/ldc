@@ -6,7 +6,8 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: ${{ env.GHA_BASH_SHELL }}
+    - name: Build mimalloc
+      shell: ${{ env.GHA_BASH_SHELL }}
       run: |
         set -eux
         cd ..

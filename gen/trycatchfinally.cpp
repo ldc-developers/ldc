@@ -453,7 +453,18 @@ void TryCatchScope::emitCatchBodiesWasm(IRState &irs, llvm::Value *) {
     catchIdx += 1;
   }
 
-  irs.ir->CreateCall(GET_INTRINSIC_DECL(wasm_rethrow, {}), {}, {llvm::OperandBundleDef("funclet", catchpad)}, "");
+  if (unwindto) {
+    llvm::BasicBlock *unreachableBB =
+        irs.insertBB(llvm::Twine("catch.rethrow.unreachable"));
+    irs.ir->CreateInvoke(GET_INTRINSIC_DECL(wasm_rethrow, {}), unreachableBB,
+                         unwindto, {},
+                         {llvm::OperandBundleDef("funclet", catchpad)}, "");
+    irs.ir->SetInsertPoint(unreachableBB);
+  } else {
+    irs.ir->CreateCall(GET_INTRINSIC_DECL(wasm_rethrow, {}), {},
+                       {llvm::OperandBundleDef("funclet", catchpad)}, "");
+  }
+
   irs.ir->CreateUnreachable();
 
   scopes.pushCleanup(catchSwitchBlock, catchSwitchBlock);
