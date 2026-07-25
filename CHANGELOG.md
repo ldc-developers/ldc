@@ -9,6 +9,7 @@
 - Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
 - **dcompute**: Added support for Native device code Embedding (PTX and SPIR-V) into the host executable's `.rodata` section. (#5140)
 - The `@ldc.attributes.restrict` UDA is now supported for dynamic-array parameters too. Builtin array ops (`c[] = a[] * b[]` etc.) use it, enabling auto-vectorization. Note that for such array ops, the dlang spec prescribes that the slice on the left and any slices on the right must not overlap (https://dlang.org/spec/arrays.html#array-operations), and this knowledge is now used by the optimizer. (#5148, #5168, #5176)
+- WebAssembly: In order to allow D's GC to function correctly, a new pass is run after optimizations, to spill potential pointers onto the "stack" (#5178). Wasm operates an infinite (practically: large) number of locals (~registers), as well as an opaque value stack. To compensate for the fact that these locations can't be easily scanned, any intermediate value detected as pointer, or as contributing to one, is forcibly spilled onto the normal stack (which lies in linear memory) as needed. The stack is then scanned in the usual conservative manner. This pass is enabled by default on all Wasm targets, but can be disabled with `-betterC` or the new `-disable-wasm-ptrs-spill`.
 
 #### Platform support
 - Supports LLVM 18 - 22.
