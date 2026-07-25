@@ -627,6 +627,19 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     targetOptions.EmulatedTLS = false;
   }
 
+  // wasm: enable EH (with the help of 51-target-wasm-base.conf)
+  if (triple.isWasm()) {
+    if (!hasFeature("exception-handling")) {
+      features.push_back("+exception-handling");
+    }
+
+#if LLVM_VERSION_MAJOR >= 21 && LLVM_VERSION_MAJOR <= 22
+    // we need to enforce `--exception-model=wasm`, although it should be
+    // implied by `--wasm-enable-eh`
+    targetOptions.ExceptionModel = llvm::ExceptionHandling::Wasm;
+#endif
+  }
+
   const std::string finalFeaturesString =
       llvm::join(features.begin(), features.end(), ",");
 

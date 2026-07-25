@@ -925,7 +925,13 @@ makeConfSection(NAME "30-compiler" SECTION "default"
     POST_SWITCHES "-I${INCLUDE_INSTALL_DIR}"
 )
 
-# Add a base config for all wasm targets, setting some linker defaults.
+# Add a base config for all wasm targets, setting some linker defaults and enabling EH.
+set(wasm_eh_switches --wasm-enable-eh)
+if(LLVM_VERSION_MAJOR GREATER_EQUAL 20)
+    list(APPEND wasm_eh_switches --wasm-use-legacy-eh=false)
+elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 19)
+    list(APPEND wasm_eh_switches --wasm-enable-exnref)
+endif()
 makeConfSection(NAME "51-target-wasm-base"
     SECTION "^wasm(32|64)-"
     SWITCHES
@@ -933,26 +939,7 @@ makeConfSection(NAME "51-target-wasm-base"
         -L-z -Lstack-size=1048576
         # Protect from stack overflow overwriting global memory
         -L--stack-first
-)
-
-# Add a base config for all WASI targets.
-set(wasi_eh_switches --wasm-enable-eh --mattr=+exception-handling)
-if(LLVM_VERSION_MAJOR GREATER_EQUAL 20)
-    list(APPEND wasi_eh_switches --wasm-use-legacy-eh=false)
-elseif(LLVM_VERSION_MAJOR GREATER_EQUAL 19)
-    list(APPEND wasi_eh_switches --wasm-enable-exnref)
-endif()
-# A hack to make sure EH actually gets enabled, even though
-# the EH model should be implied by `--wasm-enable-eh`
-# 
-# I don't know what broke it for 21, but this fixes it for 23:
-# https://github.com/llvm/llvm-project/pull/177542
-if((LLVM_VERSION_MAJOR EQUAL 21) OR (LLVM_VERSION_MAJOR EQUAL 22))
-    list(APPEND wasi_eh_switches --exception-model=wasm)
-endif()
-makeConfSection(NAME "52-target-wasi-base"
-    SECTION "^wasm(32|64)-.*-wasi"
-    SWITCHES ${wasi_eh_switches}
+        ${wasm_eh_switches}
 )
 
 # Add a convenience config for *naked* wasm targets, omitting druntime/Phobos
