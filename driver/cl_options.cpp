@@ -615,7 +615,8 @@ cl::opt<bool> fNoRTTI("fno-rtti", cl::ZeroOrMore,
 cl::opt<bool>
     fNoMInfoLocalClasses("fno-minfo-localclasses", cl::ZeroOrMore,
                         cl::desc("Disable population of `localClasses`"
-                                 "in ModuleInfos"));
+                                 "in ModuleInfos. Allows better DCE, but"
+                                 "breaks e.g. `Object.factory`."));
 
 cl::opt<bool>
     fSplitStack("fsplit-stack", cl::ZeroOrMore,
