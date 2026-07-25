@@ -1,10 +1,10 @@
-// Compile and link directly to WebAssembly.
+// Compile and link directly to naked WebAssembly.
 
 // REQUIRES: target_WebAssembly
-// REQUIRES: internal_lld
-// RUN: %ldc -mtriple=wasm32-unknown-unknown-wasm -w -link-internally %s %baremetal_args
+// REQUIRES: link_WebAssembly
+// RUN: %ldc -mtriple=wasm32-unknown-unknown -w %s
 
-extern(C): // no mangling, no arguments order reversal
+extern(C): // no mangling
 
 void _start() {}
 
