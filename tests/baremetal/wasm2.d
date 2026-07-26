@@ -1,9 +1,9 @@
-// A more complex wasm example using Phobos templates (=> -betterC to keep it simple).
+// A more complex naked wasm example using Phobos templates.
 
 // REQUIRES: target_WebAssembly
 // REQUIRES: link_WebAssembly
 
-// RUN: %ldc -mtriple=wasm32-unknown-unknown-wasm -betterC -w -L--export-dynamic %s -of=%t.wasm
+// RUN: %ldc -mtriple=wasm32-unknown-unknown -w -L--export-dynamic %s -of=%t.wasm
 
 // make sure the .wasm file contains `myExportedFoo` (https://github.com/ldc-developers/ldc/issues/3023)
 // RUN: grep myExportedFoo %t.wasm
@@ -12,7 +12,7 @@ extern(C):
 
 void _start() {}
 
-void __assert(const(char)* msg, const(char)* file, uint line) {}
+void _d_assert_msg(string msg, string file, uint line) {}
 
 export int myExportedFoo()
 {
