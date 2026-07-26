@@ -208,9 +208,9 @@ protected:
   /// * complex number
   static bool isAggregate(Type *t);
 
-  /// Returns true if the D type is a Plain-Old-Datatype, optionally excluding
-  /// structs with constructors from that definition.
-  static bool isPOD(Type *t, bool excludeStructsWithCtor = false);
+  /// Returns true if the D type is a Plain-Old-Datatype, optionally using
+  /// MSVC++ semantics.
+  static bool isPOD(Type *t, bool msvcSemantics = false);
 
   /// Returns true if the D type can be bit-cast to an integer of the same size.
   static bool canRewriteAsInt(Type *t, bool include64bit = true);

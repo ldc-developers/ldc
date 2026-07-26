@@ -105,6 +105,12 @@ struct MemberWithCtor
 }
 mixin Foo!MemberWithCtor;
 
+struct PrivateField
+{
+    private int a;
+}
+mixin Foo!PrivateField;
+
 void main()
 {
     test!POD();
@@ -115,4 +121,5 @@ void main()
     test!CopyAndMove();
     test!MoveOnly();
     test!MemberWithCtor();
+    test!PrivateField();
 }

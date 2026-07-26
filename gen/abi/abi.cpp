@@ -116,12 +116,24 @@ bool TargetABI::isAggregate(Type *t) {
          /*ty == TY::Tarray ||*/ ty == TY::Tdelegate || isComplex(t);
 }
 
-bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
+bool TargetABI::isPOD(Type *t, bool msvcSemantics) {
   t = t->baseElemOf();
   if (t->ty != TY::Tstruct)
     return true;
   StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
-  return dmd::isPOD(sd) && !(excludeStructsWithCtor && sd->ctor);
+  if (!dmd::isPOD(sd))
+    return false;
+  if (msvcSemantics) {
+    // any ctor makes the struct a non-POD
+    if (sd->ctor)
+      return false;
+    // any non-public field makes it a non-POD
+    for (auto vd : sd->fields) {
+      if (vd->visible().kind < Visibility::public_)
+        return false;
+    }
+  }
+  return true;
 }
 
 bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {

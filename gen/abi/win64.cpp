@@ -59,7 +59,8 @@ private:
     // Handle non-PODs:
     if (isReturnValue) {
       // Enforce sret for non-PODs.
-      // MSVC++ additionally enforces it for all structs with ctors.
+      // MSVC++ additionally enforces it for all structs with ctors (or
+      // non-public fields).
       if (!isPOD(t, isMSVCpp))
         return true;
     } else {
