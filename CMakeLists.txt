@@ -574,11 +574,21 @@ if(LDC_WITH_LLD)
     else()
         set(LDC_LINKERFLAG_LIST -llldMinGW -llldCOFF -llldELF -llldMachO -llldWasm -llldCommon -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
     endif()
-    if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-        # FreeBSD LLVM port links to zstd, but does not convey this information via CMake
-        # Workaround it here until it is fixed in the port
-        find_package(zstd)
-        list(APPEND LDC_LINKERFLAG_LIST "$<TARGET_LINKER_FILE:zstd::libzstd_shared>")
+    if(LLVM_IS_SHARED)
+        # LLD's ELF backend references zstd (OutputSection::maybeCompress). A shared
+        # libLLVM only loads libzstd privately -- it does not re-export those symbols --
+        # and `llvm-config --system-libs` reports nothing in shared mode, so the
+        # statically-linked lld archives are left with unresolved ZSTD_* symbols.
+        # Link libzstd explicitly here; the full path from find_package also covers
+        # installs outside the default linker search path (e.g. Homebrew's
+        # /opt/homebrew/opt/zstd). This subsumes the former FreeBSD-only workaround
+        # (that port ships a shared LLVM with the exact same gap).
+        find_package(zstd QUIET)
+        if(TARGET zstd::libzstd_shared)
+            list(APPEND LDC_LINKERFLAG_LIST "$<TARGET_LINKER_FILE:zstd::libzstd_shared>")
+        elseif(TARGET zstd::libzstd_static)
+            list(APPEND LDC_LINKERFLAG_LIST "$<TARGET_LINKER_FILE:zstd::libzstd_static>")
+        endif()
     endif()
 endif()
 
