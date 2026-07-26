@@ -613,7 +613,7 @@ cl::opt<bool> fNoRTTI("fno-rtti", cl::ZeroOrMore,
                       cl::desc("Disable generation of TypeInfos"));
 
 cl::opt<bool>
-    fNoMInfoLocalClasses("fno-minfo-localclasses", cl::ZeroOrMore,
+    fNoModuleInfoLocalClasses("fno-moduleinfo-localclasses", cl::ZeroOrMore,
                         cl::desc("Disable population of `localClasses`"
                                  "in ModuleInfos. Allows better DCE, but"
                                  "breaks e.g. `Object.factory`."));

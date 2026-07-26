@@ -186,7 +186,7 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
   getLocalClasses(m, aclasses);
 
   std::vector<LLConstant *> classInfoRefs;
-  if (!opts::fNoMInfoLocalClasses) {
+  if (!opts::fNoModuleInfoLocalClasses) {
     for (auto cd : aclasses) {
       DtoResolveClass(cd);
 

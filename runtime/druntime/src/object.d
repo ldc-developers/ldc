@@ -298,7 +298,7 @@ class Object
         }
         assert(objectModule !is null);
 
-        // don't try this if `-fno-minfo-localclasses` is enabled
+        // don't try this if `-fno-moduleinfo-localclasses` is enabled
         if (objectModule.localClasses.length > 0) {
             Object valid_obj = Object.factory("object.Object");
             Object invalid_obj = Object.factory("object.__this_class_doesnt_exist__");

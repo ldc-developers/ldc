@@ -17,7 +17,7 @@
 - WebAssembly: In order to allow D's GC to function correctly, a new pass is run after optimizations, to spill potential pointers onto the "stack" (#5178).
   Wasm operates an infinite (practically: large) number of locals (~registers), as well as an opaque value stack. To compensate for the fact that these locations can't be easily scanned, any intermediate value detected as pointer, or as contributing to one, is forcibly spilled onto the normal stack (which lies in linear memory) as needed. The stack is then scanned in the usual conservative manner.
   This pass is enabled by default on all Wasm targets, but can be disabled with `-betterC` or the new `-disable-wasm-ptrs-spill`.
-- A new `-fno-minfo-localclasses` switch has been added. This disables populating `ModuleInfo.localClasses` for each module. This can help eliminate/strip more dead-code (thus decreasing binary sizes), but breaks `Object.factory` and any other code relying on iterating over said `localClasses` (#5224).
+- A new `-fno-moduleinfo-localclasses` switch has been added. This disables populating `ModuleInfo.localClasses` for each module. This can help eliminate/strip more dead-code (thus decreasing binary sizes), but breaks `Object.factory` and any other code relying on iterating over said `localClasses` (#5224).
 
 #### Platform support
 - Supports LLVM 18 - 22.
