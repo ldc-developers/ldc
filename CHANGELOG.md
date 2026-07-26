@@ -14,6 +14,9 @@
 - [WASI](https://github.com/WebAssembly/WASI) support
   - DRuntime now supports `wasm32-wasip1` and `wasm32-wasip2` targets, using [`wasi-libc`](https://github.com/WebAssembly/wasi-libc) for libc and WASIp1 or WASIp2 as the system/OS interface (#5186). Two caveats being that WASI is strictly single-threaded (currently), and that threads are unavailable.
   - The CI now builds artifacts for WASIp1 and WASIp2 (#5207). The `ldc2-*-addon-wasi-wasm32.tar.xz` can be unpacked directly into your LDC install directory. It contains `lib-wasip1-wasm32` and `lib-wasip2-wasm32` directories providing cross-compiled libs (i.e. DRuntime), as well as `etc/ldc2.conf/55-target-...` entries for the two triples.
+- WebAssembly: In order to allow D's GC to function correctly, a new pass is run after optimizations, to spill potential pointers onto the "stack" (#5178).
+  Wasm operates an infinite (practically: large) number of locals (~registers), as well as an opaque value stack. To compensate for the fact that these locations can't be easily scanned, any intermediate value detected as pointer, or as contributing to one, is forcibly spilled onto the normal stack (which lies in linear memory) as needed. The stack is then scanned in the usual conservative manner.
+  This pass is enabled by default on all Wasm targets, but can be disabled with `-betterC` or the new `-disable-wasm-ptrs-spill`.
 
 #### Platform support
 - Supports LLVM 18 - 22.
