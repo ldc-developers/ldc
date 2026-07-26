@@ -176,33 +176,6 @@ public:
     return _isIndirectOperand[operandIndex];
   }
 };
-
-// C11 6.5.3.2: `"m"` / `"=m"` GCC asm constraints take the address of their
-// operand; register variables cannot be used that way (see issue #4967).
-// Do not call fatal() here — ImportC may have several such asms in one
-// function, and fail_compilation tests expect every diagnostic (like GDC).
-VarDeclaration *asmOperandVar(Expression *e) {
-  for (;;) {
-    if (auto ve = e->isVarExp())
-      return ve->var->isVarDeclaration();
-    if (auto ce = e->isCastExp()) {
-      e = ce->e1;
-      continue;
-    }
-    return nullptr;
-  }
-}
-
-// Returns true if an error was reported.
-bool checkRegisterMemoryAsmOperand(Loc loc, Expression *e) {
-  if (auto vd = asmOperandVar(e)) {
-    if (vd->storage_class & STCregister) {
-      error(loc, "cannot take address of register variable `%s`", vd->toChars());
-      return true;
-    }
-  }
-  return false;
-}
 }
 
 void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
@@ -235,22 +208,36 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
   LLSmallVector<LLType *, 8> indirectTypes;
   LLSmallVector<LLValue *, 8> operands;
   if (stmt->args) {
-    // Diagnose all illegal register+memory operands first (no fatal), then
-    // skip IR for this statement so later asm statements still get checked.
-    bool registerMemError = false;
-    for (size_t i = 0; i < stmt->args->length; ++i) {
-      if (constraintsBuilder.isIndirectOperand(i) &&
-          checkRegisterMemoryAsmOperand((*stmt->args)[i]->loc,
-                                        (*stmt->args)[i]))
-        registerMemError = true;
-    }
-    if (registerMemError)
-      return;
-
+    // Skip IR for this statement on operand errors so later asm statements
+    // still get checked (no fatal(); fail_compilation expects every diagnostic).
+    bool hadError = false;
     for (size_t i = 0; i < stmt->args->length; ++i) {
       Expression *e = (*stmt->args)[i];
       const bool isOutput = (i < stmt->outputargs);
       const bool isIndirect = constraintsBuilder.isIndirectOperand(i);
+
+      // C11 6.5.3.2 / issue #4967: "m" / "=m" take the operand address.
+      if (isIndirect) {
+        Expression *op = e;
+        VarDeclaration *vd = nullptr;
+        for (;;) {
+          if (auto ve = op->isVarExp()) {
+            vd = ve->var->isVarDeclaration();
+            break;
+          }
+          if (auto ce = op->isCastExp()) {
+            op = ce->e1;
+            continue;
+          }
+          break;
+        }
+        if (vd && (vd->storage_class & STCregister)) {
+          error(e->loc, "cannot take address of register variable `%s`",
+                vd->toChars());
+          hadError = true;
+          continue;
+        }
+      }
 
       if (isOutput) {
         assert(dmd::isLvalue(e) && "should have been caught by front-end");
@@ -268,7 +255,8 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
                 "indirect `\"m\"` input operands require an lvalue, but `%s` "
                 "is an rvalue",
                 e->toChars());
-          fatal();
+          hadError = true;
+          continue;
         }
 
         LLValue *inputVal = isIndirect ? DtoLVal(e) : DtoRVal(e);
@@ -277,6 +265,8 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
           indirectTypes.push_back(DtoType(e->type));
       }
     }
+    if (hadError)
+      return;
   }
 
   const size_t N = outputTypes.size();
