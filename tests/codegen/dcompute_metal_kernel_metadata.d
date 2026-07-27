@@ -15,10 +15,10 @@ void test_kernel(GlobalPointer!float data) {
     data[0] = 42.0;
 }
 
-// AIR-DAG: !air.kernel = !{[[KERNEL_LIST:![0-9]+]]}
+// AIR-DAG: !air.kernel = !{[[KERNEL:![0-9]+]]}
 // AIR-DAG: !air.version = !{[[AIR_VERSION:![0-9]+]]}
 // AIR-DAG: !air.language_version = !{[[AIR_LANGUAGE_VERSION:![0-9]+]]}
-// AIR-DAG: [[KERNEL_LIST]] = !{ptr @{{.*}}test_kernel{{.*}}, [[EMPTY:![0-9]+]], [[ARGS_ROOT:![0-9]+]]}
+// AIR-DAG: [[KERNEL]] = !{ptr @{{.*}}test_kernel{{.*}}, [[EMPTY:![0-9]+]], [[ARGS_ROOT:![0-9]+]]}
 
 // AIR-DAG: [[EMPTY]] = !{}
 
