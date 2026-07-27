@@ -163,6 +163,19 @@ else version (CRuntime_Musl)
 
     int poll(pollfd*, nfds_t, c_long);
 }
+else version (CRuntime_WASI)
+{
+    struct pollfd
+    {
+        int     fd;
+        short   events;
+        short   revents;
+    }
+
+    alias nfds_t = c_ulong;
+
+    int poll(pollfd*, nfds_t, c_long);
+}
 else version (CRuntime_UClibc)
 {
     struct pollfd
@@ -336,6 +349,23 @@ else version (Solaris)
         POLLERR     = 0x0008,
         POLLHUP     = 0x0010,
         POLLNVAL    = 0x0020,
+    }
+}
+else version (CRuntime_WASI)
+{
+    enum
+    {
+        POLLRDNORM  = 0x1,
+        POLLWRNORM  = 0x2,
+
+        POLLIN      = POLLRDNORM,
+        POLLOUT     = POLLWRNORM,
+
+        POLLPRI     = 0x0200,
+
+        POLLERR     = 0x1000,
+        POLLHUP     = 0x2000,
+        POLLNVAL    = 0x4000,
     }
 }
 else

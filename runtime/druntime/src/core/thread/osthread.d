@@ -98,14 +98,27 @@ version (Windows)
 else version (Posix)
 {
     static import core.sys.posix.pthread;
-    static import core.sys.posix.signal;
     import core.stdc.errno : EINTR, errno;
-    import core.sys.posix.pthread : pthread_atfork, pthread_attr_destroy, pthread_attr_getstack, pthread_attr_init,
-        pthread_attr_setstacksize, pthread_create, pthread_detach, pthread_getschedparam, pthread_join, pthread_self,
-        pthread_setschedparam, sched_get_priority_max, sched_get_priority_min, sched_param, sched_yield;
-    import core.sys.posix.semaphore : sem_init, sem_post, sem_t, sem_wait;
-    import core.sys.posix.signal : pthread_kill, sigaction, sigaction_t, sigdelset, sigfillset, sigset_t, sigsuspend,
-        SIGUSR1, stack_t;
+
+    version (CRuntime_WASI)
+        import core.sys.posix.pthread : pthread_attr_destroy, pthread_attr_getstack,
+            pthread_attr_init, pthread_attr_setstacksize, pthread_create, pthread_detach,
+            pthread_join, pthread_self, sched_yield;
+    else
+    {
+        static import core.sys.posix.signal;
+
+        import core.sys.posix.pthread : pthread_atfork, pthread_attr_destroy, pthread_attr_getstack,
+            pthread_attr_init, pthread_attr_setstacksize, pthread_create, pthread_detach, pthread_getschedparam,
+            pthread_join, pthread_self, pthread_setschedparam, sched_get_priority_max, sched_get_priority_min,
+            sched_param, sched_yield;
+
+        import core.sys.posix.semaphore : sem_init, sem_post, sem_t, sem_wait;
+
+        import core.sys.posix.signal : pthread_kill, sigaction, sigaction_t, sigdelset, sigfillset, sigset_t, sigsuspend,
+            SIGUSR1, stack_t;
+    }
+
     import core.sys.posix.stdlib : free, malloc, realloc;
     import core.sys.posix.sys.types : pthread_attr_t, pthread_key_t, pthread_t;
     import core.sys.posix.time : nanosleep, timespec;
@@ -157,14 +170,6 @@ else version (Posix)
     {
         // Use POSIX threads for suspend/resume
     }
-}
-else version (WASI)
-{
-    // No real threading support
-    // Just manipulations of the main "thread"
-    import core.stdc.stdlib : free, malloc, realloc;
-    import core.stdc.errno : EINTR, errno;
-    import core.sys.wasi.posix.time : nanosleep, timespec;
 }
 
 version (GNU)
@@ -526,8 +531,6 @@ class Thread : ThreadBase
                 multiThreadedFlag = false;
         }
 
-        version (WASI) onThreadError("cannot start new threads on WASI");
-
         version (Windows) {} else
         version (Posix)
         {
@@ -680,10 +683,6 @@ class Thread : ThreadBase
             //       to zero ensures that pthread_detach will not be called
             //       on object destruction.
             m_addr = m_addr.init;
-        }
-        else version (WASI)
-        {
-            throw new ThreadException( "Unable to join thread" );
         }
 
         if ( m_unhandled )
@@ -905,6 +904,10 @@ class Thread : ThreadBase
         {
            return fakePriority==int.max? PRIORITY_DEFAULT : fakePriority;
         }
+        else version (WASI)
+        {
+           return PRIORITY_DEFAULT;
+        }
         else version (Posix)
         {
             int         policy;
@@ -917,10 +920,6 @@ class Thread : ThreadBase
                 throw new ThreadException("Unable to get thread priority");
             }
             return param.sched_priority;
-        }
-        else version (WASI)
-        {
-            return 0;
         }
     }
 
@@ -976,6 +975,10 @@ class Thread : ThreadBase
         else version (NetBSD)
         {
            fakePriority = val;
+        }
+        else version (WASI)
+        {
+            // do nothing
         }
         else version (Posix)
         {
@@ -1064,11 +1067,6 @@ class Thread : ThreadBase
         {
             return atomicLoad(m_isRunning);
         }
-        else version (WASI)
-        {
-            // the "main thread" is the only that will pass super.isRunning(), and is always running
-            return true;
-        }
     }
 
 
@@ -1127,23 +1125,6 @@ class Thread : ThreadBase
             Sleep( cast(uint) val.total!"msecs" );
         }
         else version (Posix)
-        {
-            timespec tin  = void;
-            timespec tout = void;
-
-            val.split!("seconds", "nsecs")(tin.tv_sec, tin.tv_nsec);
-            if ( val.total!"seconds" > tin.tv_sec.max )
-                tin.tv_sec  = tin.tv_sec.max;
-            while ( true )
-            {
-                if ( !nanosleep( &tin, &tout ) )
-                    return;
-                if ( errno != EINTR )
-                    assert(0, "Unable to sleep for the specified duration");
-                tin = tout;
-            }
-        }
-        else version (WASI)
         {
             timespec tin  = void;
             timespec tout = void;
@@ -1342,6 +1323,9 @@ version (CoreDdoc)
     {
     }
 }
+else version (WASI)
+{
+}
 else version (Posix)
 {
     extern (C) void thread_setGCSignals(int suspendSignalNo, int resumeSignalNo) nothrow @nogc
@@ -1379,7 +1363,8 @@ else version (Posix)
     }
 }
 
-version (Posix)
+version (WASI) {}
+else version (Posix)
 {
     private __gshared int suspendSignalNumber;
     private __gshared int resumeSignalNumber;
@@ -1413,12 +1398,6 @@ private extern (D) ThreadBase attachThread(ThreadBase _thisThread) @nogc nothrow
         thisContext.tstack = thisContext.bstack;
 
         atomicStore!(MemoryOrder.raw)(thisThread.toThread.m_isRunning, true);
-    }
-    else version (WASI)
-    {
-        thisThread.m_addr  = 1; // assumes this is done only once
-        thisContext.bstack = getStackBottom();
-        thisContext.tstack = thisContext.bstack;
     }
 
     thisThread.m_isDaemon = true;
@@ -1894,10 +1873,6 @@ version (Posix)
 else version (Windows)
 {
     alias getpid = imported!"core.sys.windows.winbase".GetCurrentProcessId;
-}
-else version (WASI)
-{
-    int getpid() @nogc nothrow @safe => 1;
 }
 
 extern (C) @nogc nothrow
@@ -2457,6 +2432,22 @@ private extern (D) bool suspend( Thread t ) nothrow @nogc
             t.m_curr.tstack = getStackTop();
         }
     }
+    else version (WASI)
+    {
+        if ( t.m_addr != pthread_self() ) // dummy main thread
+        {
+            if ( !t.isRunning )
+            {
+                Thread.remove( t );
+                return false;
+            }
+            onThreadError( "Unable to suspend thread" );
+        }
+        else if ( !t.m_lock )
+        {
+            t.m_curr.tstack = getStackTop();
+        }
+    }
     else version (Posix)
     {
         if ( t.m_addr != pthread_self() )
@@ -2470,17 +2461,6 @@ private extern (D) bool suspend( Thread t ) nothrow @nogc
                 }
                 onThreadError( "Unable to suspend thread" );
             }
-        }
-        else if ( !t.m_lock )
-        {
-            t.m_curr.tstack = getStackTop();
-        }
-    }
-    else version (WASI)
-    {
-        if ( t.m_addr != 1 ) // dummy main thread
-        {
-            onThreadError( "Unable to suspend thread" );
         }
         else if ( !t.m_lock )
         {
@@ -2552,6 +2532,8 @@ extern (C) void thread_suspendAll() nothrow
         version (Darwin)
         {}
         else version (Solaris)
+        {}
+        else version (WASI)
         {}
         else version (Posix)
         {
@@ -2641,6 +2623,22 @@ private extern (D) void resume(ThreadBase _t) nothrow @nogc
             t.m_curr.tstack = t.m_curr.bstack;
         t.m_reg[0 .. $] = 0;
     }
+    else version (WASI)
+    {
+        if ( t.m_addr != pthread_self() ) // dummy main thread
+        {
+            if ( !t.isRunning )
+            {
+                Thread.remove( t );
+                return;
+            }
+            onThreadError( "Unable to resume thread" );
+        }
+        else if ( !t.m_lock )
+        {
+            t.m_curr.tstack = t.m_curr.bstack;
+        }
+    }
     else version (Posix)
     {
         if ( t.m_addr != pthread_self() )
@@ -2654,17 +2652,6 @@ private extern (D) void resume(ThreadBase _t) nothrow @nogc
                 }
                 onThreadError( "Unable to resume thread" );
             }
-        }
-        else if ( !t.m_lock )
-        {
-            t.m_curr.tstack = t.m_curr.bstack;
-        }
-    }
-    else version (WASI)
-    {
-        if ( t.m_addr != 1 ) // dummy main thread
-        {
-            onThreadError( "Unable to resume thread" );
         }
         else if ( !t.m_lock )
         {
@@ -2713,6 +2700,9 @@ extern (C) void thread_init() @nogc nothrow
         pthread_atfork(null, null, &initChildAfterFork);
     }
     else version (Solaris)
+    {
+    }
+    else version (WASI)
     {
     }
     else version (Posix)
@@ -3083,105 +3073,96 @@ else version (Posix)
             return null;
         }
 
-
-        //
-        // Used to track the number of suspended threads
-        //
-        __gshared sem_t suspendCount;
-
-
-        extern (C) bool thread_preSuspend( void* sp ) nothrow {
-            // NOTE: Since registers are being pushed and popped from the
-            //       stack, any other stack data used by this function should
-            //       be gone before the stack cleanup code is called below.
-            Thread obj = Thread.getThis();
-            if (obj is null)
-            {
-                return false;
-            }
-
-            if ( !obj.m_lock )
-            {
-                obj.m_curr.tstack = sp;
-            }
-
-            return true;
-        }
-
-        extern (C) bool thread_postSuspend() nothrow {
-            Thread obj = Thread.getThis();
-            if (obj is null)
-            {
-                return false;
-            }
-
-            if ( !obj.m_lock )
-            {
-                obj.m_curr.tstack = obj.m_curr.bstack;
-            }
-
-            return true;
-        }
-
-        extern (C) void thread_suspendHandler( int sig ) nothrow
-        in
+        version (WASI) {}
+        else
         {
-            assert( sig == suspendSignalNumber );
-        }
-        do
-        {
-            void op(void* sp) nothrow
-            {
-                int cancel_state = thread_cancelDisable();
-                scope(exit) thread_cancelRestore(cancel_state);
+            //
+            // Used to track the number of suspended threads
+            //
+            __gshared sem_t suspendCount;
 
-                bool supported = thread_preSuspend(getStackTop());
-                assert(supported, "Tried to suspend a detached thread!");
-
-                scope(exit)
+            extern (C) bool thread_preSuspend( void* sp ) nothrow {
+                // NOTE: Since registers are being pushed and popped from the
+                //       stack, any other stack data used by this function should
+                //       be gone before the stack cleanup code is called below.
+                Thread obj = Thread.getThis();
+                if (obj is null)
                 {
-                    supported = thread_postSuspend();
-                    assert(supported, "Tried to suspend a detached thread!");
+                    return false;
                 }
 
-                sigset_t    sigres = void;
-                int         status;
+                if ( !obj.m_lock )
+                {
+                    obj.m_curr.tstack = sp;
+                }
 
-                status = sigfillset( &sigres );
-                assert( status == 0 );
-
-                status = sigdelset( &sigres, resumeSignalNumber );
-                assert( status == 0 );
-
-                status = sem_post( &suspendCount );
-                assert( status == 0 );
-
-                sigsuspend( &sigres );
+                return true;
             }
-            callWithStackShell(&op);
-        }
+
+            extern (C) bool thread_postSuspend() nothrow {
+                Thread obj = Thread.getThis();
+                if (obj is null)
+                {
+                    return false;
+                }
+
+                if ( !obj.m_lock )
+                {
+                    obj.m_curr.tstack = obj.m_curr.bstack;
+                }
+
+                return true;
+            }
+
+            extern (C) void thread_suspendHandler( int sig ) nothrow
+            in
+            {
+                assert( sig == suspendSignalNumber );
+            }
+            do
+            {
+                void op(void* sp) nothrow
+                {
+                    int cancel_state = thread_cancelDisable();
+                    scope(exit) thread_cancelRestore(cancel_state);
+
+                    bool supported = thread_preSuspend(getStackTop());
+                    assert(supported, "Tried to suspend a detached thread!");
+
+                    scope(exit)
+                    {
+                        supported = thread_postSuspend();
+                        assert(supported, "Tried to suspend a detached thread!");
+                    }
+
+                    sigset_t    sigres = void;
+                    int         status;
+
+                    status = sigfillset( &sigres );
+                    assert( status == 0 );
+
+                    status = sigdelset( &sigres, resumeSignalNumber );
+                    assert( status == 0 );
+
+                    status = sem_post( &suspendCount );
+                    assert( status == 0 );
+
+                    sigsuspend( &sigres );
+                }
+                callWithStackShell(&op);
+            }
 
 
-        extern (C) void thread_resumeHandler( int sig ) nothrow
-        in
-        {
-            assert( sig == resumeSignalNumber );
-        }
-        do
-        {
+            extern (C) void thread_resumeHandler( int sig ) nothrow
+            in
+            {
+                assert( sig == resumeSignalNumber );
+            }
+            do
+            {
 
+            }
         }
-    }
-}
-else version (WASI)
-{
-    //
-    // Entry point for WASI threads
-    //
-    extern (C) void* thread_entryPoint( void* arg ) nothrow
-    {
-        onThreadError("Cannot enter new WASI threads.");
-        return null;
     }
 }
 else
@@ -3565,10 +3546,6 @@ void joinLowLevelThread(ThreadID tid) nothrow @nogc
     {
         if (pthread_join(tid, null) != 0)
             onThreadError("Unable to join thread");
-    }
-    else version (WASI)
-    {
-        onThreadError("Unable to join thread");
     }
 }
 

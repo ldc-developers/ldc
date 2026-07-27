@@ -935,22 +935,26 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::WASI:
     VersionCondition::addPredefinedGlobalIdent("WASI");
     VersionCondition::addPredefinedGlobalIdent("WASIp1");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
     break;
 #if LLVM_VERSION_MAJOR >= 22
   case llvm::Triple::WASIp1:
     VersionCondition::addPredefinedGlobalIdent("WASI");
     VersionCondition::addPredefinedGlobalIdent("WASIp1");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
     break;
   case llvm::Triple::WASIp2:
     VersionCondition::addPredefinedGlobalIdent("WASI");
     VersionCondition::addPredefinedGlobalIdent("WASIp2");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
     break;
   case llvm::Triple::WASIp3:
     VersionCondition::addPredefinedGlobalIdent("WASI");
     VersionCondition::addPredefinedGlobalIdent("WASIp3");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
     break;
 #endif
