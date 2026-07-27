@@ -162,7 +162,7 @@ public:
 
     argumentMetadata.push_back(
       metaString("air.arg_type_name"));
-    // TODO: check if using char needed instead of int8 as in ocl target implementation
+    // TODO(asadbek): check if using char needed instead of int8 as in ocl target implementation
     argumentMetadata.push_back(
         metaString(basicTypeToString(type)));
 
