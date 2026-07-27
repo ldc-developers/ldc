@@ -334,7 +334,7 @@ else version (CRuntime_WASI)
     alias ino_t = ulong;
     alias off_t = long;
 
-    alias blksize_t = long;
+    alias blksize_t = c_long;
 
     alias dev_t = ulong;
     alias gid_t = uint;

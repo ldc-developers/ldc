@@ -120,18 +120,14 @@ int raise(int sig);                    (defined in core.stdc.signal)
 //sig_atomic_t (defined in core.stdc.signal)
 
 private alias sigfn_t = void function(int);
-private alias sigactfn_t = void function(int, siginfo_t*, void*);
-
-// nothrow versions
-nothrow @nogc
-{
-    private alias sigfn_t2 = void function(int);
-    private alias sigactfn_t2 = void function(int, siginfo_t*, void*);
-}
+private alias sigfn_t2 = void function(int) nothrow @nogc;
 
 version (CRuntime_WASI) {}
 else
 {
+    private alias sigactfn_t = void function(int, siginfo_t*, void*);
+    private alias sigactfn_t2 = void function(int, siginfo_t*, void*) nothrow @nogc;
+
     enum
     {
         SIGEV_SIGNAL,
