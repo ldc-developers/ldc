@@ -47,3 +47,28 @@ runs:
         export WASMTIME_BACKTRACE_DETAILS=1
         ../wasmtime/wasmtime -W exceptions ./druntime-test-runner-debug
         ../wasmtime/wasmtime -W exceptions ./druntime-test-runner
+
+    - name: Run `importc_compare`
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        os='${{ inputs.os }}'
+        arch='${{ inputs.arch }}'
+        triple="$arch-unknown-$os"
+
+        # wasm-enable-sjlj only used so `setjmp.h` doesn't error out
+        bootstrap-ldc/bin/ldc2 \
+          -defaultlib=druntime-ldc -L-Linstall/lib-$os-$arch \
+          -gcc=wasi-sdk/bin/$arch-$os-clang \
+          --mtriple=$triple \
+          -P=-mllvm -P=-wasm-enable-sjlj \
+          -P=-D_WASI_EMULATED_SIGNAL --d-version=WASI_EMULATED_SIGNAL \
+          -P=-D_WASI_EMULATED_PROCESS_CLOCKS --d-version=WASI_EMULATED_PROCESS_CLOCKS \
+          -P=-D_WASI_EMULATED_MMAN --d-version=WASI_EMULATED_MMAN \
+          -I$PWD/ldc/runtime/druntime/test/importc_compare/src \
+          $PWD/ldc/runtime/druntime/test/importc_compare/src/importc_compare.d
+
+        export WASMTIME_BACKTRACE_DETAILS=1
+        wasmtime/wasmtime -W exceptions ./importc_compare.wasm
