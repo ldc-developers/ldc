@@ -53,3 +53,12 @@ struct SPIRVTargetABI : TargetABI {
 };
 
 TargetABI *createSPIRVABI() { return new SPIRVTargetABI(); }
+
+struct SPIRVVulkanTargetABI : SPIRVTargetABI {
+
+  llvm::CallingConv::ID callingConv(FuncDeclaration *fdecl) override {
+    // The synthesised wrapper is SPIR_KERNEL
+    return llvm::CallingConv::SPIR_FUNC;
+  }
+};
+TargetABI *createSPIRVVulkanABI() { return new SPIRVVulkanTargetABI(); }

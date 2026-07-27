@@ -23,7 +23,9 @@ struct DComputePointerRewrite : ABIRewrite {
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
     LLValue *mem = DtoAlloca(dty, ".DComputePointerRewrite_param_storage");
-    DtoStore(v, mem);
+    LLType *realStructTy = DtoMemType(dty);
+    LLValue *field = DtoGEP(realStructTy, mem, 0u, 0u);
+    DtoStore(v, field);
     return mem;
   }
 
