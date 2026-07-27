@@ -51,7 +51,7 @@ struct MetalABI : TargetABI {
                 pointerRewite.applyTo(arg);
             }
 
-        if (ty->isScalar()) {
+        if (dmd::isScalar(ty)) {
           metalScalarRewrite.applyTo(arg);
         }
     }

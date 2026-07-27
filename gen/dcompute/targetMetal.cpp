@@ -6,6 +6,7 @@
 // file for details.
 //
 //===----------------------------------------------------------------------===//
+#include "mtype.h"
 #if LDC_LLVM_SUPPORTED_TARGET_AArch64
 
 #include "gen/dcompute/druntime.h"
@@ -158,7 +159,7 @@ public:
     argumentMetadata.push_back(
       metaString("air.arg_type_align_size"));
     argumentMetadata.push_back(
-      metaInt(type->alignsize()));
+      metaInt(dmd::alignsize(type)));
 
     argumentMetadata.push_back(
       metaString("air.arg_type_name"));
