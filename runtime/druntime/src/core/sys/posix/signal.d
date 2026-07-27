@@ -41,6 +41,17 @@ version (SystemZ) version = IBMZ_Any;
 version (X86)     version = X86_Any;
 version (X86_64)  version = X86_Any;
 
+version (CRuntime_WASI)
+{
+    version (WASI_EMULATED_SIGNAL)
+        version = Supported;
+    else
+        pragma(msg, "wasm lacks signal support; to enable minimal signal"~
+                    " emulation, compile with --d-version=WASI_EMULATED_SIGNAL"~
+                    " and link with -lwasi-emulated-signal");
+} else version = Supported;
+
+version (Supported):
 version (Posix):
 extern (C):
 //nothrow:  // this causes http://issues.dlang.org/show_bug.cgi?id=12738 (which has been fixed)
@@ -118,17 +129,21 @@ nothrow @nogc
     private alias sigactfn_t2 = void function(int, siginfo_t*, void*);
 }
 
-enum
+version (CRuntime_WASI) {}
+else
 {
-  SIGEV_SIGNAL,
-  SIGEV_NONE,
-  SIGEV_THREAD
-}
+    enum
+    {
+        SIGEV_SIGNAL,
+        SIGEV_NONE,
+        SIGEV_THREAD
+    }
 
-union sigval
-{
-    int     sival_int;
-    void*   sival_ptr;
+    union sigval
+    {
+        int     sival_int;
+        void*   sival_ptr;
+    }
 }
 
 version (Solaris)
@@ -585,6 +600,35 @@ else version (Solaris)
     enum SIGUSR2 = 17;
     enum SIGURG = 21;
 }
+else version (CRuntime_WASI)
+{
+    enum SIGHUP     = 1;
+    //SIGINT (defined in core.stdc.signal)
+    enum SIGQUIT    = 3;
+    //SIGILL (defined in core.stdc.signal)
+    //SIGABRT (defined in core.stdc.signal)
+    enum SIGIOT     = SIGABRT;
+    enum SIGBUS     = 7;
+    //SIGFPE (defined in core.stdc.signal)
+    enum SIGKILL    = 9;
+    enum SIGUSR1    = 10;
+    //SIGSEGV (defined in core.stdc.signal)
+    enum SIGUSR2    = 12;
+    enum SIGPIPE    = 13;
+    enum SIGALRM    = 14;
+    //SIGTERM (defined in core.stdc.signal)
+    enum SIGSTKFLT  = 16;
+    enum SIGCHLD    = 17;
+    enum SIGCONT    = 18;
+    enum SIGSTOP    = 19;
+    enum SIGTSTP    = 20;
+    enum SIGTTIN    = 21;
+    enum SIGTTOU    = 22;
+    enum SIGURG     = 23;
+    enum SIGWINCH   = 28;
+    enum SIGIO      = 29;
+    enum SIGPWR     = 30;
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -871,6 +915,9 @@ else version (Darwin)
         sigset_t        sa_mask;
         int             sa_flags;
     }
+}
+else version (CRuntime_WASI)
+{
 }
 else
 {
@@ -1441,6 +1488,27 @@ else version (Solaris)
     enum SI_ASYNCIO = -4;
     enum SI_MESGQ   = -5;
 }
+else version (CRuntime_WASI)
+{
+    alias sigset_t = ubyte;
+
+    enum SIG_BLOCK      = 0;
+    enum SIG_UNBLOCK    = 1;
+    enum SIG_SETMASK    = 2;
+
+    enum
+    {
+        SI_ASYNCNL = -60,
+        SI_TKILL   = -6,
+        SI_SIGIO,
+        SI_ASYNCIO,
+        SI_MESGQ,
+        SI_TIMER,
+        SI_QUEUE,
+        SI_USER,
+        SI_KERNEL  = 0x80
+    }
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -1633,6 +1701,9 @@ else version (CRuntime_Musl)
     int sigprocmask(int, const scope sigset_t*, sigset_t*);
     int sigsuspend(const scope sigset_t*);
     int sigwait(const scope sigset_t*, int*);
+}
+else version (CRuntime_WASI)
+{
 }
 else version (CRuntime_UClibc)
 {
@@ -2409,6 +2480,17 @@ else version (Solaris)
         POLL_HUP,
     }
 }
+else version (CRuntime_WASI)
+{
+    enum SIGPOLL    = 29;
+    enum SIGPROF    = 27;
+    enum SIGSYS     = 31;
+    enum SIGTRAP    = 5;
+    enum SIGVTALRM  = 26;
+    enum SIGXCPU    = 24;
+    enum SIGXFSZ    = 25;
+    enum SIGUNUSED  = SIGSYS;
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -2848,6 +2930,14 @@ else version (CRuntime_Musl)
     int sigpause(int);
     int sigrelse(int);
 }
+else version (CRuntime_WASI)
+{
+    sigfn_t bsd_signal(int sig, sigfn_t func);
+
+  nothrow:
+  @nogc:
+    sigfn_t2 bsd_signal(int sig, sigfn_t2 func);
+}
 else version (CRuntime_UClibc)
 {
     enum SS_ONSTACK     = 1;
@@ -3029,6 +3119,9 @@ else version (Solaris)
         int __sigev_pad2;
     }
 }
+else version (CRuntime_WASI)
+{
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -3089,6 +3182,9 @@ else version (CRuntime_Musl)
     pragma(mangle, muslRedirTime64Mangle!("sigtimedwait", "__sigtimedwait_time64"))
     int sigtimedwait(const scope sigset_t*, siginfo_t*, const scope timespec*);
     int sigwaitinfo(const scope sigset_t*, siginfo_t*);
+}
+else version (CRuntime_WASI)
+{
 }
 else version (CRuntime_UClibc)
 {
@@ -3153,6 +3249,9 @@ else version (CRuntime_Musl)
 {
     int pthread_kill(pthread_t, int);
     int pthread_sigmask(int, const scope sigset_t*, sigset_t*);
+}
+else version (CRuntime_WASI)
+{
 }
 else version (CRuntime_UClibc)
 {

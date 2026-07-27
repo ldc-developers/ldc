@@ -104,3 +104,11 @@ else version (Solaris)
         byte[108]    sun_path;
     }
 }
+else version (CRuntime_WASI)
+{
+    struct sockaddr_un
+    {
+        align(16) // __BIGGEST_ALIGNMENT__ on Wasm
+        sa_family_t  sun_family;
+    }
+}
