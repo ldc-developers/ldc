@@ -22,7 +22,6 @@
 - Supports LLVM 18 - 22.
 - WebAssembly: `extern(C) main` is now mangled as `__main_void` or `__main_argc_argv` as appropriate, matching Clang behavior (#5186).
 - WASI: `ldc2` will search for `wasm32-wasip1-clang` or `wasm32-wasip2-clang` (from [`wasi-sdk`](https://github.com/WebAssembly/wasi-sdk/)) to use as the cross-compiler AND link driver (instead of linking using `wasm-ld` directly) ((#5158, #5207).
-- WASI: `core.sys.wasi.p1` provides bindings to WASIp1 "syscalls" (#5186). WASIp2 is currently limited to emulated POSIX from `wasi-libc`.
 
 #### Bug fixes
 
