@@ -612,11 +612,11 @@ cl::opt<bool> fNoModuleInfo("fno-moduleinfo", cl::ZeroOrMore,
 cl::opt<bool> fNoRTTI("fno-rtti", cl::ZeroOrMore,
                       cl::desc("Disable generation of TypeInfos"));
 
-cl::opt<bool>
-    fNoModuleInfoLocalClasses("fno-moduleinfo-localclasses", cl::ZeroOrMore,
-                        cl::desc("Disable population of `localClasses`"
-                                 "in ModuleInfos. Allows better DCE, but"
-                                 "breaks e.g. `Object.factory`."));
+cl::opt<bool> fNoModuleInfoLocalClasses(
+    "fno-moduleinfo-localclasses", cl::ZeroOrMore,
+    cl::desc("Disable population of `localClasses` in ModuleInfos. Allows "
+             "better DCE, but breaks e.g. `Object.factory`. Enabled by default "
+             "for wasm targets."));
 
 cl::opt<bool>
     fSplitStack("fsplit-stack", cl::ZeroOrMore,

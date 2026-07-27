@@ -1267,6 +1267,12 @@ int cppmain() {
 
   global.preprocess = &runCPreprocessor;
 
+  // wasm: default to -fno-moduleinfo-localclasses
+  if (opts::fNoModuleInfoLocalClasses.getNumOccurrences() == 0 &&
+      triple->isWasm()) {
+    opts::fNoModuleInfoLocalClasses = true;
+  }
+
   // allocate the target abi
   gABI = TargetABI::getTarget();
 
