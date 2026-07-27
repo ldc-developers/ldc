@@ -12,6 +12,7 @@
 #include "dmd/errors.h"
 #include "dmd/mangle.h"
 #include "dmd/module.h"
+#include "driver/cl_options.h"
 #include "gen/abi/abi.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -185,24 +186,26 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
   getLocalClasses(m, aclasses);
 
   std::vector<LLConstant *> classInfoRefs;
-  for (auto cd : aclasses) {
-    DtoResolveClass(cd);
+  if (!opts::fNoModuleInfoLocalClasses) {
+    for (auto cd : aclasses) {
+      DtoResolveClass(cd);
 
-    if (cd->isInterfaceDeclaration()) {
-      IF_LOG Logger::println("skipping interface '%s' in moduleinfo",
-                             cd->toPrettyChars());
-      continue;
+      if (cd->isInterfaceDeclaration()) {
+        IF_LOG Logger::println("skipping interface '%s' in moduleinfo",
+                              cd->toPrettyChars());
+        continue;
+      }
+
+      if (cd->sizeok != Sizeok::done) {
+        IF_LOG Logger::println(
+            "skipping opaque class declaration '%s' in moduleinfo",
+            cd->toPrettyChars());
+        continue;
+      }
+
+      IF_LOG Logger::println("class: %s", cd->toPrettyChars());
+      classInfoRefs.push_back(getIrAggr(cd)->getClassInfoSymbol());
     }
-
-    if (cd->sizeok != Sizeok::done) {
-      IF_LOG Logger::println(
-          "skipping opaque class declaration '%s' in moduleinfo",
-          cd->toPrettyChars());
-      continue;
-    }
-
-    IF_LOG Logger::println("class: %s", cd->toPrettyChars());
-    classInfoRefs.push_back(getIrAggr(cd)->getClassInfoSymbol());
   }
   count = classInfoRefs.size();
 
