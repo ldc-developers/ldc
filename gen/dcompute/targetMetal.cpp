@@ -6,9 +6,13 @@
 // file for details.
 //
 //===----------------------------------------------------------------------===//
-#include "mtype.h"
+#include "llvm/Support/CodeGen.h"
 #if LDC_LLVM_SUPPORTED_TARGET_AArch64
 
+#include "driver/targetmachine.h"
+#include "driver/targetmachine.h"
+#include "gen/optimizer.h"
+#include "mtype.h"
 #include "gen/dcompute/druntime.h"
 #include "gen/dcompute/target.h"
 #include "gen/abi/targets.h"
@@ -26,7 +30,7 @@ public:
                        {{0, 1, 3, 2, 0}}) {
 
     _ir = new IRState("dcomputeTargetMetal", ctx);
-    llvm::StringRef tripleString = "air64_v28-apple-macosx26.0.0";
+    std::string tripleString = "air64_v28-apple-macosx26.0.0";
 
 #if LLVM_VERSION_MAJOR >= 21
     _ir->module.setTargetTriple(llvm::Triple(tripleString));
@@ -34,6 +38,15 @@ public:
     _ir->module.setTargetTriple(tripleString);
 #endif
 
+    auto floatABI = ::FloatABI::Hard;
+
+    targetMachine = createTargetMachine(
+            tripleString,
+            "arm64",
+            "", {},
+            ExplicitBitness::M64, floatABI,
+            llvm::Reloc::Static, llvm::CodeModel::Small, codeGenOptLevel(), false);
+              
     llvm::StringRef dataLayout =
         "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-"
         "f64:64:64"
