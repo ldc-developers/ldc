@@ -109,8 +109,8 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
 #ifdef LDC_LLVM_SUPPORTED_TARGET_AArch64
   if (cb == ComputeBackend::METAL) {
-    {
 #ifdef __APPLE__
+    {
       // Inline non-kernel functions for Metal dcompute target
       inlineDComputeKernelFunctions(&m);
 
