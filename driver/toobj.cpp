@@ -38,6 +38,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
+#include <_string.h>
 #include <cstddef>
 
 namespace llvm {
