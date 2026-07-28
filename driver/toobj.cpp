@@ -38,7 +38,6 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
-#include <_string.h>
 #include <cstddef>
 
 namespace llvm {
@@ -111,6 +110,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #ifdef LDC_LLVM_SUPPORTED_TARGET_AArch64
   if (cb == ComputeBackend::METAL) {
     {
+#ifdef __APPLE__
       // Inline non-kernel functions for Metal dcompute target
       inlineDComputeKernelFunctions(&m);
 
@@ -157,6 +157,8 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
           strsignal(-status));
       fatal();
     }
+
+#endif
 
     return;
   }
