@@ -5,10 +5,9 @@
   - `-foptimize-nothrow` is the default setting when targeting Windows, to make hitting https://github.com/ldc-developers/ldc/issues/3504 much less likely.
 - Support for [LLVM 22](https://releases.llvm.org/22.1.0/docs/ReleaseNotes.html). The prebuilt packages use v22.1.8. (#5097, #5102, #5172)
 - Minimum LLVM version raised to 18. (#5094)
-- DMD-style inline assembly: `asm { naked; }` is now much less of a special case wrt. codegen - such naked functions are now emitted as if `asm { naked; }` was replaced with the `@naked` function UDA. IR-wise, they are not emitted as module-level asm blobs anymore, but regular IR functions. This should lift a few former `asm { naked; }`-specific restrictions and fixed at least one LTO issue. (#5041)
-- Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
-- **dcompute**: Added support for Native device code Embedding (PTX and SPIR-V) into the host executable's `.rodata` section. (#5140)
 - The `@ldc.attributes.restrict` UDA is now supported for dynamic-array parameters too. Builtin array ops (`c[] = a[] * b[]` etc.) use it, enabling auto-vectorization. Note that for such array ops, the dlang spec prescribes that the slice on the left and any slices on the right must not overlap (https://dlang.org/spec/arrays.html#array-operations), and this knowledge is now used by the optimizer. (#5148, #5168, #5176)
+- DMD-style inline assembly: `asm { naked; }` is now much less of a special case wrt. codegen - such naked functions are now emitted as if `asm { naked; }` was replaced with the `@naked` function UDA. IR-wise, they are not emitted as module-level asm blobs anymore, but regular IR functions. This should lift a few former `asm { naked; }`-specific restrictions and fixed at least one LTO issue. (#5041)
+- **dcompute**: Added support for Native device code Embedding (PTX and SPIR-V) into the host executable's `.rodata` section. (#5140)
 - WebAssembly:
   - The default `-fvisibility` setting was changed to `hidden`, like clang, so that only explicit `export`ed symbols are not hidden. And `-L--export-dynamic` isn't used by default for linking anymore either; add it manually to export all non-hidden symbols, as for normal Posix targets. The net effect is that the size of linked wasm binaries shrinks significantly by default. (#5216)
   - (Non-legacy Wasm) exceptions are now supported. Currently, using D and C++ exceptions are mutually exclusive. If linking in DRuntime, you cannot link in C++ code relying on `libunwind` (exceptions), due to the hacks required to convince LLVM to use D's EH personality. A future LLVM release may help remove the constraint. (#5162)
@@ -17,6 +16,7 @@
   - DRuntime now supports WASI preview levels 1 and 2, based on [`wasi-libc`](https://github.com/WebAssembly/wasi-libc). Two caveats being that WASI is strictly single-threaded (currently), and that threads are unavailable. (#5186)
   - CI now builds artifacts for WASIp1 and WASIp2. The prebuilt `ldc2-*-addon-wasi-wasm32.tar.xz` package can be unpacked directly into your LDC install directory, to enable simple cross-compilation via `-mtriple=wasm32-unknown-wasip{1,2}`. You need an installed [WASI SDK](https://github.com/webassembly/wasi-sdk) for linking. (#5207)
 - A new `-fno-moduleinfo-localclasses` switch has been added. This disables populating `ModuleInfo.localClasses` for each module. This can help eliminate/strip more dead-code (thus decreasing binary sizes), but breaks `Object.factory` and any other code relying on iterating over said `localClasses`. Enabled by default for Wasm targets. (#5224)
+- Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
 
 #### Platform support
 - Supports LLVM 18 - 22.
