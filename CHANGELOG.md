@@ -9,20 +9,18 @@
 - Predefined version `LDC_LLVM_*` now only contains the LLVM major version, i.e., former `version (LDC_LLVM_1801)` with LLVM v18.1 is now `version (LDC_LLVM_18)`. Use `ldc.intrinsics.LLVM_version` for backwards compatibility if really needed. (#5109)
 - **dcompute**: Added support for Native device code Embedding (PTX and SPIR-V) into the host executable's `.rodata` section. (#5140)
 - The `@ldc.attributes.restrict` UDA is now supported for dynamic-array parameters too. Builtin array ops (`c[] = a[] * b[]` etc.) use it, enabling auto-vectorization. Note that for such array ops, the dlang spec prescribes that the slice on the left and any slices on the right must not overlap (https://dlang.org/spec/arrays.html#array-operations), and this knowledge is now used by the optimizer. (#5148, #5168, #5176)
-- WebAssembly: The default `-fvisibility` setting was changed to `hidden`, like clang, so that only explicit `export`ed symbols are not hidden. And `-L--export-dynamic` isn't used by default for linking anymore either; add it manually to export all non-hidden symbols, as for normal Posix targets. The net effect is that the size of linked wasm binaries shrinks significantly by default. (#5216)
-- WebAssembly: Exceptions are now supported (#5162). Currently, using D and C++ exceptions are mutually exclusive. If linking in DRuntime, you cannot link in C++ code relying on `libunwind` (exceptions), due to the hacks required to convince LLVM to use the D's EH personality. A future LLVM release may help remove the constraint.
-- [WASI](https://github.com/WebAssembly/WASI) support
-  - DRuntime now supports `wasm32-wasip1` and `wasm32-wasip2` targets, using [`wasi-libc`](https://github.com/WebAssembly/wasi-libc) for libc and WASIp1 or WASIp2 as the system/OS interface (#5186). Two caveats being that WASI is strictly single-threaded (currently), and that threads are unavailable.
-  - The CI now builds artifacts for WASIp1 and WASIp2 (#5207). The `ldc2-*-addon-wasi-wasm32.tar.xz` can be unpacked directly into your LDC install directory. It contains `lib-wasip1-wasm32` and `lib-wasip2-wasm32` directories providing cross-compiled libs (i.e. DRuntime), as well as `etc/ldc2.conf/55-target-...` entries for the two triples.
-- WebAssembly: In order to allow D's GC to function correctly, a new pass is run after optimizations, to spill potential pointers onto the "stack" (#5178).
-  Wasm operates an infinite (practically: large) number of locals (~registers), as well as an opaque value stack. To compensate for the fact that these locations can't be easily scanned, any intermediate value detected as pointer, or as contributing to one, is forcibly spilled onto the normal stack (which lies in linear memory) as needed. The stack is then scanned in the usual conservative manner.
-  This pass is enabled by default on all Wasm targets, but can be disabled with `-betterC` or the new `-disable-wasm-ptrs-spill`.
+- WebAssembly:
+  - The default `-fvisibility` setting was changed to `hidden`, like clang, so that only explicit `export`ed symbols are not hidden. And `-L--export-dynamic` isn't used by default for linking anymore either; add it manually to export all non-hidden symbols, as for normal Posix targets. The net effect is that the size of linked wasm binaries shrinks significantly by default. (#5216)
+  - (Non-legacy Wasm) exceptions are now supported. Currently, using D and C++ exceptions are mutually exclusive. If linking in DRuntime, you cannot link in C++ code relying on `libunwind` (exceptions), due to the hacks required to convince LLVM to use D's EH personality. A future LLVM release may help remove the constraint. (#5162)
+  - In order to allow the GC to function correctly, a new pass is run after optimizations, to spill potential pointers onto the "stack". This pass is enabled by default for all Wasm targets, but can be disabled with `-betterC` or the new `-disable-wasm-ptrs-spill`. (#5178)
+- [WASI](https://github.com/WebAssembly/WASI) support:
+  - DRuntime now supports WASI preview levels 1 and 2, based on [`wasi-libc`](https://github.com/WebAssembly/wasi-libc). Two caveats being that WASI is strictly single-threaded (currently), and that threads are unavailable. (#5186)
+  - CI now builds artifacts for WASIp1 and WASIp2. The prebuilt `ldc2-*-addon-wasi-wasm32.tar.xz` package can be unpacked directly into your LDC install directory, to enable simple cross-compilation via `-mtriple=wasm32-unknown-wasip{1,2}`. You need an installed [WASI SDK](https://github.com/webassembly/wasi-sdk) for linking. (#5207)
 - A new `-fno-moduleinfo-localclasses` switch has been added. This disables populating `ModuleInfo.localClasses` for each module. This can help eliminate/strip more dead-code (thus decreasing binary sizes), but breaks `Object.factory` and any other code relying on iterating over said `localClasses`. Enabled by default for Wasm targets. (#5224)
 
 #### Platform support
 - Supports LLVM 18 - 22.
 - WebAssembly: `extern(C) main` is now mangled as `__main_void` or `__main_argc_argv` as appropriate, matching Clang behavior (#5186).
-- WASI: `ldc2` will search for `wasm32-wasip1-clang` or `wasm32-wasip2-clang` (from [`wasi-sdk`](https://github.com/WebAssembly/wasi-sdk/)) to use as the cross-compiler AND link driver (instead of linking using `wasm-ld` directly) ((#5158, #5207).
 
 #### Bug fixes
 
