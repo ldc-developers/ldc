@@ -27,7 +27,7 @@ runs:
 
         bootstrap-ldc/bin/ldc-build-runtime \
           --ninja \
-          --dFlags="-mtriple=$triple;-fno-moduleinfo-localclasses" \
+          --dFlags="-mtriple=$triple" \
           --ldcSrcDir="$PWD/ldc" \
           --buildDir="ldc-build-runtime.$os-$arch" \
           --installWithSuffix="-$os-$arch" \
