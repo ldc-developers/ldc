@@ -4,8 +4,8 @@
 // COM: hence it is required to run on past versions of llvm
 // REQUIRES: llvm20
  
-// RUN: %ldc -c -mdcompute-targets=metal-400 -output-ll -of=%t.ll %s
-// RUN: FileCheck %s --check-prefix=AIR < kernels_metal400_64.air
+// RUN: %ldc -c -mdcompute-targets=metal-400 --mdcompute-file-prefix=kernel_metadata -output-ll -of=%t.ll %s
+// RUN: FileCheck %s --check-prefix=AIR < kernel_metadata_metal400_64.air
 @compute(CompileFor.deviceOnly) module kernels;
 import ldc.dcompute;
 

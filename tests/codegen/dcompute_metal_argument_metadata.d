@@ -1,8 +1,8 @@
 // REQUIRES: target_AArch64
 // REQUIRES: llvm20
 
-// RUN: %ldc -c -mdcompute-targets=metal-400 -output-ll -of=%t.ll %s
-// RUN: FileCheck %s --check-prefix=AIR < kernels_metal400_64.air
+// RUN: %ldc -c -mdcompute-targets=metal-400 --mdcompute-file-prefix=argument_metadata -output-ll -of=%t.ll %s
+// RUN: FileCheck %s --check-prefix=AIR < argument_metadata_metal400_64.air
 
 @compute(CompileFor.deviceOnly) module kernels;
 
