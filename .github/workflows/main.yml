@@ -160,7 +160,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     container:
       image: ${{ matrix.container_image }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
       GHA_BASH_SHELL: ${{ matrix.vm_os && 'cpa.sh {0}' || 'bash' }}
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '11.0' || '10.12' }}
