@@ -94,7 +94,7 @@ jobs:
             with_pgo: true
 
           - job_name: macOS x86_64
-            os: macos-15-intel
+            os: macos-26-intel
             arch: x86_64
             # * CMAKE_OSX_SYSROOT: Homebrew clang apparently requires the Command Line Tools instead of Xcode: https://github.com/actions/runner-images/issues/10035#issue-2344536514
             # * https://github.com/ldc-developers/ldc/issues/4462:
@@ -109,7 +109,7 @@ jobs:
             with_pgo: true
 
           - job_name: macOS arm64
-            os: macos-15
+            os: macos-26
             arch: arm64
             extra_cmake_flags: >-
               -DCMAKE_OSX_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
