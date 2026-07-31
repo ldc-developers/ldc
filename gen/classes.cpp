@@ -384,7 +384,11 @@ DValue *DtoDynamicCastObject(Loc loc, DValue *val, Type *_to) {
     return new DImValue(_to, ret);
   }
 
-  llvm_unreachable("dynamic cast should have been lowered");
+  error(loc,
+        "Internal Compiler Error: dynamic cast to `%s` should have been "
+        "lowered by the frontend",
+        _to->toChars());
+  fatal();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
