@@ -469,6 +469,19 @@ jobs:
         uses: ./.github/actions/merge-windows
 
 
+  extract-addons:
+    name: Extract addon packages
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    needs:
+      - build-cross   # Android
+      - merge-windows # Windows multilib
+    steps:
+      - uses: actions/checkout@v6
+      - name: Extract addon packages
+        uses: ./.github/actions/extract-addon-packages
+
+
   upload-to-github:
     name: Upload to GitHub
     if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
@@ -480,6 +493,7 @@ jobs:
       - build-cross-libs-only
       - merge-macos
       - merge-windows
+      - extract-addons
     permissions:
       contents: write
     steps:

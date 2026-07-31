@@ -1,0 +1,98 @@
+name: Extract addon packages
+runs:
+  using: composite
+  steps:
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v8
+      with:
+        path: artifacts/
+        merge-multiple: true # place all files into artifacts/ directly
+
+    - name: Extract addon package for Windows
+      shell: bash
+      run: |
+        set -eux
+
+        7z x artifacts/ldc2-*-windows-multilib.7z >/dev/null
+
+        # extract (and rename) lib dirs
+        mkdir -p addon-windows
+        mv ldc2-*-windows-multilib/lib64             addon-windows/lib-windows-x86_64
+        mv ldc2-*-windows-multilib/lib32             addon-windows/lib-windows-i686
+        mv ldc2-*-windows-multilib/lib-windows-arm64 addon-windows/
+
+        # add x86_64 DLLs from bin/ dir (already present in the other lib dirs)
+        mv ldc2-*-windows-multilib/bin/{*.dll,*.pdb,curl-ca-bundle.crt} addon-windows/lib-windows-x86_64/
+
+        # extract (and rename) .conf files
+        mkdir -p addon-windows/etc/ldc2.conf
+        mv ldc2-*-windows-multilib/etc/ldc2.conf/50-target-default.conf       addon-windows/etc/ldc2.conf/55-target-windows-x86_64.conf
+        mv ldc2-*-windows-multilib/etc/ldc2.conf/55-target-windows-x86.conf   addon-windows/etc/ldc2.conf/55-target-windows-i686.conf
+        mv ldc2-*-windows-multilib/etc/ldc2.conf/55-target-windows-arm64.conf addon-windows/etc/ldc2.conf/
+
+        # fix up .conf file contents
+        conf="addon-windows/etc/ldc2.conf/55-target-windows-x86_64.conf"
+        sed -i 's|^"default":|"x86_64-.*-windows-msvc":|' $conf
+        sed -i 's|%%ldcbinarypath%%/../lib64|%%ldcbinarypath%%/../lib-windows-x86_64|g' $conf
+        conf="addon-windows/etc/ldc2.conf/55-target-windows-i686.conf"
+        sed -i 's|%%ldcbinarypath%%/../lib32|%%ldcbinarypath%%/../lib-windows-i686|g' $conf
+
+        mkdir -p newArtifacts
+        artifactID="$(echo ldc2-*-windows-multilib | cut -d "-" -f 2)"
+
+        # pack to a compressed tarball
+        chmod -R go=rX addon-windows
+        cd addon-windows
+        tar -cf - --owner=0 --group=0 * | 7z a ../newArtifacts/ldc2-$artifactID-addon-windows.tar.xz -si -txz -mx9
+        cd ..
+
+        rm -rf ldc2-*-windows-multilib addon-windows
+
+    - name: Extract addon package for Android
+      shell: bash
+      run: |
+        set -eux
+
+        tar xf artifacts/ldc2-*-android-aarch64.tar.xz
+        tar xf artifacts/ldc2-*-android-armv7a.tar.xz
+
+        # extract (and rename) lib dirs
+        mkdir -p addon-android
+        mv ldc2-*-android-aarch64/lib                addon-android/lib-android-aarch64
+        mv ldc2-*-android-aarch64/lib-android-x86_64 addon-android/
+        mv ldc2-*-android-armv7a/lib                 addon-android/lib-android-armv7a
+        mv ldc2-*-android-armv7a/lib-android-i686    addon-android/
+
+        # extract (and rename) .conf files
+        mkdir -p addon-android/etc/ldc2.conf
+        mv ldc2-*-android-aarch64/etc/ldc2.conf/50-target-default.conf        addon-android/etc/ldc2.conf/55-target-android-aarch64.conf
+        mv ldc2-*-android-aarch64/etc/ldc2.conf/55-target-android-x86_64.conf addon-android/etc/ldc2.conf/
+        mv ldc2-*-android-armv7a/etc/ldc2.conf/50-target-default.conf         addon-android/etc/ldc2.conf/55-target-android-armv7a.conf
+        mv ldc2-*-android-armv7a/etc/ldc2.conf/55-target-android-i686.conf    addon-android/etc/ldc2.conf/
+
+        # fix up .conf file contents
+        conf="addon-android/etc/ldc2.conf/55-target-android-aarch64.conf"
+        sed -i 's|^"default":|"aarch64-.*-linux-android":|' $conf
+        sed -i 's|%%ldcbinarypath%%/../lib|%%ldcbinarypath%%/../lib-android-aarch64|g' $conf
+        conf="addon-android/etc/ldc2.conf/55-target-android-armv7a.conf"
+        sed -i 's|^"default":|"armv7a-.*-linux-android":|' $conf
+        sed -i 's|%%ldcbinarypath%%/../lib|%%ldcbinarypath%%/../lib-android-armv7a|g' $conf
+
+        mkdir -p newArtifacts
+        artifactID="$(echo ldc2-*-android-aarch64 | cut -d "-" -f 2)"
+
+        # pack to a compressed tarball
+        chmod -R go=rX addon-android
+        cd addon-android
+        tar -cf - --owner=0 --group=0 * | 7z a ../newArtifacts/ldc2-$artifactID-addon-android.tar.xz -si -txz -mx9
+        cd ..
+
+        rm -rf ldc2-*-android-{aarch64,armv7a} addon-android
+
+    - name: Upload addon artifacts
+      uses: actions/upload-artifact@v6
+      with:
+        name: addons
+        path: newArtifacts/
+        compression-level: 0
