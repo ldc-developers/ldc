@@ -144,7 +144,9 @@ bool WasmPointersSpill::run(Function &F) {
           continue;
 
         if (TypeContainsPointers(I.getType())) {
-          PotentialPointers.insert(&I);
+          if (!isa<PHINode>(&I) || !isa<CatchSwitchInst>(BB.getTerminator()))
+            PotentialPointers.insert(&I);
+
           if (IntToPtrInst *IntToPtr = dyn_cast<IntToPtrInst>(&I)) {
             // if we have `inttoptr` it's transitive uses are themselves
             // potential pointers
@@ -197,7 +199,9 @@ bool WasmPointersSpill::run(Function &F) {
           I->getType()->getScalarSizeInBits() <= 16)
         continue;
 
-      PotentialPointers.insert(I);
+      if (!isa<PHINode>(I) ||
+          !isa<CatchSwitchInst>(I->getParent()->getTerminator()))
+        PotentialPointers.insert(I);
 
       // trace `alloca` loads back through stores to the same
       if (auto *Load = dyn_cast<LoadInst>(I)) {
@@ -557,8 +561,17 @@ bool WasmPointersSpill::run(Function &F) {
           for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
             if (isa<CallBase>(&IterI)) {
               if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
-                Builder.SetInsertPoint(
-                    Invoke->getNormalDest()->getFirstInsertionPt());
+                BasicBlock *NormalDest = Invoke->getNormalDest();
+                if (NormalDest->getUniquePredecessor()) {
+                  Builder.SetInsertPoint(NormalDest->getFirstInsertionPt());
+                } else {
+                  BasicBlock *Split =
+                      SplitEdge(&BB, NormalDest, nullptr, nullptr, nullptr,
+                                ai->getName() + ".lifetimeEnd.bb");
+                  NewBlocks.insert(Split);
+                  Invoke->replaceSuccessorWith(NormalDest, Split);
+                  Builder.SetInsertPoint(Split->begin());
+                }
 
                 // This doesn't place a lifetime.end down the unwind path,
                 // as there is no guaranteed spot to put it. Can't split the
@@ -588,8 +601,23 @@ bool WasmPointersSpill::run(Function &F) {
 
             if (Found && isa<CallBase>(&IterI)) {
               if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
-                Builder.SetInsertPoint(
-                    Invoke->getNormalDest()->getFirstInsertionPt());
+                BasicBlock *NormalDest = Invoke->getNormalDest();
+                if (NormalDest->getUniquePredecessor()) {
+                  Builder.SetInsertPoint(NormalDest->getFirstInsertionPt());
+                } else {
+                  BasicBlock *Split =
+                      SplitEdge(&BB, NormalDest, nullptr, nullptr, nullptr,
+                                ai->getName() + ".lifetimeEnd.bb");
+                  NewBlocks.insert(Split);
+                  Invoke->replaceSuccessorWith(NormalDest, Split);
+                  Builder.SetInsertPoint(Split->begin());
+                }
+
+                // This doesn't place a lifetime.end down the unwind path,
+                // as there is no guaranteed spot to put it. Can't split the
+                // unwind edge, and catchswitch (and the downstream catchpad)
+                // may have multiple predecessors. Have to accept the lifetime
+                // leak.
               } else {
                 assert(!IterI.isTerminator());
                 Builder.SetInsertPoint(std::next(IterI.getIterator()));
@@ -639,17 +667,18 @@ bool WasmPointersSpill::run(Function &F) {
       SpillInsertPoint = Invoke->getNormalDest()->getFirstInsertionPt();
     } else if (isa<PHINode>(I)) {
       if (isa<CatchSwitchInst>(BB->getTerminator())) {
-        // Having a catchswitch for a terminator means no instructions other
-        // than PHI can be here. And since all successors must be catchpad
-        // we can't split the edge either.
+        // There is no place we can reliably insert a spill for the PHI
+        // without having to clone entire EH pad/funclets.
         //
-        // However, Wasm EH associates each catchswitch with a single catchpad.
-        // So spill at the start of that single successor.
+        // However part of WinEHPrepare (which also runs for Wasm) is
+        // explicitly converting these PHIs to alloca load/stores.
+        // (see WinEHPrepareImpl::demotePHIsOnFunclets)
+        //
+        // Since it will already be in a stack slot (and won't be optimized
+        // back into a PHI), we don't bother trying to respill it.
 
-        BasicBlock *Succ = BB->getSingleSuccessor();
-        assert(Succ && "catchswitch with multiple catchpads?");
-
-        SpillInsertPoint = Succ->getFirstInsertionPt();
+        assert(0 && "Trying to spill PHI in a `catchswitch` block?");
+        continue;
       } else {
         // After all the PHI
         SpillInsertPoint = BB->getFirstInsertionPt();
