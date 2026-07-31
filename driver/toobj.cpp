@@ -115,7 +115,6 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
 #ifdef LDC_LLVM_SUPPORTED_TARGET_AArch64
   if (cb == ComputeBackend::METAL) {
-#ifdef __APPLE__
     {
       // Inline non-kernel functions for Metal dcompute target
       inlineDComputeKernelFunctions(&m);
@@ -141,8 +140,8 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
     auto xcrunpath = llvm::sys::findProgramByName("xcrun");
     if (!xcrunpath) {
-      error(Loc(), "xcrun not found - XCode should be installed first!");
-      fatal();
+      warning(Loc(), "xcrun not found - XCode should be installed first! Skipping <filename>.metallib generation");
+      return;
     }
 
     llvm::SmallString<256> metallibOutPath;
@@ -159,12 +158,14 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
     int status =  executeToolAndWait(Loc(), args[0], args);
 
     if (status < 0) {
-      error(Loc(), "program received signal %d (%s)", -status,
+#if defined(_MSC_VER) || defined(__MINGW32__)
+    error(Loc(), "xcrun received signal %d", -status);
+#else
+    error(Loc(), "xcrun received signal %d (%s)", -status,
           strsignal(-status));
+#endif
       fatal();
     }
-
-#endif
 
     return;
   }
