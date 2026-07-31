@@ -89,7 +89,6 @@ jobs:
           cmake -G Ninja . \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_ROOT_DIR=${{ format(runner.os == 'Linux' && '/usr/lib/llvm-{0}' || '/opt/homebrew/opt/llvm@{0}', matrix.llvm_version) }} \
-            ${{ runner.os == 'macOS' && '-DCMAKE_EXE_LINKER_FLAGS="-L/opt/homebrew/opt/zstd/lib -lzstd"' || '' }} \
             ${{ matrix.cmake_flags }}
           ninja obj/ldc2.o all ldc2-unittest all-test-runners
           bin/ldc2 --version
