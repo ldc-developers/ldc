@@ -405,11 +405,11 @@ void test14()
 }
 
 // CHECK-LABEL: define {{.*}}_D24wasm_spill_pointers_pass6test15FZPv
-// Spills are placed correctly when PHIs occur in a catchswitch
+// No errors and no spills when PHIs occur in a catchswitch. We simply ignore
+// since a later pass turns the PHI into an alloca anyway.
 void* test15() {
     // CHECK-NEXT: [[spill1:%stackSpill\..+]] = alloca ptr
     // CHECK-NEXT: [[spill2:%stackSpill\..+]] = alloca ptr
-    // CHECK-NEXT: [[spill3:%stackSpill\..+]] = alloca ptr
 
     void* ptr;
     try {
@@ -424,38 +424,37 @@ void* test15() {
         // CHECK-NEXT: to label %[[try_success:.+]] unwind label %[[catch_dispatch]]
         blackbox();
     }
+    // CHECK: [[try_success]]:
+    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill1]])
+    // CHECK-NEXT: br label %[[after_try_catch:.+]]
+
     // CHECK: [[catch_dispatch]]:
     // CHECK-NEXT: [[ptr_phi:%.+]] = phi ptr [ [[ptr0]], %[[postinvoke]] ], [ null, %0 ]
     // CHECK-NEXT: [[catchswitch:%.+]] = catchswitch within none [label %[[catch_start:.+]]] unwind to caller
 
     // CHECK: [[catch_start]]:
     // CHECK-NEXT: [[catchpad:%.+]] = catchpad within [[catchswitch]] [ptr @_D9Exception7__ClassZ]
-    // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill2]])
-    // CHECK-NEXT: store volatile ptr [[ptr_phi]], ptr [[spill2]]
     // CHECK-NEXT: [[eh_obj:%.+]] = tail call ptr @llvm.wasm.get.exception(token [[catchpad]])
-    // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill3]])
-    // CHECK-NEXT: store volatile ptr [[eh_obj]], ptr [[spill3]]
+    // CHECK-NEXT: call void @llvm.lifetime.start.p0(ptr [[spill2]])
+    // CHECK-NEXT: store volatile ptr [[eh_obj]], ptr [[spill2]]
     // CHECK-NEXT: [[selector:%.+]] = tail call i32 @llvm.wasm.get.ehselector(token [[catchpad]])
     // CHECK-NEXT: [[typeid:%.+]] = tail call i32 @llvm.eh.typeid.for.p0(ptr nonnull @_D9Exception7__ClassZ)
     // CHECK-NEXT: [[is_match:%.+]] = icmp eq i32 [[selector]], [[typeid]]
     // CHECK-NEXT: br i1 [[is_match]], label %[[catch_match:.+]], label %[[catch_mismatch:.+]]
 
     // CHECK: [[catch_mismatch]]:
-    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill3]])
     // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill2]])
     // CHECK-NEXT: call void @llvm.wasm.rethrow() [ "funclet"(token [[catchpad]]) ]
     // CHECK-NEXT: unreachable
     catch (Exception e) {
         // CHECK: [[catch_match]]:
         // CHECK-NEXT: {{%.+}} = call ptr @_d_eh_enter_catch(ptr [[eh_obj]]) [ "funclet"(token [[catchpad]]) ]
-        // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill3]])
         // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill2]])
-        // CHECK-NEXT: catchret from [[catchpad]] to label %[[try_success]]
+        // CHECK-NEXT: catchret from [[catchpad]] to label %[[after_try_catch]]
     }
 
-    // CHECK: [[try_success]]:
-    // CHECK-NEXT: [[ret_phi:%.+]] = phi ptr [ [[ptr0]], %[[postinvoke]] ], [ [[ptr_phi]], %[[catch_match]] ]
-    // CHECK-NEXT: call void @llvm.lifetime.end.p0(ptr [[spill1]])
+    // CHECK: [[after_try_catch]]:
+    // CHECK-NEXT: [[ret_phi:%.+]] = phi ptr [ [[ptr0]], %[[try_success]] ], [ [[ptr_phi]], %[[catch_match]] ]
     // CHECK-NEXT: ret ptr [[ret_phi]]
     return ptr;
 }
@@ -513,4 +512,26 @@ void* test16() {
 
     // CHECK-NEXT: br label %[[common_ret]]
     return null;
+}
+
+// CHECK-LABEL: define {{.*}}_D24wasm_spill_pointers_pass6test17FZv()
+// Regression test for when `catchswitch` block has a PHI and a unwind target
+// (make sure it doesn't crash)
+void test17()
+{
+    // CHECK: catch.dispatch:
+    // CHECK-NEXT: {{%.+}} = phi ptr
+    // CHECK-NEXT: {{%.+}} = catchswitch within none [label %catch.start] unwind label %cleanuppad
+
+    void* result = getPtr();
+
+    scope(exit) blackbox();
+    scope(failure) usePtr(result);
+
+    blackbox();
+
+    while (getBool())
+    {
+        result = getPtr();
+    }
 }
