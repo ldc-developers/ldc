@@ -8,6 +8,7 @@ runs:
       with:
         pattern: '*-osx-*'
         path: artifacts/
+        skip-decompress: true
         merge-multiple: true # place all files into artifacts/ directly
 
     - name: Extract & merge artifacts
