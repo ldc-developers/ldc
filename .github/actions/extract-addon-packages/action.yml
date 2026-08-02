@@ -9,7 +9,7 @@ runs:
         path: artifacts/
         merge-multiple: true # place all files into artifacts/ directly
 
-    - name: Extract addon package for Windows
+    - name: Extract addon for Windows
       shell: bash
       run: |
         set -eux
@@ -38,18 +38,9 @@ runs:
         conf="addon-windows/etc/ldc2.conf/55-target-windows-i686.conf"
         sed -i 's|%%ldcbinarypath%%/../lib32|%%ldcbinarypath%%/../lib-windows-i686|g' $conf
 
-        mkdir -p newArtifacts
-        artifactID="$(echo ldc2-*-windows-multilib | cut -d "-" -f 2)"
+        rm -rf ldc2-*-windows-multilib
 
-        # pack to a compressed tarball
-        chmod -R go=rX addon-windows
-        cd addon-windows
-        tar -cf - --owner=0 --group=0 * | 7z a ../newArtifacts/ldc2-$artifactID-addon-windows.tar.xz -si -txz -mx9
-        cd ..
-
-        rm -rf ldc2-*-windows-multilib addon-windows
-
-    - name: Extract addon package for Android
+    - name: Extract addon for Android
       shell: bash
       run: |
         set -eux
@@ -79,16 +70,22 @@ runs:
         sed -i 's|^"default":|"armv7a-.*-linux-android":|' $conf
         sed -i 's|%%ldcbinarypath%%/../lib|%%ldcbinarypath%%/../lib-android-armv7a|g' $conf
 
+        rm -rf ldc2-*-android-{aarch64,armv7a}
+
+    - name: Pack addons
+      shell: bash
+      run: |
+        set -eux
+
         mkdir -p newArtifacts
-        artifactID="$(echo ldc2-*-android-aarch64 | cut -d "-" -f 2)"
+        artifactID="$(echo artifacts/ldc2-*-android-aarch64.tar.xz | cut -d "-" -f 2)"
 
-        # pack to a compressed tarball
-        chmod -R go=rX addon-android
-        cd addon-android
-        tar -cf - --owner=0 --group=0 * | 7z a ../newArtifacts/ldc2-$artifactID-addon-android.tar.xz -si -txz -mx9
-        cd ..
-
-        rm -rf ldc2-*-android-{aarch64,armv7a} addon-android
+        for dir in addon-*; do
+          chmod -R go=rX $dir
+          cd $dir
+          tar -cf - --owner=0 --group=0 * | 7z a ../newArtifacts/ldc2-$artifactID-$dir.tar.xz -si -txz -mx9
+          cd ..
+        done
 
     - name: Upload addon artifacts
       uses: actions/upload-artifact@v6
