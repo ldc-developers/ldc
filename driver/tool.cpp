@@ -97,11 +97,10 @@ llvm::SmallVector<std::string, 2> findCCFallback() {
       break;
     }
   } else {
-    const auto tripleString = triple.getTriple();
     choices = {
-      { tripleString + "-gcc" },
-      { tripleString + "-clang" },
-      { "clang", "--target=" + tripleString },
+      { opts::mTargetTriple + "-gcc" },
+      { opts::mTargetTriple + "-clang" },
+      { "clang", "--target=" + triple.getTriple() },
     };
   }
 
