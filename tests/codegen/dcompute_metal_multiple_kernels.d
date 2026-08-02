@@ -1,5 +1,5 @@
 // REQUIRES: target_AArch64
-// REQUIRES: llvm20
+// REQUIRES: atleast_llvm20
 
 // RUN: %ldc -c -mdcompute-targets=metal-400 --mdcompute-file-prefix=multiple_kernels -output-ll -of=%t.ll %s
 // RUN: FileCheck %s --check-prefix=AIR < multiple_kernels_metal400_64.air
