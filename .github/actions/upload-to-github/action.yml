@@ -7,6 +7,7 @@ runs:
       uses: actions/download-artifact@v8
       with:
         path: artifacts/
+        skip-decompress: true
         merge-multiple: true # place all files into artifacts/ directly
 
     - name: Set GITHUB_RELEASE_TAG & ARTIFACT_ID
