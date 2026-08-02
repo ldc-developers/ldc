@@ -738,8 +738,8 @@ package(core.thread):
         assert(t.isRunning); // check this with slock to ensure pthread_create already returned
         assert(!suspendDepth); // must be 0 b/c it's only set with slock held
 
-        if (rmAboutToStart) decrementAboutToStart(t);
-        }
+        if (rmAboutToStart)
+            decrementAboutToStart(t);
 
         if (sm_tbeg)
         {
