@@ -575,6 +575,7 @@ class Thread : ThreadBase
         scope(exit) slock.unlock_nothrow();
         {
             incrementAboutToStart(this);
+            scope(failure) decrementAboutToStart(this);
 
             version (Posix)
             {
