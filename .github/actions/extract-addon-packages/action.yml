@@ -93,6 +93,6 @@ runs:
     - name: Upload addon artifacts
       uses: actions/upload-artifact@v6
       with:
-        name: addons
+        name: extracted-addons
         path: newArtifacts/
         compression-level: 0
