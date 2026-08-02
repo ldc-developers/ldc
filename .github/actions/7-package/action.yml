@@ -139,11 +139,13 @@ runs:
         fi
 
         is_addon='${{ inputs.is_addon != '' && '1' || '0' }}'
-        artifactName="ldc2-$artifactID"
         if [[ "$is_addon" == 1 ]]; then
-          artifactName+="-addon"
+          artifactSuffix="addon-$os"
+        else
+          artifactSuffix="$os-${{ inputs.arch }}"
         fi
-        artifactName+="-$os-${{ inputs.arch }}"
+
+        artifactName="ldc2-$artifactID-$artifactSuffix"
         mv installed $artifactName
         if [[ '${{ runner.os }}' == Windows ]]; then
           7z a -mx=9 artifacts/$artifactName.7z $artifactName >/dev/null
@@ -167,7 +169,7 @@ runs:
 
         # export ARTIFACT_{ID,NAME}
         echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
-        echo "ARTIFACT_NAME=$os-${{ inputs.arch }}" >> $GITHUB_ENV
+        echo "ARTIFACT_NAME=$artifactSuffix" >> $GITHUB_ENV
 
     - name: 'Linux x86_64: Pack source dir'
       if: runner.os == 'Linux' && inputs.os == '' && inputs.arch == 'x86_64'
