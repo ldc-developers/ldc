@@ -51,7 +51,7 @@ jobs:
             with_pgo: true
 
           - job_name: Alpine musl x86_64
-            os: ubuntu-26.04
+            os: ubuntu-24.04
             container_image: alpine:3.24
             arch: x86_64
             base_cmake_flags: >-
