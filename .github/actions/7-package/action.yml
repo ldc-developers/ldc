@@ -169,7 +169,7 @@ runs:
 
         # export ARTIFACT_{ID,NAME}
         echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
-        echo "ARTIFACT_NAME=$artifactSuffix" >> $GITHUB_ENV
+        echo "ARTIFACT_NAME=$artifactName" >> $GITHUB_ENV
 
     - name: 'Linux x86_64: Pack source dir'
       if: runner.os == 'Linux' && inputs.os == '' && inputs.arch == 'x86_64'
@@ -190,9 +190,21 @@ runs:
       shell: bash  # don't run in VM, but host runner
       run: mv ../artifacts ./
 
-    - name: Upload artifact(s)
-      uses: actions/upload-artifact@v6
+    - name: Upload package artifact
+      uses: actions/upload-artifact@v7
       with:
-        name: ${{ env.ARTIFACT_NAME }}
-        path: artifacts/
-        compression-level: 0
+        path: artifacts/${{ env.ARTIFACT_NAME }}.*
+        archive: false
+
+    - name: 'Linux x86_64: Upload source .tar.gz artifact'
+      if: runner.os == 'Linux' && inputs.os == '' && inputs.arch == 'x86_64'
+      uses: actions/upload-artifact@v7
+      with:
+        path: artifacts/*-src.tar.gz
+        archive: false
+    - name: 'Linux x86_64: Upload source .zip artifact'
+      if: runner.os == 'Linux' && inputs.os == '' && inputs.arch == 'x86_64'
+      uses: actions/upload-artifact@v7
+      with:
+        path: artifacts/*-src.zip
+        archive: false

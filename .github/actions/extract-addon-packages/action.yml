@@ -87,9 +87,14 @@ runs:
           cd ..
         done
 
-    - name: Upload addon artifacts
-      uses: actions/upload-artifact@v6
+    - name: Upload Windows addon artifact
+      uses: actions/upload-artifact@v7
       with:
-        name: extracted-addons
-        path: newArtifacts/
-        compression-level: 0
+        path: newArtifacts/*-addon-windows.tar.xz
+        archive: false
+
+    - name: Upload Android addon artifact
+      uses: actions/upload-artifact@v7
+      with:
+        path: newArtifacts/*-addon-android.tar.xz
+        archive: false

@@ -6,7 +6,7 @@ runs:
     - name: Download x86_64 and arm64 artifacts
       uses: actions/download-artifact@v8
       with:
-        pattern: osx-*
+        pattern: '*-osx-*'
         path: artifacts/
         merge-multiple: true # place all files into artifacts/ directly
 
@@ -91,9 +91,8 @@ runs:
         sudo chown -R root:wheel $artifactName
         tar -cf - $artifactName | 7z a newArtifacts/$artifactName.tar.xz -si -txz -mx9
 
-    - name: Upload universal package
-      uses: actions/upload-artifact@v6
+    - name: Upload universal package artifact
+      uses: actions/upload-artifact@v7
       with:
-        name: osx-universal
-        path: newArtifacts/
-        compression-level: 0
+        path: newArtifacts/*-osx-universal.tar.xz
+        archive: false

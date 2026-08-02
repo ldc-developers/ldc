@@ -6,7 +6,7 @@ runs:
     - name: Download x64 and x86 artifacts
       uses: actions/download-artifact@v8
       with:
-        pattern: windows-*
+        pattern: '*-windows-*'
         path: artifacts/
         merge-multiple: true # place all files into artifacts/ directly
 
@@ -145,9 +145,14 @@ runs:
           "/DLDCDir=%CD%\%ARTIFACT_NAME%" ^
           packaging\windows_installer.iss
 
-    - name: Upload multilib package & installer
-      uses: actions/upload-artifact@v6
+    - name: Upload multilib package artifact
+      uses: actions/upload-artifact@v7
       with:
-        name: windows-multilib
-        path: newArtifacts/
-        compression-level: 0
+        path: newArtifacts/*-windows-multilib.7z
+        archive: false
+
+    - name: Upload multilib installer artifact
+      uses: actions/upload-artifact@v7
+      with:
+        path: newArtifacts/*-windows-multilib.exe
+        archive: false
