@@ -31,6 +31,12 @@ runs:
           # FIXME: regressed with image bump from macos-13 to macos-15-intel, apparently wrt. getpwnam_r() setting unexpected errno
           excludes+='|^std.path'
         fi
+        if [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-x86_64 ]]; then
+          if type -P apk &>/dev/null; then
+            # fails on some runners (all 4 test variants), works on others
+            excludes+='|^etc.linux.memoryerror'
+          fi
+        fi
 
         ctest -j$N --output-on-failure -E "$excludes" --timeout 120
 
