@@ -234,6 +234,8 @@ elseif("${TARGET_SYSTEM}" MATCHES "UNIX")
     elseif("${TARGET_SYSTEM}" MATCHES "SunOS")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_SOLARIS})
     endif()
+elseif("${TARGET_SYSTEM}" MATCHES "WASI")
+    list(APPEND DRUNTIME_D ${DRUNTIME_D_POSIX})
 endif()
 
 # druntime C parts
