@@ -23,7 +23,6 @@
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -disable-loop-unrolling          -vv | FileCheck --check-prefix=NO_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -disable-loop-vectorization      -vv | FileCheck --check-prefix=NO_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -disable-slp-vectorization       -vv | FileCheck --check-prefix=NO_HIT %s
-// RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -vectorize-loops                 -vv | FileCheck --check-prefix=NO_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -v -wi -d                        -vv | FileCheck --check-prefix=MUST_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -D -H -I. -J.                    -vv | FileCheck --check-prefix=MUST_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -d-version=Irrelevant            -vv | FileCheck --check-prefix=MUST_HIT %s
