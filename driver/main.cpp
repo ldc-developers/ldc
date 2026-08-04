@@ -1262,8 +1262,8 @@ int cppmain() {
     global.params.dllimport = DLLImport::none;
   }
 
-  if (triple->isWindowsMSVCEnvironment() &&
-      opts::fOptimizeNothrow.getNumOccurrences() == 0) {
+  if (opts::fOptimizeNothrow.getNumOccurrences() == 0 &&
+      (triple->isWindowsMSVCEnvironment() || triple->isWasm())) {
     // FIXME: make https://github.com/ldc-developers/ldc/issues/3504 much less
     //        likely for now
     global.params.nothrowOptimizations = true;
