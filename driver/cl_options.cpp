@@ -1049,16 +1049,11 @@ void hideLLVMOptions() {
       "function-sections"};
 
   // pulled in from shared LLVM headers, but unused or not desired in LDC
-  static const char *const removedOptions[] = {"disable-tail-calls",
-                                               "fatal-warnings",
-                                               "filetype",
-                                               "no-deprecated-warn",
-                                               "no-warn",
-                                               "stackrealign",
-                                               "start-after",
-                                               "stop-after",
-                                               "trap-func",
-                                               "W"};
+  static const char *const removedOptions[] = {
+      "disable-tail-calls", "fatal-warnings", "filetype",
+      "no-deprecated-warn", "no-warn",        "stackrealign",
+      "start-after",        "stop-after",     "trap-func",
+      "vectorize-loops",    "vectorize-slp",  "W"};
 
   auto &map = cl::getRegisteredOptions();
 

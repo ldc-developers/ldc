@@ -27,6 +27,7 @@
 #### Bug fixes
 - Posix: Don't export non-class TypeInfos from binaries. (#5217)
 - Apple: Pre-define `version(Apple)` on iOS, tvOS, watchOS, and visionOS. (#5192, #5195)
+- Don't enable loop-vectorization by default with `-Oz` and `-O1`. (#5233, #5253)
 
 # LDC 1.42.0 (2026-03-01)
 

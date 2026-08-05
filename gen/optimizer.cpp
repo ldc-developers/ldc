@@ -406,23 +406,12 @@ static std::optional<PGOOptions> getPGOOptions() {
 static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsigned sizeLevelVal) {
   PipelineTuningOptions pto;
 
-  pto.LoopUnrolling = optLevelVal > 0;
-
-  pto.LoopUnrolling = !((disableLoopUnrolling.getNumOccurrences() > 0)
-                                   ? disableLoopUnrolling
-                                   : optLevelVal == 0);
-
-  // This is final, unless there is a #pragma vectorize enable
-  if (disableLoopVectorization) {
-    pto.LoopVectorization = false;
-    // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
-  } else if (!pto.LoopVectorization) {
-    pto.LoopVectorization = optLevelVal > 1 && sizeLevelVal < 2;
-  }
-
-  // When #pragma vectorize is on for SLP, do the same as above
-  pto.SLPVectorization =
-      disableSLPVectorization ? false : optLevelVal > 1 && sizeLevelVal < 2;
+  pto.LoopUnrolling = !disableLoopUnrolling && optLevelVal > 0;
+  // loop vectorizer disabled with -Oz
+  pto.LoopVectorization =
+      !disableLoopVectorization && optLevelVal > 1 && sizeLevelVal < 2;
+  // SLP vectorizer enabled with -Oz
+  pto.SLPVectorization = !disableSLPVectorization && optLevelVal > 1;
 
   return pto;
 }
