@@ -750,6 +750,11 @@ U udivmod(Cent c1, U c2, out U modulus)
     {
         version (GNU_OR_LDC_X86_64)
         {
+            // FIXME: https://github.com/ldc-developers/ldc/issues/4916
+            // An AMD CPU with -mattr=bmi2 fails std.int128 unittests.
+            // As a workaround, not inlining fixes it.
+            static if (__traits(targetHasFeature, "bmi2"))
+                pragma(inline, false);
             U ret = void;
             asm pure @trusted nothrow @nogc
             {
