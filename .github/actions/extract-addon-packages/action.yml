@@ -79,7 +79,7 @@ runs:
         set -eux
 
         mkdir -p newArtifacts
-        artifactID="$(echo artifacts/ldc2-*-android-aarch64.tar.xz | cut -d "-" -f 2)"
+        artifactID="$(echo artifacts/ldc2-*-android-aarch64.tar.xz | sed -E 's|artifacts/ldc2-(.+)-android-aarch64\.tar\.xz|\1|')"
 
         for dir in addon-*; do
           chmod -R go=rX $dir
