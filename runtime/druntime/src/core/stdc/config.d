@@ -662,7 +662,7 @@ version (PPC64)
     version (CRuntime_Glibc)
         enum PPCUseIEEE128 = real.mant_dig == 113;
     else
-        enum PPCUseIEEE128 = false;
+        enum PPCUseIEEE128 = false; // no dual-ABI mangling for e.g. FreeBSD
 }
 else
     enum PPCUseIEEE128 = false;
