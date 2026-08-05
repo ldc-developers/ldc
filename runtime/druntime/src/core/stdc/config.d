@@ -658,6 +658,11 @@ package(core) template muslRedirTime64Mangle(string name, string redirectedName)
 }
 
 version (PPC64)
-    enum PPCUseIEEE128 = real.mant_dig == 113;
+{
+    version (CRuntime_Glibc)
+        enum PPCUseIEEE128 = real.mant_dig == 113;
+    else
+        enum PPCUseIEEE128 = false;
+}
 else
     enum PPCUseIEEE128 = false;
