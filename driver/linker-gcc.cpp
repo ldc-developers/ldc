@@ -200,7 +200,8 @@ void ArgsBuilder::addLTOLinkFlags() {
       global.params.targetTriple->isOSFreeBSD() ||
       global.params.targetTriple->isOSNetBSD() ||
       global.params.targetTriple->isOSOpenBSD() ||
-      global.params.targetTriple->isOSDragonFly()) {
+      global.params.targetTriple->isOSDragonFly() ||
+      global.params.targetTriple->isOSHurd()) {
     // LLD supports LLVM LTO natively, do not add the plugin itself.
     // Otherwise, assume that ld.gold or ld.bfd is used with plugin support.
     addLTOGoldPluginFlags(!isLld);
@@ -435,6 +436,7 @@ void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
   case llvm::Triple::NetBSD:
   case llvm::Triple::OpenBSD:
   case llvm::Triple::DragonFly:
+  case llvm::Triple::Hurd:
     args.push_back("-lstdc++");
     break;
   case llvm::Triple::Darwin:
@@ -689,6 +691,7 @@ void ArgsBuilder::addDefaultPlatformLibs() {
   case llvm::Triple::NetBSD:
   case llvm::Triple::OpenBSD:
   case llvm::Triple::DragonFly:
+  case llvm::Triple::Hurd:
     addSoname = true;
     args.push_back("-lpthread");
     args.push_back("-lm");
