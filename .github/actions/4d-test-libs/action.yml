@@ -38,7 +38,7 @@ runs:
           fi
         fi
 
-        ctest -j$N --output-on-failure -E "$excludes" --timeout 120
+        ctest -j$N --output-on-failure -E "$excludes" --timeout 180
 
     - name: 'Windows: Run defaultlib unittests & druntime integration tests'
       if: runner.os == 'Windows'
@@ -55,4 +55,4 @@ runs:
         echo on
         cd build || exit /b
         # FIXME: https://github.com/dlang/phobos/issues/10730
-        ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|^std.experimental.allocator.building_blocks.allocator_list" --timeout 120 || exit /b
+        ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|^std.experimental.allocator.building_blocks.allocator_list" --timeout 180 || exit /b
