@@ -22,7 +22,7 @@ namespace {
 class TargetMetal : public DComputeTarget {
 public:
   TargetMetal(llvm::LLVMContext &c, int version)
-      : DComputeTarget(c, version, ID::Metal, "metal", "air", createMetalABI(),
+      : DComputeTarget(c, version, ID::Metal, "metal", "ll", createMetalABI(),
 
                        // DCompute Order: [Private, Global, Shared, Constant,
                        // Generic] AIR equivalents: Private=0, Device/Global=1,
