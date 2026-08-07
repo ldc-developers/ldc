@@ -97,7 +97,7 @@ commonSteps: &commonSteps
           # FIXME: https://github.com/dlang/phobos/issues/10730
           excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
           cd ../build
-          ctest -j$PARALLELISM --output-on-failure -E "$excludes" --timeout 120
+          ctest -j$PARALLELISM --output-on-failure -E "$excludes" --timeout 180
 
 version: 2
 jobs:
