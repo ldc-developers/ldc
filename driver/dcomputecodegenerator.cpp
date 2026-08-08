@@ -17,7 +17,7 @@
 #include <string>
 #include <algorithm>
 
-#if !(LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX)
+#if !(LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64)
 
 DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {}
 void DComputeCodeGenManager::emit(Module *) {}
@@ -43,6 +43,20 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 #endif
   }
 
+  if (s.substr(0, 6) == "metal-") {
+#if  LDC_LLVM_SUPPORTED_TARGET_AArch64 //&& LDC_LLVM_VER >= 2100
+#define METAL_VALID_VER_INIT 400
+    const std::array<int, 6> valid_metal_versions = {{METAL_VALID_VER_INIT}};
+   const int v = atoi(s.c_str() + 6);
+   if (std::find(valid_metal_versions.begin(), valid_metal_versions.end(), v) !=
+        valid_metal_versions.end()) {
+      return createMetalTarget(ctx, v);
+    } 
+#else
+    error(Loc(), "LDC was not built with Apple Metal Dcompute support!");
+#endif
+  }
+
   if (s.substr(0, 5) == "cuda-") {
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
 #define CUDA_VALID_VER_INIT 100, 110, 120, 130, 200, 210, 300, 350, 370,\
@@ -64,14 +78,18 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 
   error(Loc(),
         "Unrecognised or invalid DCompute targets: the format is ocl-xy0 "
-        "for OpenCl x.y and cuda-xy0 for CUDA CC x.y."
+        "for OpenCl x.y and cuda-xy0 for CUDA CC x.y and metal-xy0 for Metal x.y."
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
         " Valid version strings for OpenCl are ocl-{" XSTR(OCL_VALID_VER_INIT) "}."
 #endif
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
         " Valid version strings for CUDA are cuda-{" XSTR(CUDA_VALID_VER_INIT) "}."
 #endif
+#if LDC_LLVM_SUPPORTED_TARGET_AArch64
+        "Valid version strings for Metal are metal-{" XSTR(METAL_VALID_VER_INIT) "}"
+#endif
   );
+ 
 
 #undef XSTR
 #undef STR
@@ -119,4 +137,4 @@ DComputeCodeGenManager::~DComputeCodeGenManager() {
   gABI = oldGABI;
 }
 
-#endif // LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+#endif // LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_AArch64
