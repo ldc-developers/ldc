@@ -387,6 +387,10 @@ jobs:
       matrix:
         include:
           - job_name: WASI wasm32
+            os: wasi
+            arch: wasm32
+          - job_name: Emscripten wasm32
+            os: emscripten
             arch: wasm32
     name: ${{ matrix.job_name }}
     runs-on: ubuntu-22.04-arm
@@ -404,18 +408,29 @@ jobs:
           clang_major: ${{ env.CLANG_MAJOR }}
           arch: aarch64
       - name: 'WASI: Install additional prerequisites'
+        if: matrix.os == 'wasi'
         uses: ./.github/actions/1a-setup-wasi
+      - name: 'Emscripten: Install additional prerequisites'
+        if: matrix.os == 'emscripten'
+        uses: ./.github/actions/1a-setup-emscripten
       - name: Build bootstrap LDC
         uses: ./.github/actions/2-build-bootstrap
       - name: 'WASIp1: Cross-compile druntime & phobos incl. test runners & run druntime & phobos unittests'
+        if: matrix.os == 'wasi'
         uses: ./.github/actions/5a-wasi
         with:
           os: wasip1
           arch: ${{ matrix.arch }}
       - name: 'WASIp2: Cross-compile druntime & phobos incl. test runners & run druntime & phobos unittests'
+        if: matrix.os == 'wasi'
         uses: ./.github/actions/5a-wasi
         with:
           os: wasip2
+          arch: ${{ matrix.arch }}
+      - name: 'Emscripten: Cross-compile druntime incl. test runners & run druntime unittests'
+        if: matrix.os == 'emscripten'
+        uses: ./.github/actions/5a-emscripten
+        with:
           arch: ${{ matrix.arch }}
       - name: Make installed .conf files portable
         uses: ./.github/actions/5b-make-portable
@@ -423,9 +438,10 @@ jobs:
         uses: ./.github/actions/7-package
         with:
           arch: ${{ matrix.arch }}
-          os: wasi
+          os: ${{ matrix.os }}
           is_addon: true
-      - name: Smoke-test add-on package
+      - name: 'WASI: Smoke-test add-on package'
+        if: matrix.os == 'wasi'
         run: |
           set -eux
           # unpack addon archive into ../bootstrap-ldc

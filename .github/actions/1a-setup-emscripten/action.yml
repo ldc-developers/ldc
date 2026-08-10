@@ -1,0 +1,18 @@
+name: "Emscripten: Install additional prerequisites"
+inputs:
+  emsdk_version:
+    required: false
+    default: '6.0.6'
+runs:
+  using: composite
+  steps:
+    - name: "Install emsdk" # into ../emsdk
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        git clone https://github.com/emscripten-core/emsdk.git
+        cd emsdk
+        ./emsdk install '${{ inputs.emsdk_version }}'
+        ./emsdk activate '${{ inputs.emsdk_version }}'

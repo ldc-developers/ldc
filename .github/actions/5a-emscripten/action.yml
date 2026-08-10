@@ -1,0 +1,37 @@
+name: "Emscripten: Cross-compile druntime incl. test runners, install libs + .conf, run druntime unittests"
+inputs:
+  arch:
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Cross-compile druntime incl. test runners & install libs + .conf
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        os='emscripten'
+        arch='${{ inputs.arch }}'
+        triple="$arch-unknown-$os"
+
+        bootstrap-ldc/bin/ldc-build-runtime \
+          --ninja \
+          --dFlags="-mtriple=$triple" \
+          --ldcSrcDir="$PWD/ldc" \
+          --installWithSuffix="-$os-$arch" \
+          --testrunners \
+          CMAKE_INSTALL_PREFIX="$PWD/install" \
+          RT_CONF_TRIPLE_REGEX="$arch-.*-$os" \
+          CMAKE_TOOLCHAIN_FILE="$PWD/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake" \
+          PHOBOS2_DIR="" \
+          BUILD_LTO_LIBS=ON
+
+    - name: Run druntime unittests
+      shell: bash
+      run: |
+        set -eux
+        cd ../ldc-build-runtime.tmp
+
+        ../emsdk/node/*/bin/node ./druntime-test-runner-debug.js
+        ../emsdk/node/*/bin/node ./druntime-test-runner.js
