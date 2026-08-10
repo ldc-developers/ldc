@@ -1484,6 +1484,31 @@ else version (Solaris)
     enum SI_ASYNCIO = -4;
     enum SI_MESGQ   = -5;
 }
+else version (Emscripten)
+{
+    struct sigset_t
+    {
+        c_ulong[2] __bits;
+
+    }
+
+    enum SIG_BLOCK      = 0;
+    enum SIG_UNBLOCK    = 1;
+    enum SIG_SETMASK    = 2;
+
+    enum
+    {
+        SI_ASYNCNL = -60,
+        SI_TKILL   = -6,
+        SI_SIGIO,
+        SI_ASYNCIO,
+        SI_MESGQ,
+        SI_TIMER,
+        SI_QUEUE,
+        SI_USER,
+        SI_KERNEL  = 0x80
+    }
+}
 else version (CRuntime_WASI)
 {
     alias sigset_t = ubyte;

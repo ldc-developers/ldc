@@ -450,6 +450,15 @@ else version (CRuntime_Musl)
         static assert(false, "Architecture not supported.");
     }
 }
+else version (Emscripten)
+{
+    struct fenv_t
+    {
+        uint __cw;
+    }
+
+    alias fexcept_t = ushort;
+}
 else version (CRuntime_WASI)
 {
     import core.stdc.config : c_ulong;

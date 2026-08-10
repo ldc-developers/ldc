@@ -1631,8 +1631,15 @@ else version (CRuntime_WASI)
         ubyte[16] s6_addr;
     }
     struct sockaddr_in6 {
-        align(16) // __BIGGEST_ALIGNMENT__ on Wasm
-        sa_family_t     sin6_family;
+        version (Emscripten) // no alignment override
+        {
+            sa_family_t     sin6_family;
+        }
+        else
+        {
+            align(16) // __BIGGEST_ALIGNMENT__ on Wasm
+            sa_family_t     sin6_family;
+        }
 
         in_port_t       sin6_port;
         uint            sin6_flowinfo;

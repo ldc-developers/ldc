@@ -496,6 +496,35 @@ else version (Solaris)
         RLIMIT_AS     = 6,
     }
 }
+else version (Emscripten)
+{
+    struct rusage
+    {
+        timeval ru_utime;
+        timeval ru_stime;
+        c_long ru_maxrss;
+        c_long ru_ixrss;
+        c_long ru_idrss;
+        c_long ru_isrss;
+        c_long ru_minflt;
+        c_long ru_majflt;
+        c_long ru_nswap;
+        c_long ru_inblock;
+        c_long ru_oublock;
+        c_long ru_msgsnd;
+        c_long ru_msgrcv;
+        c_long ru_nsignals;
+        c_long ru_nvcsw;
+        c_long ru_nivcsw;
+        c_long[16] __reserved;
+    }
+
+    enum
+    {
+        RUSAGE_SELF     =  0,
+        RUSAGE_CHILDREN =  -1,
+    }
+}
 else version (CRuntime_WASI)
 {
     struct rusage
