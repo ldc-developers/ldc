@@ -104,6 +104,10 @@ if("${TARGET_SYSTEM}" MATCHES "WASI|Emscripten")
 
     append("-Wl,-z,stack-size=1048576 -Wl,--stack-first" LD_FLAGS)
 
+    if("${TARGET_SYSTEM}" MATCHES "Emscripten")
+        append("-sALLOW_MEMORY_GROWTH" LD_FLAGS)
+    endif()
+
     list(APPEND D_FLAGS --wasm-enable-eh)
     if(LLVM_VERSION_MAJOR GREATER_EQUAL 20)
         list(APPEND D_FLAGS --wasm-use-legacy-eh=false)

@@ -164,6 +164,10 @@ else version (Solaris)
 {
     enum CLOCK_MONOTONIC = 4;
 }
+else version (Emscripten)
+{
+    enum CLOCK_MONOTONIC = 1;
+}
 else version (CRuntime_WASI)
 {
     struct __clockid;
@@ -536,6 +540,43 @@ else version (CRuntime_Musl)
     pragma(mangle, muslRedirTime64Mangle!("timer_gettime", "__timer_gettime64"))
     int timer_gettime(timer_t, itimerspec*);
     pragma(mangle, muslRedirTime64Mangle!("timer_settime", "__timer_settime64"))
+    int timer_settime(timer_t, int, const scope itimerspec*, itimerspec*);
+    int timer_getoverrun(timer_t);
+}
+else version (Emscripten)
+{
+    alias clockid_t = int;
+    alias timer_t = void*;
+
+    struct itimerspec
+    {
+        timespec it_interval;
+        timespec it_value;
+    }
+
+    enum TIMER_ABSTIME = 1;
+
+    enum CLOCK_REALTIME = 0;
+    enum CLOCK_PROCESS_CPUTIME_ID = 2;
+    enum CLOCK_THREAD_CPUTIME_ID = 3;
+    enum CLOCK_REALTIME_COARSE = 5;
+    enum CLOCK_BOOTTIME = 7;
+    enum CLOCK_REALTIME_ALARM = 8;
+    enum CLOCK_BOOTTIME_ALARM = 9;
+    enum CLOCK_SGI_CYCLE = 10;
+    enum CLOCK_TAI = 11;
+
+    int nanosleep(const scope timespec*, timespec*);
+
+    int clock_getres(clockid_t, timespec*);
+    int clock_gettime(clockid_t, timespec*);
+    int clock_settime(clockid_t, const scope timespec*);
+    int clock_nanosleep(clockid_t, int, const scope timespec*, timespec*);
+    int clock_getcpuclockid(pid_t, clockid_t *);
+
+    //int timer_create(clockid_t, sigevent*, timer_t*);
+    int timer_delete(timer_t);
+    int timer_gettime(timer_t, itimerspec*);
     int timer_settime(timer_t, int, const scope itimerspec*, itimerspec*);
     int timer_getoverrun(timer_t);
 }
