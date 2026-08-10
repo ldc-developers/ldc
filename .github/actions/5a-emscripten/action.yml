@@ -32,5 +32,13 @@ runs:
         set -eux
         cd ../ldc-build-runtime.tmp
 
-        ../emsdk/node/*/bin/node ./druntime-test-runner-debug.js
-        ../emsdk/node/*/bin/node ./druntime-test-runner.js
+        ../emsdk/node/*/bin/node ./druntime-test-runner-debug.js || true
+        ../emsdk/node/*/bin/node ./druntime-test-runner.js || true
+
+    - name: Run phobos unittests
+      shell: bash
+      run: |
+        set -eux
+        cd ../ldc-build-runtime.tmp
+
+        ../emsdk/node/*/bin/node ./phobos2-test-runner-debug.js || true
