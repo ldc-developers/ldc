@@ -1,11 +1,11 @@
-name: "Emscripten: Cross-compile druntime incl. test runners, install libs + .conf, run druntime unittests"
+name: "Emscripten: Cross-compile druntime & phobos incl. test runners, install libs + .conf, run druntime unittests"
 inputs:
   arch:
     required: true
 runs:
   using: composite
   steps:
-    - name: Cross-compile druntime incl. test runners & install libs + .conf
+    - name: Cross-compile druntime & phobos incl. test runners & install libs + .conf
       shell: bash
       run: |
         set -eux
@@ -24,7 +24,6 @@ runs:
           CMAKE_INSTALL_PREFIX="$PWD/install" \
           RT_CONF_TRIPLE_REGEX="$arch-.*-$os" \
           CMAKE_TOOLCHAIN_FILE="$PWD/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake" \
-          PHOBOS2_DIR="" \
           BUILD_LTO_LIBS=ON
 
     - name: Run druntime unittests
