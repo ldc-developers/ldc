@@ -42,3 +42,25 @@ runs:
         cd ../ldc-build-runtime.tmp
 
         ../emsdk/node/*/bin/node ./phobos2-test-runner-debug.js || true
+
+    - name: Run `importc_compare`
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        os='emscripten'
+        arch='${{ inputs.arch }}'
+        triple="$arch-unknown-$os"
+
+        bootstrap-ldc/bin/ldc2 \
+          -defaultlib=druntime-ldc -L-Linstall/lib-$os-$arch \
+          -gcc="$PWD/emsdk/upstream/emscripten/emcc" \
+          --mtriple=$triple \
+          --d-version=WASI_EMULATED_SIGNAL \
+          --d-version=WASI_EMULATED_PROCESS_CLOCKS \
+          --d-version=WASI_EMULATED_MMAN \
+          -I$PWD/ldc/runtime/druntime/test/importc_compare/src \
+          $PWD/ldc/runtime/druntime/test/importc_compare/src/importc_compare.d
+
+        emsdk/node/*/bin/node ./importc_compare.js || true
