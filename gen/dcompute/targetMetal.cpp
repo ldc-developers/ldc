@@ -22,7 +22,7 @@ namespace {
 class TargetMetal : public DComputeTarget {
 public:
   TargetMetal(llvm::LLVMContext &c, int version)
-      : DComputeTarget(c, version, ID::Metal, "metal", "ll", createMetalABI(),
+      : DComputeTarget(c, version, ID::Metal, "metal", "air", createMetalABI(),
 
                        // DCompute Order: [Private, Global, Shared, Constant,
                        // Generic] AIR equivalents: Private=0, Device/Global=1,
@@ -46,7 +46,7 @@ public:
             "", {},
             ExplicitBitness::M64, floatABI,
             llvm::Reloc::Static, llvm::CodeModel::Small, codeGenOptLevel(), false);
-              
+
     llvm::StringRef dataLayout =
         "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-"
         "f64:64:64"
@@ -70,7 +70,7 @@ public:
 
     llvm::NamedMDNode *airLangVersion =
         _ir->module.getOrInsertNamedMetadata("air.language_version");
-    
+
     std::array<llvm::Metadata *, 4> langArr = {
         metaString("Metal"),
         metaInt(tversion / 100),

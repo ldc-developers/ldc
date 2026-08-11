@@ -132,35 +132,6 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
       }
     }
 
-    auto xcrunpath = llvm::sys::findProgramByName("xcrun");
-    if (!xcrunpath) {
-      warning(Loc(), "xcrun not found - XCode should be installed first! Skipping <filename>.metallib generation");
-      return;
-    }
-
-    llvm::SmallString<256> metallibOutPath;
-    llvm::sys::fs::current_path(metallibOutPath);
-    llvm::sys::path::append(metallibOutPath, llvm::sys::path::filename(filename));
-    llvm::sys::path::replace_extension(metallibOutPath, "metallib");
-
-    std::vector<std::string> args = {
-      xcrunpath.get(), "-sdk", "macosx", "metallib", filename, "-o", metallibOutPath.c_str()
-    };
-
-    std::string errorMsg;
-
-    int status =  executeToolAndWait(Loc(), args[0], args);
-
-    if (status < 0) {
-#if defined(_MSC_VER) || defined(__MINGW32__)
-    error(Loc(), "xcrun received signal %d", -status);
-#else
-    error(Loc(), "xcrun received signal %d (%s)", -status,
-          strsignal(-status));
-#endif
-      fatal();
-    }
-
     return;
   }
 #endif
