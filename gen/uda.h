@@ -50,5 +50,6 @@ extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym);
 bool isDeviceArrayComparisonHook(Dsymbol *sym);
 
 bool hasNoSplitStackUDA(FuncDeclaration *fd);
+bool hasRealTimeUnsafeUDA(FuncDeclaration *fd);
 
 unsigned getMaskFromNoSanitizeUDA(FuncDeclaration &fd);

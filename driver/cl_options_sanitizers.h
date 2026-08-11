@@ -39,6 +39,7 @@ enum SanitizerCheck : SanitizerBits {
   ThreadSanitizer = 1 << 3,
   CoverageSanitizer = 1 << 4,
   LeakSanitizer = 1 << 5,
+  RealTimeSanitizer = 1 << 6,
 };
 extern SanitizerBits enabledSanitizers;
 extern SanitizerBits enabledSanitizerRecoveries;
