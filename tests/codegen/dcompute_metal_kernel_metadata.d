@@ -1,11 +1,11 @@
 // REQUIRES: target_AArch64
 
-// COM: There are certain breaking changes in llvm upstream that are not yet supported by MSL compiler 
+// COM: There are certain breaking changes in llvm upstream that are not yet supported by MSL compiler
 // COM: hence it is required to run on past versions of llvm
 // REQUIRES: atleast_llvm20
- 
+
 // RUN: %ldc -c -mdcompute-targets=metal-400 --mdcompute-file-prefix=kernel_metadata -output-ll -of=%t.ll %s
-// RUN: FileCheck %s --check-prefix=AIR < kernel_metadata_metal400_64.ll
+// RUN: FileCheck %s --check-prefix=AIR < kernel_metadata_metal400_64.air
 @compute(CompileFor.deviceOnly) module kernels;
 import ldc.dcompute;
 
