@@ -2,7 +2,7 @@
 // REQUIRES: atleast_llvm20
 
 // RUN: %ldc -c -mdcompute-targets=metal-400 --mdcompute-file-prefix=argument_metadata -output-ll -of=%t.ll %s
-// RUN: FileCheck %s --check-prefix=AIR < argument_metadata_metal400_64.ll
+// RUN: FileCheck %s --check-prefix=AIR < argument_metadata_metal400_64.air
 
 @compute(CompileFor.deviceOnly) module kernels;
 
@@ -30,4 +30,3 @@ void test_multi_arg_kernel(GlobalPointer!float data, SharedPointer!float shared_
 
 // COM: expects address_space: 2 for scalar values
 // AIR-DAG: [[ARG_2]] = !{i32 2, !"air.buffer", !"air.location_index", i32 2, i32 1, !"air.read_write", !"air.address_space", i32 2, !"air.arg_type_size", i32 4, !"air.arg_type_align_size", i32 4, !"air.arg_type_name", !"float", !"air.arg_name", !"scalar_value"}
-

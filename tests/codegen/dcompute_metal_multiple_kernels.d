@@ -2,7 +2,7 @@
 // REQUIRES: atleast_llvm20
 
 // RUN: %ldc -c -mdcompute-targets=metal-400 --mdcompute-file-prefix=multiple_kernels -output-ll -of=%t.ll %s
-// RUN: FileCheck %s --check-prefix=AIR < multiple_kernels_metal400_64.ll
+// RUN: FileCheck %s --check-prefix=AIR < multiple_kernels_metal400_64.air
 
 @compute(CompileFor.deviceOnly) module kernels;
 
@@ -39,4 +39,3 @@ void test_kernel_2(GlobalPointer!float data)
 // AIR-DAG: [[SHARED_DATA_ARG]] = !{i32 0, !"air.buffer", !"air.location_index", i32 0, i32 1, !"air.read_write", !"air.address_space", i32 1, !"air.arg_type_size", i32 4, !"air.arg_type_align_size", i32 4, !"air.arg_type_name", !"float", !"air.arg_name", !"data"}
 
 // AIR-DAG: [[SCALAR_ARG]] = !{i32 1, !"air.buffer", !"air.location_index", i32 1, i32 1, !"air.read_write", !"air.address_space", i32 2, !"air.arg_type_size", i32 4, !"air.arg_type_align_size", i32 4, !"air.arg_type_name", !"float", !"air.arg_name", !"scalar_value"}
-
