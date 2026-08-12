@@ -328,6 +328,27 @@ else version (Solaris)
     alias time_t = c_long;
     alias uid_t = uint;
 }
+else version (Emscripten)
+{
+    alias blkcnt_t = int;
+    alias ino_t = ulong;
+    alias off_t = long;
+
+    alias blksize_t = int;
+
+    alias dev_t = uint;
+    alias gid_t = uint;
+    alias mode_t = uint;
+
+    alias nlink_t = size_t;
+
+    alias pid_t = int;
+    //size_t (defined in core.stdc.stddef)
+    alias ssize_t = c_long;
+    alias uid_t = uint;
+
+    alias time_t = long;
+}
 else version (CRuntime_WASI)
 {
     alias blkcnt_t = long;
@@ -459,6 +480,17 @@ else version (Solaris)
     alias poolid_t = id_t;
     alias zoneid_t = id_t;
     alias ctid_t = id_t;
+}
+else version (Emscripten)
+{
+    alias fsblkcnt_t = ulong;
+    alias fsfilcnt_t = ulong;
+
+    alias clock_t = int;
+    alias id_t = uint;
+    alias key_t = int;
+    alias suseconds_t = int;
+    alias useconds_t = uint;
 }
 else version (CRuntime_WASI)
 {
@@ -773,6 +805,57 @@ version (CRuntime_Glibc)
         byte[__SIZEOF_PTHREAD_RWLOCKATTR_T] __size;
         c_long __align;
     }
+
+    alias pthread_t = c_ulong;
+}
+else version (Emscripten)
+{
+    struct pthread_attr_t
+    {
+        union
+        {
+            int[10] __i;
+            uint[10] __s;
+        }
+        const(char)* _a_transferredcanvases;
+    }
+
+    union pthread_cond_t
+    {
+        int[12] __i;
+        void*[12] __p;
+    }
+
+    union pthread_mutex_t
+    {
+        int[6] __i;
+        void*[6] __p;
+    }
+
+    union pthread_rwlock_t
+    {
+        int[8] __i;
+        void*[8] __p;
+    }
+
+    struct pthread_rwlockattr_t
+    {
+        uint[2] __attr;
+    }
+
+    alias pthread_key_t = uint;
+
+    struct pthread_condattr_t
+    {
+        uint __attr;
+    }
+
+    struct pthread_mutexattr_t
+    {
+        uint __attr;
+    }
+
+    alias pthread_once_t = int;
 
     alias pthread_t = c_ulong;
 }
