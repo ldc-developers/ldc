@@ -1598,6 +1598,114 @@ else version (Solaris)
         SHUT_RDWR
     }
 }
+else version (Emscripten)
+{
+    alias socklen_t = uint;
+    alias sa_family_t = ushort;
+
+    struct sockaddr
+    {
+        sa_family_t sa_family;
+        char[14]    sa_data = 0;
+    }
+
+    struct sockaddr_storage
+    {
+        sa_family_t ss_family;
+        char[128 - c_ulong.sizeof - sa_family_t.sizeof] __ss_padding = 0;
+        c_ulong __ss_align;
+    }
+
+    struct msghdr
+    {
+        void*     msg_name;
+        socklen_t msg_namelen;
+        iovec*    msg_iov;
+        int       msg_iovlen;
+        void*     msg_control;
+        socklen_t msg_controllen;
+        int       msg_flags;
+    }
+
+    struct linger
+    {
+        int l_onoff;
+        int l_linger;
+    }
+
+    enum
+    {
+        SOCK_DGRAM      = 2,
+        SOCK_STREAM     = 1,
+    }
+
+    enum
+    {
+        SOL_SOCKET      = 1
+    }
+
+    enum
+    {
+        SO_REUSEADDR = 2,
+        SO_ERROR = 4,
+        SO_SNDBUF = 7,
+        SO_RCVBUF = 8,
+        SO_KEEPALIVE = 9,
+        SO_ACCEPTCONN = 30,
+        SO_PROTOCOL = 38,
+        SO_DOMAIN = 39,
+
+        SO_TYPE = 3
+    }
+
+    version (D_LP64)
+    {
+        enum
+        {
+            SO_RCVTIMEO = 20,
+            SO_SNDTIMEO = 21,
+        }
+    }
+    else
+    {
+        enum
+        {
+            SO_RCVTIMEO = 66,
+            SO_SNDTIMEO = 67,
+        }
+    }
+
+    enum
+    {
+        SOMAXCONN   = 128
+    }
+
+    enum : uint
+    {
+        MSG_DONTWAIT  = 0x0040,
+        MSG_NOSIGNAL  = 0x4000,
+        MSG_PEEK      = 0x0002,
+        MSG_WAITALL   = 0x0100,
+        MSG_TRUNC     = 0x0020
+    }
+
+    enum
+    {
+        PF_UNSPEC = 0,
+        PF_INET = 2,
+
+        AF_UNSPEC  = PF_UNSPEC,
+        AF_INET    = PF_INET,
+        AF_UNIX    = 1,
+    }
+
+    enum
+    {
+        SHUT_RD,
+        SHUT_WR,
+        SHUT_RDWR
+    }
+}
 else version (CRuntime_WASI)
 {
     alias socklen_t = uint;
@@ -2060,6 +2168,14 @@ else version (Solaris)
         AF_INET6 = 26,
     }
 }
+else version (Emscripten)
+{
+    enum
+    {
+        PF_INET6 = 10,
+        AF_INET6 = PF_INET6,
+    }
+}
 else version (CRuntime_WASI)
 {
     enum
@@ -2127,6 +2243,13 @@ else version (Solaris)
     enum
     {
         SOCK_RAW = 4,
+    }
+}
+else version (Emscripten)
+{
+    enum
+    {
+        SOCK_RAW    = 3
     }
 }
 else version (CRuntime_WASI)
