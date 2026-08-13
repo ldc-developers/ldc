@@ -952,7 +952,7 @@ makeConfSection(NAME "51-target-wasm-base"
         ${wasm_eh_switches}
 )
 
-# Add a convenience config for *naked* wasm targets, omitting druntime/Phobos
+# Add a convenience config for *naked* wasm targets, omitting druntime/Phobos/libc
 # (and preferring built-in lld for linking) automatically.
 set(wasm_naked_link_internally)
 if(LDC_WITH_LLD)
@@ -962,6 +962,7 @@ makeConfSection(NAME "55-target-wasm-naked"
     SECTION "^wasm(32|64)-.*-(unknown|none)"
     SWITCHES
         -defaultlib=
+        -Xcc=-nostdlib
         ${wasm_naked_link_internally}
     LIB_DIRS OVERRIDE
 )
