@@ -1,0 +1,20 @@
+# Build / tool output (never commit)
+.dub/
+bin/
+.work/
+*.exe
+*.pdb
+*.obj
+*.lib
+dub.selections.json
+
+# Pulled trees — `dub run -- --prefetch-refs` / `--reference TAG` fill these
+clones/
+overlays/
+workspace/refs/
+workspace/stock/
+workspace/overlays/
+workspace/.tmp/
+
+# Local scratch
+TODO-scratch.md

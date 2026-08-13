@@ -1,0 +1,28 @@
+name "runtime-adapt"
+description "Generate the complete LDC druntime/phobos from this checkout (stock + compiler-derived ldc/*)"
+authors "Etienne Cimon"
+copyright "Copyright © 2026 LDC Team, Etienne Cimon"
+license "BSD 3-clause"
+targetType "executable"
+targetName "runtime-adapt"
+targetPath "bin"
+dependency "libdparse" version="~>0.24.0"
+# Host tool (serve-d loads this folder as a normal dub package).
+# Not wired into tools/CMakeLists.txt — maintainer utility, not a packaged user tool.
+toolchainRequirements ldc=">=1.36.0"
+sourcePaths "source"
+importPaths "source"
+
+configuration "application" {
+    targetType "executable"
+    sourcePaths "source"
+    importPaths "source"
+    mainSourceFile "source/app.d"
+}
+
+configuration "unittest" {
+    targetType "executable"
+    sourcePaths "source" "tests"
+    importPaths "source" "tests"
+    mainSourceFile "source/app.d"
+}

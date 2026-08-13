@@ -1,0 +1,5 @@
+# Everything under workspace/ is a local cache except the tracked docs/scripts.
+*
+!README.md
+!*.ps1
+!.gitignore
