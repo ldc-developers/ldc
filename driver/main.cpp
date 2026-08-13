@@ -963,7 +963,7 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("WASI");
     VersionCondition::addPredefinedGlobalIdent("WASIp1");
     VersionCondition::addPredefinedGlobalIdent("Posix");
-    VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_LLVM");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang"); // legacy
     break;

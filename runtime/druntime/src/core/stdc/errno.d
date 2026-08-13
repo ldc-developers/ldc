@@ -2328,7 +2328,7 @@ else version (Haiku)
     enum B_NO_TRANSLATOR                 = (B_TRANSLATION_ERROR_BASE + 1);
     enum B_ILLEGAL_DATA                  = (B_TRANSLATION_ERROR_BASE + 2);
 }
-else version (CRuntime_WASI)
+else version (WASI)
 {
     enum E2BIG           = 1;
     enum EACCES          = 2;

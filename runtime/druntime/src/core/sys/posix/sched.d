@@ -169,7 +169,7 @@ else version (Solaris)
     enum SCHED_FX = 6;
     enum _SCHED_NEXT = 7;
 }
-else version (CRuntime_WASI)
+else version (WASI)
 {
     struct sched_param
     {

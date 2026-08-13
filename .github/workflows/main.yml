@@ -427,7 +427,7 @@ jobs:
         with:
           os: wasip2
           arch: ${{ matrix.arch }}
-      - name: 'Emscripten: Cross-compile druntime & phobos incl. test runners & run druntime unittests'
+      - name: 'Emscripten: Cross-compile druntime & phobos incl. test runners & run druntime & phobos unittests'
         if: matrix.os == 'emscripten'
         uses: ./.github/actions/5a-emscripten
         with:

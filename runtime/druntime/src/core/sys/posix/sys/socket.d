@@ -1711,37 +1711,19 @@ else version (CRuntime_WASI)
     alias socklen_t = uint;
     alias sa_family_t = ushort;
 
-    version (Emscripten)
+    struct sockaddr
     {
-        struct sockaddr
-        {
-            sa_family_t sa_family;
-            char[14]    sa_data = 0;
-        }
+        align(16) // __BIGGEST_ALIGNMENT__ on Wasm
+        sa_family_t sa_family;
 
-        struct sockaddr_storage
-        {
-            sa_family_t ss_family;
-            char[128 - c_ulong.sizeof - sa_family_t.sizeof] __ss_padding = 0;
-            c_ulong __ss_align;
-        }
+        byte[0]    sa_data;
     }
-    else
+
+    struct sockaddr_storage
     {
-        struct sockaddr
-        {
-            align(16) // __BIGGEST_ALIGNMENT__ on Wasm
-            sa_family_t sa_family;
-
-            byte[0]    sa_data;
-        }
-
-        struct sockaddr_storage
-        {
-            align(16) // __BIGGEST_ALIGNMENT__ on Wasm
-            sa_family_t ss_family;
-            byte[32] __ss_data;
-        }
+        align(16) // __BIGGEST_ALIGNMENT__ on Wasm
+        sa_family_t ss_family;
+        byte[32] __ss_data;
     }
 
     struct msghdr

@@ -498,6 +498,8 @@ else version (Solaris)
 }
 else version (Emscripten)
 {
+    alias rlim_t = ulong;
+
     struct rusage
     {
         timeval ru_utime;

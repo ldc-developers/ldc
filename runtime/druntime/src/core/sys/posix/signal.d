@@ -596,6 +596,35 @@ else version (Solaris)
     enum SIGUSR2 = 17;
     enum SIGURG = 21;
 }
+else version (Emscripten)
+{
+    enum SIGHUP     = 1;
+    //SIGINT (defined in core.stdc.signal)
+    enum SIGQUIT    = 3;
+    //SIGILL (defined in core.stdc.signal)
+    //SIGABRT (defined in core.stdc.signal)
+    enum SIGIOT     = SIGABRT;
+    enum SIGBUS     = 7;
+    //SIGFPE (defined in core.stdc.signal)
+    enum SIGKILL    = 9;
+    enum SIGUSR1    = 10;
+    //SIGSEGV (defined in core.stdc.signal)
+    enum SIGUSR2    = 12;
+    enum SIGPIPE    = 13;
+    enum SIGALRM    = 14;
+    //SIGTERM (defined in core.stdc.signal)
+    enum SIGSTKFLT  = 16;
+    enum SIGCHLD    = 17;
+    enum SIGCONT    = 18;
+    enum SIGSTOP    = 19;
+    enum SIGTSTP    = 20;
+    enum SIGTTIN    = 21;
+    enum SIGTTOU    = 22;
+    enum SIGURG     = 23;
+    enum SIGWINCH   = 28;
+    enum SIGIO      = 29;
+    enum SIGPWR     = 30;
+}
 else version (CRuntime_WASI)
 {
     enum SIGHUP     = 1;
@@ -910,6 +939,20 @@ else version (Darwin)
         }
         sigset_t        sa_mask;
         int             sa_flags;
+    }
+}
+else version (Emscripten)
+{
+    struct sigaction_t
+    {
+        union
+        {
+            sigfn_t     sa_handler;
+            sigactfn_t  sa_sigaction;
+        }
+        sigset_t        sa_mask;
+        int             sa_flags;
+        void function() sa_restorer;
     }
 }
 else version (CRuntime_WASI)
@@ -1495,6 +1538,8 @@ else version (Emscripten)
     enum SIG_BLOCK      = 0;
     enum SIG_UNBLOCK    = 1;
     enum SIG_SETMASK    = 2;
+
+    struct siginfo_t; // FIXME
 
     enum
     {
@@ -2501,6 +2546,17 @@ else version (Solaris)
         POLL_HUP,
     }
 }
+else version (Emscripten)
+{
+    enum SIGPOLL    = 29;
+    enum SIGPROF    = 27;
+    enum SIGSYS     = 31;
+    enum SIGTRAP    = 5;
+    enum SIGVTALRM  = 26;
+    enum SIGXCPU    = 24;
+    enum SIGXFSZ    = 25;
+    enum SIGUNUSED  = SIGSYS;
+}
 else version (CRuntime_WASI)
 {
     enum SIGPOLL    = 29;
@@ -3138,6 +3194,26 @@ else version (Solaris)
         void function(sigval) sigev_notify_function;
         pthread_attr_t* sigev_notify_attributes;
         int __sigev_pad2;
+    }
+}
+else version (Emscripten)
+{
+    struct sigevent
+    {
+        sigval sigev_value;
+        int sigev_signo;
+        int sigev_notify;
+
+        union
+        {
+            byte[64 - 2 * int.sizeof - sigval.sizeof] __pad;
+            pid_t sigev_notify_thread_id;
+            struct
+            {
+                void function(sigval) sigev_notify_function;
+                pthread_attr_t* sigev_notify_attributes;
+            }
+        }
     }
 }
 else version (CRuntime_WASI)

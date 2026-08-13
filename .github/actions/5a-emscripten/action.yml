@@ -1,4 +1,4 @@
-name: "Emscripten: Cross-compile druntime & phobos incl. test runners, install libs + .conf, run druntime unittests"
+name: "Emscripten: Cross-compile druntime & phobos incl. test runners, install libs + .conf, run druntime & phobos unittests"
 inputs:
   arch:
     required: true
@@ -42,6 +42,7 @@ runs:
         cd ../ldc-build-runtime.tmp
 
         ../emsdk/node/*/bin/node ./phobos2-test-runner-debug.js || true
+        ../emsdk/node/*/bin/node ./phobos2-test-runner.js || true
 
     - name: Run `importc_compare`
       shell: bash
@@ -57,10 +58,7 @@ runs:
           -defaultlib=druntime-ldc -L-Linstall/lib-$os-$arch \
           -gcc="$PWD/emsdk/upstream/emscripten/emcc" \
           --mtriple=$triple \
-          --d-version=WASI_EMULATED_SIGNAL \
-          --d-version=WASI_EMULATED_PROCESS_CLOCKS \
-          --d-version=WASI_EMULATED_MMAN \
           -I$PWD/ldc/runtime/druntime/test/importc_compare/src \
           $PWD/ldc/runtime/druntime/test/importc_compare/src/importc_compare.d
 
-        emsdk/node/*/bin/node ./importc_compare.js || true
+        emsdk/node/*/bin/node ./importc_compare.js
