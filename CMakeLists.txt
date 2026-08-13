@@ -954,16 +954,18 @@ makeConfSection(NAME "51-target-wasm-base"
 
 # Add a convenience config for *naked* wasm targets, omitting druntime/Phobos/libc
 # (and preferring built-in lld for linking) automatically.
-set(wasm_naked_link_internally)
+set(wasm_naked_switches)
 if(LDC_WITH_LLD)
-    set(wasm_naked_link_internally -link-internally)
+    list(APPEND wasm_naked_switches -link-internally)
+else()
+    # clang as default cross-linker driver usually works, with -nostdlib
+    list(APPEND wasm_naked_switches -Xcc=-nostdlib)
 endif()
 makeConfSection(NAME "55-target-wasm-naked"
     SECTION "^wasm(32|64)-.*-(unknown|none)"
     SWITCHES
         -defaultlib=
-        -Xcc=-nostdlib
-        ${wasm_naked_link_internally}
+        ${wasm_naked_switches}
     LIB_DIRS OVERRIDE
 )
 
