@@ -1,4 +1,4 @@
-// REQUIRES: target_WebAssembly, link_WebAssembly
+// REQUIRES: target_WebAssembly, internal_lld
 
 // emit textual IR *and* compile & link
 
