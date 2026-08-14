@@ -18,7 +18,7 @@ runs:
         bootstrap-ldc/bin/ldc-build-runtime \
           --ninja \
           --dFlags="-mtriple=$triple" \
-          --linkerFlags="--preload-file;/usr/share/zoneinfo@/tz" \
+          --linkerFlags="--preload-file;/usr/share/zoneinfo" \
           --ldcSrcDir="$PWD/ldc" \
           --installWithSuffix="-$os-$arch" \
           --testrunners \
@@ -42,7 +42,6 @@ runs:
         set -eux
         cd ../ldc-build-runtime.tmp
 
-        export TZDIR=/tz
         ../emsdk/node/*/bin/node ./phobos2-test-runner-debug.js || true
         ../emsdk/node/*/bin/node ./phobos2-test-runner.js || true
 
