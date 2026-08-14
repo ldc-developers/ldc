@@ -42,8 +42,8 @@ runs:
         set -eux
         cd ../ldc-build-runtime.tmp
 
-        ../emsdk/node/*/bin/node ./phobos2-test-runner-debug.js || true
-        ../emsdk/node/*/bin/node ./phobos2-test-runner.js || true
+        ../emsdk/node/*/bin/node ./phobos2-test-runner-debug.js
+        ../emsdk/node/*/bin/node ./phobos2-test-runner.js
 
     - name: Run `importc_compare`
       shell: bash
