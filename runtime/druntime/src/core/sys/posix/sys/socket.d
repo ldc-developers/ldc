@@ -1600,19 +1600,21 @@ else version (Solaris)
 }
 else version (Emscripten)
 {
+    // note: this is only a subset of the C declarations (covering what CRuntime_WASI does below)
+
     alias socklen_t = uint;
     alias sa_family_t = ushort;
 
     struct sockaddr
     {
         sa_family_t sa_family;
-        char[14]    sa_data = 0;
+        byte[14]    sa_data;
     }
 
     struct sockaddr_storage
     {
         sa_family_t ss_family;
-        char[128 - c_ulong.sizeof - sa_family_t.sizeof] __ss_padding = 0;
+        byte[128 - c_ulong.sizeof - sa_family_t.sizeof] __ss_padding;
         c_ulong __ss_align;
     }
 
@@ -1621,9 +1623,17 @@ else version (Emscripten)
         void*     msg_name;
         socklen_t msg_namelen;
         iovec*    msg_iov;
+        version (D_LP64) version (BigEndian)
+            int __pad1;
         int       msg_iovlen;
+        version (D_LP64) version (LittleEndian)
+            int __pad1;
         void*     msg_control;
+        version (D_LP64) version (BigEndian)
+            int __pad2;
         socklen_t msg_controllen;
+        version (D_LP64) version (LittleEndian)
+            int __pad2;
         int       msg_flags;
     }
 

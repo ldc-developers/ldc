@@ -19,7 +19,7 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
-version (Emscripten) enum SharedELF = false;
+version (WebAssembly) enum SharedELF = false;
 else version (CRuntime_Glibc) enum SharedELF = true;
 else version (CRuntime_Musl) enum SharedELF = true;
 else version (FreeBSD) enum SharedELF = true;

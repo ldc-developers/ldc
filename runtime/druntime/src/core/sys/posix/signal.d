@@ -425,30 +425,6 @@ version (linux)
         enum SIGUSR2    = 12;
         enum SIGURG     = 23;
     }
-    else version (Emscripten)
-    {
-        //SIGABRT (defined in core.stdc.signal)
-        enum SIGALRM    = 14;
-        enum SIGBUS     = 7;
-        enum SIGCHLD    = 17;
-        enum SIGCONT    = 18;
-        //SIGFPE (defined in core.stdc.signal)
-        enum SIGHUP     = 1;
-        //SIGILL (defined in core.stdc.signal)
-        //SIGINT (defined in core.stdc.signal)
-        enum SIGKILL    = 9;
-        enum SIGPIPE    = 13;
-        enum SIGQUIT    = 3;
-        //SIGSEGV (defined in core.stdc.signal)
-        enum SIGSTOP    = 19;
-        //SIGTERM (defined in core.stdc.signal)
-        enum SIGTSTP    = 20;
-        enum SIGTTIN    = 21;
-        enum SIGTTOU    = 22;
-        enum SIGUSR1    = 10;
-        enum SIGUSR2    = 12;
-        enum SIGURG     = 23;
-    }
     else
         static assert(0, "unimplemented");
 }
@@ -1529,17 +1505,85 @@ else version (Solaris)
 }
 else version (Emscripten)
 {
+    enum SIG_HOLD = cast(sigfn_t2) 2;
+
     struct sigset_t
     {
         c_ulong[2] __bits;
-
     }
+
+    enum SA_NOCLDSTOP   = 1;
 
     enum SIG_BLOCK      = 0;
     enum SIG_UNBLOCK    = 1;
     enum SIG_SETMASK    = 2;
 
-    struct siginfo_t; // FIXME
+    struct siginfo_t
+    {
+        int si_signo;
+        int si_errno;
+        int si_code;
+
+        union /* __si_fields */
+        {
+            byte[128 - 2 * int.sizeof - c_long.sizeof] __pad;
+
+            struct /* __si_common */
+            {
+                union /* __first */
+                {
+                    struct /* __piduid */
+                    {
+                        pid_t si_pid;
+                        uid_t si_uid;
+                    }
+                    struct /* __timer */
+                    {
+                        int si_timerid;
+                        int si_overrun;
+                    }
+                }
+                union /* __second */
+                {
+                    sigval si_value;
+                    struct /* __sigchld */
+                    {
+                        int si_status;
+                        clock_t si_utime;
+                        clock_t si_stime;
+                    }
+                }
+            }
+
+            struct /* __sigfault */
+            {
+                void* si_addr;
+                short si_addr_lsb;
+                union /* __first */
+                {
+                    struct /* __addr_bnd */
+                    {
+                        void* si_lower;
+                        void* si_upper;
+                    }
+                    uint si_pkey;
+                }
+            }
+
+            struct /* __sigpoll */
+            {
+                c_long si_band;
+                int si_fd;
+            }
+
+            struct /* __sigsys */
+            {
+                void* si_call_addr;
+                int si_syscall;
+                uint si_arch;
+            }
+        }
+    }
 
     enum
     {
@@ -1936,16 +1980,6 @@ version (linux)
         enum SIGXFSZ    = 25;
     }
     else version (LoongArch64)
-    {
-        enum SIGPOLL    = 29;
-        enum SIGPROF    = 27;
-        enum SIGSYS     = 31;
-        enum SIGTRAP    = 5;
-        enum SIGVTALRM  = 26;
-        enum SIGXCPU    = 24;
-        enum SIGXFSZ    = 25;
-    }
-    else version (Emscripten)
     {
         enum SIGPOLL    = 29;
         enum SIGPROF    = 27;
@@ -2556,6 +2590,79 @@ else version (Emscripten)
     enum SIGXCPU    = 24;
     enum SIGXFSZ    = 25;
     enum SIGUNUSED  = SIGSYS;
+
+    enum SA_ONSTACK   = 0x08000000;
+    enum SA_RESETHAND = 0x80000000;
+    enum SA_RESTART   = 0x10000000;
+    enum SA_SIGINFO   = 4;
+    enum SA_NOCLDWAIT = 2;
+    enum SA_NODEFER   = 0x40000000;
+
+    enum SA_NOMASK      = SA_NODEFER;
+    enum SA_ONESHOT     = SA_RESETHAND;
+
+    enum
+    {
+        ILL_ILLOPC = 1,
+        ILL_ILLOPN,
+        ILL_ILLADR,
+        ILL_ILLTRP,
+        ILL_PRVOPC,
+        ILL_PRVREG,
+        ILL_COPROC,
+        ILL_BADSTK
+    }
+
+    enum
+    {
+        FPE_INTDIV = 1,
+        FPE_INTOVF,
+        FPE_FLTDIV,
+        FPE_FLTOVF,
+        FPE_FLTUND,
+        FPE_FLTRES,
+        FPE_FLTINV,
+        FPE_FLTSUB
+    }
+
+    enum
+    {
+        SEGV_MAPERR = 1,
+        SEGV_ACCERR
+    }
+
+    enum
+    {
+        BUS_ADRALN = 1,
+        BUS_ADRERR,
+        BUS_OBJERR
+    }
+
+    enum
+    {
+        TRAP_BRKPT = 1,
+        TRAP_TRACE
+    }
+
+    enum
+    {
+        CLD_EXITED = 1,
+        CLD_KILLED,
+        CLD_DUMPED,
+        CLD_TRAPPED,
+        CLD_STOPPED,
+        CLD_CONTINUED
+    }
+
+    enum
+    {
+        POLL_IN = 1,
+        POLL_OUT,
+        POLL_MSG,
+        POLL_ERR,
+        POLL_PRI,
+        POLL_HUP
+    }
 }
 else version (CRuntime_WASI)
 {
@@ -3204,11 +3311,11 @@ else version (Emscripten)
         int sigev_signo;
         int sigev_notify;
 
-        union
+        union /* __sev_fields */
         {
             byte[64 - 2 * int.sizeof - sigval.sizeof] __pad;
             pid_t sigev_notify_thread_id;
-            struct
+            struct /* __sev_thread */
             {
                 void function(sigval) sigev_notify_function;
                 pthread_attr_t* sigev_notify_attributes;

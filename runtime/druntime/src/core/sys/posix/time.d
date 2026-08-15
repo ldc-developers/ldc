@@ -283,7 +283,9 @@ else version (Emscripten)
     struct timespec
     {
         time_t  tv_sec;
+        int : 8 * (time_t.sizeof - c_long.sizeof) * (BYTE_ORDER == BIG_ENDIAN);
         c_long  tv_nsec;
+        int : 8 * (time_t.sizeof - c_long.sizeof) * (BYTE_ORDER != BIG_ENDIAN);
     }
 }
 else version (CRuntime_WASI)

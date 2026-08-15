@@ -440,7 +440,7 @@ jobs:
           arch: ${{ matrix.arch }}
           os: ${{ matrix.os }}
           is_addon: true
-      - name: 'Smoke-test add-on package'
+      - name: Smoke-test add-on package
         run: |
           set -eux
           # unpack addon archive into ../bootstrap-ldc

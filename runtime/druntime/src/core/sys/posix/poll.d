@@ -358,13 +358,13 @@ else version (Emscripten)
         POLLIN      = 0x0001,
         POLLPRI     = 0x0002,
         POLLOUT     = 0x0004,
+        POLLERR     = 0x0008,
+        POLLHUP     = 0x0010,
+        POLLNVAL    = 0x0020,
         POLLRDNORM  = 0x0040,
         POLLRDBAND  = 0x0080,
         POLLWRNORM  = 0x0100,
         POLLWRBAND  = 0x0200,
-        POLLERR     = 0x0008,
-        POLLHUP     = 0x0010,
-        POLLNVAL    = 0x0020,
     }
 }
 else version (CRuntime_WASI)
