@@ -188,11 +188,11 @@ else version (Emscripten)
     ///
     enum MAX_INPUT      = 255;
     ///
-    enum NAME_MAX       = 14;
+    enum NAME_MAX       = 255;
     ///
-    enum PATH_MAX       = 256;
+    enum PATH_MAX       = 4096;
     ///
-    enum PIPE_BUF       = 512;
+    enum PIPE_BUF       = 4096;
 }
 else version (CRuntime_WASI)
 {
