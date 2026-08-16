@@ -537,15 +537,30 @@ enum sig_atomic_t SIG_ATOMIC_MAX = sig_atomic_t.max;
 ///
 enum size_t  SIZE_MAX  = size_t.max;
 
-///
-enum wchar_t WCHAR_MIN = wchar_t.min;
-///
-enum wchar_t WCHAR_MAX = wchar_t.max;
+version (Emscripten) // wchar_t/wint_t is actually int
+{
+    ///
+    enum WCHAR_MIN = int.min;
+    ///
+    enum WCHAR_MAX = int.max;
 
-///
-enum wint_t  WINT_MIN  = wint_t.min;
-///
-enum wint_t  WINT_MAX  = wint_t.max;
+    ///
+    enum WINT_MIN  = int.min;
+    ///
+    enum WINT_MAX  = int.max;
+}
+else
+{
+    ///
+    enum wchar_t WCHAR_MIN = wchar_t.min;
+    ///
+    enum wchar_t WCHAR_MAX = wchar_t.max;
+
+    ///
+    enum wint_t  WINT_MIN  = wint_t.min;
+    ///
+    enum wint_t  WINT_MAX  = wint_t.max;
+}
 
 ///
 alias INT8_C  = _typify!int8_t ;

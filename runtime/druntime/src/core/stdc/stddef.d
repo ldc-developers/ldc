@@ -29,11 +29,6 @@ version (Windows)
     ///
     alias wchar_t = wchar;
 }
-else version (Emscripten)
-{
-    ///
-    alias wchar_t = int;
-}
 else version (Posix)
 {
     ///
