@@ -179,8 +179,16 @@ else
 ///
 alias wint_t = wchar_t;
 
-///
-enum wchar_t WEOF = 0xFFFF;
+version (Emscripten)
+{
+    ///
+    enum WEOF = uint.max;
+}
+else
+{
+    ///
+    enum wchar_t WEOF = 0xFFFF;
+}
 
 version (CRuntime_Glibc)
 {
