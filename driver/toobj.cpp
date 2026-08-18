@@ -19,12 +19,18 @@
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
@@ -63,21 +69,61 @@ void inlineDComputeKernelFunctions(llvm::Module *m) {
   // about to build.
   llvm::legacy::PassManager Passes;
 
-  llvm::SmallPtrSet<llvm::Function*, 8> kernelFunctions;
+  llvm::SmallPtrSet<llvm::Function*, 8> kernels;
+  llvm::SmallPtrSet<llvm::Function*, 16> reachable;
+  llvm::SmallVector<llvm::Function*, 16> worklist;
 
   // Extract all the kernel functions
+  // Prepare worklist to run simple fixed point for calling functions
   if (auto *kernelMetadata = m->getNamedMetadata("air.kernel")) {
     for(auto *op: kernelMetadata->operands()) {
-      if (auto *F = llvm::mdconst::dyn_extract<llvm::Function>(op->getOperand(0))) {
-        kernelFunctions.insert(F);
+      auto *F = llvm::mdconst::dyn_extract<llvm::Function>(op->getOperand(0));
+
+      if (!F) {
+        continue;
+      }
+
+      kernels.insert(F);
+
+      if (reachable.insert(F).second) {
+        worklist.push_back(F);
       }
     }
   }
 
-  // Prepare non-kernel functions to be inlined
-  for(auto& F: *m) {
-    if (!F.isDeclaration() && !kernelFunctions.contains(&F)) {
-     F.addFnAttr(llvm::Attribute::AlwaysInline);
+  if (kernels.empty()) {
+    return;
+  }
+
+  size_t index = 0;
+  while (index < worklist.size()) {
+    llvm::Function *F = worklist[index++];
+
+    for (llvm::BasicBlock &BB: *F) {
+      for (llvm::Instruction &I: BB) {
+          auto *call = llvm::dyn_cast<llvm::CallBase>(&I);
+
+          if (!call) {
+            continue;
+          }
+
+          auto *callee = call->getCalledFunction();
+
+          if (!callee || callee->isDeclaration()) {
+            continue;
+          }
+
+          if (reachable.insert(callee).second) {
+            worklist.push_back(callee);
+          }
+      }
+    }
+  }
+
+  for (llvm::Function *F: reachable) {
+    // Inline everything that is not kernel function and not intrinsics
+    if (!kernels.contains(F) && !F->isDeclaration()) {
+      F->addFnAttr(llvm::Attribute::AlwaysInline);
     }
   }
 
@@ -89,6 +135,22 @@ void inlineDComputeKernelFunctions(llvm::Module *m) {
   if (global.errors || global.warnings) {
   error(Loc(), "Aborting because of errors/warnings during LLVM passes");
     fatal();
+  }
+
+  llvm::SmallVector<llvm::Function*, 16> deadFunctions;
+
+  for (auto& F: *m) {
+    if (F.isDeclaration() || kernels.contains(&F)) {
+      continue;
+    }
+
+    if (F.use_empty()) {
+      deadFunctions.push_back(&F);
+    }
+  }
+
+  for (auto &F : deadFunctions) {
+      F->eraseFromParent();
   }
 }
 
