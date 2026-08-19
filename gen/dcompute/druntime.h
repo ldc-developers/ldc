@@ -31,7 +31,6 @@ struct DcomputePointer {
   Type *type;
   DcomputePointer(int as, Type *ty) : addrspace(as), type(ty) {}
   LLType *toLLVMType(bool translate) {
-    DtoType(type);
     int as = addrspace;
     if (translate)
       as = gIR->dcomputetarget->mapping[as];
