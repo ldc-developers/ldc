@@ -34,7 +34,7 @@ runs:
           --testrunners \
           CMAKE_INSTALL_PREFIX="$PWD/install" \
           RT_CONF_TRIPLE_REGEX="$arch-.*-$os" \
-          CMAKE_TOOLCHAIN_FILE="$PWD/wasi-sdk/share/cmake/wasi-sdk${toolchain_suffix}.cmake" \
+          CMAKE_TOOLCHAIN_FILE="$WASI_SDK_PATH/share/cmake/wasi-sdk${toolchain_suffix}.cmake" \
           BUILD_LTO_LIBS=ON
 
     - name: Run druntime unittests
@@ -44,8 +44,8 @@ runs:
         cd ../ldc-build-runtime.${{ inputs.os }}-${{ inputs.arch }}
 
         export WASMTIME_BACKTRACE_DETAILS=1
-        ../wasmtime/wasmtime -W exceptions ./druntime-test-runner-debug
-        ../wasmtime/wasmtime -W exceptions ./druntime-test-runner
+        wasmtime ./druntime-test-runner-debug
+        wasmtime ./druntime-test-runner
 
     - name: Run phobos unittests
       shell: bash
@@ -58,7 +58,7 @@ runs:
         export WASMTIME_BACKTRACE_DETAILS=1
 
         for testrunner in ./phobos2-test-runner*; do
-          ../wasmtime/wasmtime -W exceptions \
+          wasmtime \
             --dir testrunner_tmpdir::/ \
             --dir /usr/share/zoneinfo::/tz \
             --env TZDIR=/tz/ \
@@ -80,7 +80,7 @@ runs:
         # wasm-enable-sjlj only used so `setjmp.h` doesn't error out
         bootstrap-ldc/bin/ldc2 \
           -defaultlib=druntime-ldc -L-Linstall/lib-$os-$arch \
-          -gcc=wasi-sdk/bin/$arch-$os-clang \
+          -gcc=$WASI_SDK_PATH/bin/$arch-$os-clang \
           --mtriple=$triple \
           -P=-mllvm -P=-wasm-enable-sjlj \
           -P=-D_WASI_EMULATED_SIGNAL --d-version=WASI_EMULATED_SIGNAL \
@@ -90,4 +90,4 @@ runs:
           $PWD/ldc/runtime/druntime/test/importc_compare/src/importc_compare.d
 
         export WASMTIME_BACKTRACE_DETAILS=1
-        wasmtime/wasmtime -W exceptions ./importc_compare.wasm
+        wasmtime ./importc_compare.wasm
