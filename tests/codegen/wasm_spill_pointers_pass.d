@@ -1,3 +1,4 @@
+// REQUIRES: target_WebAssembly
 // REQUIRES: atleast_llvm22
 
 // atleast_llvm22 because the lifetime intrinsic signatures changed.

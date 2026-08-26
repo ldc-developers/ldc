@@ -1,3 +1,4 @@
+// REQUIRES: target_WebAssembly
 // optimize to create SSA IR
 // RUN: %ldc -mtriple=wasm32-unknown-unknown -betterC -O3 -c -output-ll -of=%t.ll %s
 // RUN: %ldc -mtriple=wasm32-unknown-unknown -disable-wasm-ptrs-spill -O3 -c -output-ll -of=%t.ll %s
