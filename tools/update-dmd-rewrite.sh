@@ -4,7 +4,7 @@ set -euxo pipefail
 # This script creates a fresh temporary clone of the DMD repo and rewrites
 # it (via `git filter-repo`) according to LDC requirements (removing
 # unnecessary files and transforming the directory structure).
-# Then it pushes new tags and updated master/stable branches (all prefixed
+# Then it pushes new tags and updated master/stable/v2.* branches (all prefixed
 # with `dmd-rewrite-`) to the LDC repo, i.e., the rewritten updates to
 # the DMD repo since the last successful script invocation.
 #
@@ -18,6 +18,7 @@ set -euxo pipefail
 
 initialize="${INITIALIZE:-0}" # set INITIALIZE=1 for the very first rewrite
 refs_prefix="dmd-rewrite-"
+branches=(master stable v2.113 v2.114)
 
 temp_dir="$(mktemp -d)"
 cd "$temp_dir"
@@ -81,9 +82,10 @@ git filter-repo \
   `# replace GitHub refs in commit messages` \
   --replace-message ../message-filters.txt
 
-# create prefixed master/stable branches
-git branch --no-track "${refs_prefix}master" master
-git branch --no-track "${refs_prefix}stable" stable
+# create prefixed branches
+for b in ${branches[@]}; do
+  git branch --no-track "${refs_prefix}$b" $b
+done
 
 # add LDC repo as `ldc` remote
 if [[ -v GITHUB_TOKEN ]]; then
@@ -115,8 +117,8 @@ if [[ "$initialize" != 1 ]]; then
   fi
 fi
 
-# push prefixed master/stable branches and tags
-git push --tags --atomic ldc "${refs_prefix}master" "${refs_prefix}stable"
+# push prefixed branches and tags
+git push --tags --atomic ldc ${branches[@]/#/${refs_prefix}}
 
 cd ../..
 rm -rf "$temp_dir"
