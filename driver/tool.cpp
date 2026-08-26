@@ -96,6 +96,8 @@ llvm::SmallVector<std::string, 2> findCCFallback() {
       choices = {{"wasm32-wasi-clang"}};
       break;
     }
+  } else if (triple.isOSEmscripten()) {
+    choices = { { "emcc" } };
   } else {
     choices = {
       { opts::mTargetTriple + "-gcc" },

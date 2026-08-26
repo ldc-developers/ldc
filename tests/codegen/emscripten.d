@@ -7,7 +7,8 @@
 // test predefined versions:
 
 version (Emscripten) {} else static assert(0);
-version (linux) {} else static assert(0);
+version (WASI) {} else static assert(0);
+version (WASIp1) {} else static assert(0);
 version (Posix) {} else static assert(0);
 version (CRuntime_Musl) {} else static assert(0);
 version (CppRuntime_LLVM) {} else static assert(0);

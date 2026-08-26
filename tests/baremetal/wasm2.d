@@ -1,7 +1,7 @@
 // A more complex naked wasm example using Phobos templates.
 
 // REQUIRES: target_WebAssembly
-// REQUIRES: link_WebAssembly
+// REQUIRES: internal_lld
 
 // RUN: %ldc -mtriple=wasm32-unknown-unknown -w -L--export-dynamic %s -of=%t.wasm
 

@@ -103,9 +103,8 @@ static std::string getOutputPath() {
     extension = target.dll_ext.ptr;
   } else if (triple.isOSWindows()) {
     extension = "exe";
-  } else if (triple.getArch() == llvm::Triple::wasm32 ||
-             triple.getArch() == llvm::Triple::wasm64) {
-    extension = "wasm";
+  } else if (triple.isWasm()) {
+    extension = triple.isOSEmscripten() ? "js" : "wasm";
   }
 
   if (global.params.exefile.length) {

@@ -164,6 +164,10 @@ else version (Solaris)
 {
     enum CLOCK_MONOTONIC = 4;
 }
+else version (Emscripten)
+{
+    enum CLOCK_MONOTONIC = 1;
+}
 else version (CRuntime_WASI)
 {
     struct __clockid;
@@ -273,6 +277,16 @@ else version (Solaris)
     }
 
     alias timestruc_t = timespec;
+}
+else version (Emscripten)
+{
+    struct timespec
+    {
+        time_t  tv_sec;
+        int : 8 * (time_t.sizeof - c_long.sizeof) * (BYTE_ORDER == BIG_ENDIAN);
+        c_long  tv_nsec;
+        int : 8 * (time_t.sizeof - c_long.sizeof) * (BYTE_ORDER != BIG_ENDIAN);
+    }
 }
 else version (CRuntime_WASI)
 {

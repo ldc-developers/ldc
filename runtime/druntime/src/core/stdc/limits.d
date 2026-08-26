@@ -181,6 +181,19 @@ else version (Windows)
     ///
     enum PIPE_BUF       = 5120;
 }
+else version (Emscripten)
+{
+    ///
+    enum MAX_CANON      = 255;
+    ///
+    enum MAX_INPUT      = 255;
+    ///
+    enum NAME_MAX       = 255;
+    ///
+    enum PATH_MAX       = 4096;
+    ///
+    enum PIPE_BUF       = 4096;
+}
 else version (CRuntime_WASI)
 {
     ///

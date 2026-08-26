@@ -635,6 +635,8 @@ void ArgsBuilder::addLinker() {
 //////////////////////////////////////////////////////////////////////////////
 
 void ArgsBuilder::addUserSwitches() {
+  const bool isEmcc = global.params.targetTriple->isOSEmscripten();
+
   // additional linker and cc switches (preserve order across both lists)
   for (unsigned ilink = 0, icc = 0;;) {
     unsigned linkpos = ilink < opts::linkerSwitches.size()
@@ -654,7 +656,14 @@ void ArgsBuilder::addUserSwitches() {
       if (!(str.starts_with("-l") || str.starts_with("-L") ||
             str.starts_with("-Wl,") || str.starts_with("-shared") ||
             str.starts_with("-static"))) {
-        args.push_back("-Xlinker");
+        // avoid `-Xlinker <p>` for Emscripten's emcc, seems buggy; use
+        // `-Wl,<p>` instead
+        if (isEmcc) {
+          args.push_back("-Wl," + p);
+          continue;
+        } else {
+          args.push_back("-Xlinker");
+        }
       }
       args.push_back(p);
     } else if (ccpos < linkpos) {
@@ -807,16 +816,8 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
 #endif
 
   // build command-line for gcc-compatible linker driver
-  // exception: invoke (ld-compatible) linker directly for WebAssembly targets
-  std::string tool;
-  std::unique_ptr<ArgsBuilder> argsBuilder;
-  if (global.params.targetTriple->isOSBinFormatWasm() && !global.params.targetTriple->isOSWASI()) {
-    argsBuilder = std::make_unique<LdArgsBuilder>();
-    tool = getProgram("wasm-ld", &opts::linker);
-  } else {
-    argsBuilder = std::make_unique<ArgsBuilder>();
-    tool = getCC(argsBuilder->args);
-  }
+  auto argsBuilder = std::make_unique<ArgsBuilder>();
+  std::string tool = getCC(argsBuilder->args);
 
   // build arguments
   argsBuilder->build(outputPath, defaultLibNames);

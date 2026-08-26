@@ -960,8 +960,8 @@ void registerPredefinedTargetVersions() {
 #endif
   case llvm::Triple::Emscripten:
     VersionCondition::addPredefinedGlobalIdent("Emscripten");
-    // Emscripten uses musl and libc++, so mimic a musl Linux platform:
-    VersionCondition::addPredefinedGlobalIdent("linux");
+    VersionCondition::addPredefinedGlobalIdent("WASI");
+    VersionCondition::addPredefinedGlobalIdent("WASIp1");
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_LLVM");

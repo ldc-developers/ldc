@@ -310,6 +310,13 @@ if(NOT PHOBOS2_DIR)
     list(APPEND switches -defaultlib=druntime-ldc)
 endif()
 
+# Default to letting Emscripten executables grow their memory.
+if("${TARGET_SYSTEM}" MATCHES "Emscripten")
+    list(APPEND switches "-Xcc=-sALLOW_MEMORY_GROWTH")
+    # also for the druntime/Phobos test runners
+    append("-sALLOW_MEMORY_GROWTH" LD_FLAGS)
+endif()
+
 set(build_libdir "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
 set(install_libdir "${CMAKE_INSTALL_LIBDIR}")
 

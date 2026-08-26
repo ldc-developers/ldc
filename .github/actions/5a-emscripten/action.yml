@@ -1,0 +1,65 @@
+name: "Emscripten: Cross-compile druntime & phobos incl. test runners, install libs + .conf, run druntime & phobos unittests"
+inputs:
+  arch:
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Cross-compile druntime & phobos incl. test runners & install libs + .conf
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        os='emscripten'
+        arch='${{ inputs.arch }}'
+        triple="$arch-unknown-$os"
+
+        bootstrap-ldc/bin/ldc-build-runtime \
+          --ninja \
+          --dFlags="-mtriple=$triple" \
+          --linkerFlags="--preload-file;/usr/share/zoneinfo" \
+          --ldcSrcDir="$PWD/ldc" \
+          --installWithSuffix="-$os-$arch" \
+          --testrunners \
+          CMAKE_INSTALL_PREFIX="$PWD/install" \
+          RT_CONF_TRIPLE_REGEX="$arch-.*-$os" \
+          CMAKE_TOOLCHAIN_FILE="$PWD/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake" \
+          BUILD_LTO_LIBS=ON
+
+    - name: Run druntime unittests
+      shell: bash
+      run: |
+        set -eux
+        cd ../ldc-build-runtime.tmp
+
+        ../emsdk/node/*/bin/node ./druntime-test-runner-debug.js
+        ../emsdk/node/*/bin/node ./druntime-test-runner.js
+
+    - name: Run phobos unittests
+      shell: bash
+      run: |
+        set -eux
+        cd ../ldc-build-runtime.tmp
+
+        ../emsdk/node/*/bin/node ./phobos2-test-runner-debug.js
+        ../emsdk/node/*/bin/node ./phobos2-test-runner.js
+
+    - name: Run `importc_compare`
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        os='emscripten'
+        arch='${{ inputs.arch }}'
+        triple="$arch-unknown-$os"
+
+        bootstrap-ldc/bin/ldc2 \
+          -defaultlib=druntime-ldc -L-Linstall/lib-$os-$arch \
+          -gcc="$PWD/emsdk/upstream/emscripten/emcc" \
+          --mtriple=$triple \
+          -I$PWD/ldc/runtime/druntime/test/importc_compare/src \
+          $PWD/ldc/runtime/druntime/test/importc_compare/src/importc_compare.d
+
+        emsdk/node/*/bin/node ./importc_compare.js

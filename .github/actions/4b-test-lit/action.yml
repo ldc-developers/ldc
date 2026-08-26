@@ -23,8 +23,7 @@ runs:
         fi
 
         cd ../build
-        # temporarily add LLVM bin dir to PATH, so that e.g. wasm-ld is found
-        PATH="$PWD/../llvm/bin:$PATH" ctest -V -R "lit-tests"
+        ctest -V -R "lit-tests"
 
     - name: 'Windows: Run LIT testsuite'
       if: runner.os == 'Windows'
