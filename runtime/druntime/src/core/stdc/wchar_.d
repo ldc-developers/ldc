@@ -176,16 +176,19 @@ else
     alias mbstate_t = int;
 }
 
-///
-alias wint_t = wchar_t;
-
-version (Emscripten)
+version (WASI) // incl. Emscripten
 {
+    ///
+    alias wint_t = int;
+
     ///
     enum WEOF = uint.max;
 }
 else
 {
+    ///
+    alias wint_t = wchar_t;
+
     ///
     enum wchar_t WEOF = 0xFFFF;
 }

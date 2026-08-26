@@ -214,7 +214,7 @@ else
 enum int MATH_ERRNO       = 1;
 ///
 enum int MATH_ERREXCEPT   = 2;
-version (Emscripten)
+version (WASI) // incl. Emscripten
 {
     ///
     enum int math_errhandling = 2;
