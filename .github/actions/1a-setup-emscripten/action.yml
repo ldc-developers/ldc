@@ -2,7 +2,7 @@ name: "Emscripten: Install additional prerequisites"
 inputs:
   emsdk_version:
     required: false
-    default: '6.0.6'
+    default: '6.0.8'
 runs:
   using: composite
   steps:
