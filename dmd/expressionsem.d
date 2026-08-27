@@ -5011,10 +5011,22 @@ private void lowerCastExp(CastExp cex, Scope* sc)
     ClassDeclaration cdto   = tob.isClassHandle();
 
     int offset;
-    if ((cdto.isBaseOf(cdfrom, &offset) && offset != ClassDeclaration.OFFSET_RUNTIME)
-        || cdfrom.classKind == ClassKind.cpp || cdto.classKind == ClassKind.cpp)
-        return;
+    if (cdto.isBaseOf(cdfrom, &offset))
+        return; // codegen has to deal with pointer adjustment
 
+    if (cdfrom.classKind != ClassKind.d ||
+        (cdto.classKind != ClassKind.d && !cdto.isInterfaceDeclaration()))
+    {
+        if (cdfrom.classKind == cdto.classKind)
+            return; // for non-D classes, let the backend take care
+
+        // conversions across different linkage result in null
+        Expression lowerNull = new NullExp(cex.loc, cex.to);
+        cex.lowering = lowerNull .expressionSemantic(sc);
+        return;
+    }
+
+    // cast D -> unrelated D class / any interface calls _d_cast
     Identifier hook = Id._d_cast;
     if (!verifyHookExist(cex.loc, *sc, hook, "d_cast", Id.object))
         return;
@@ -12048,6 +12060,9 @@ version (IN_LLVM)
                         return setResult(res);
                     exp.e2 = res;
 
+                    if (auto ie1 = ae.e1.isIndexExp())
+                        ae.e1 = ie1.revertIndexAssignToRvalues(sc);
+
                     /* Rewrite (a[arguments] = e2) as:
                      *      a.opIndexAssign(e2, arguments)
                      */
@@ -12076,6 +12091,9 @@ version (IN_LLVM)
                         return setResult(res);
 
                     exp.e2 = res;
+
+                    if (auto ie1 = ae.e1.isIndexExp())
+                        ae.e1 = ie1.revertIndexAssignToRvalues(sc);
 
                     /* Rewrite (a[i..j] = e2) as:
                      *      a.opSliceAssign(e2, i, j)
