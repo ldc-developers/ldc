@@ -1,7 +1,5 @@
-// also check cross compilation, ensure targeting 64-bit
-// REQUIRED_ARGS: -m64 -os=osx
-// doesn't compile with mingw option -mscrtlib=msvcrt120
-// DISABLED: win32
+// LDC: no cross-compilation smoke-test as for DMD
+// EXTRA_OBJC_SOURCES:
 
 import core.attribute : selector;
 
