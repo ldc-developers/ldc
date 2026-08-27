@@ -64,6 +64,8 @@ void main()
     // for dmd, casting within Objective-C is a reinterpret cast
     version(DigitalMars)
         assert(cast(NSString) bar !is null);
+    else version (LDC)
+        assert(cast(NSString) bar is null);
 
     // casting from/to other linkage is always null
     static extern(C++) class Cpp {}
