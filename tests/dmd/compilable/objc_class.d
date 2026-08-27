@@ -1,3 +1,4 @@
+// LDC: no cross-compilation smoke-test as for DMD
 // EXTRA_OBJC_SOURCES:
 
 import core.attribute : selector;
