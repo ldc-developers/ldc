@@ -127,7 +127,7 @@ llvm::SmallVector<std::string, 2> findCCFallback() {
     error(Loc(), "could not find C compiler `%s`", choices[0][0].c_str());
   } else {
     error(Loc(), "could not find a C cross-compiler for this cross-compilation");
-    tip("make sure you have a compiler like `%s` installed and set $CC or pass -gcc accordingly", choices[0][0].c_str());
+    errorSupplemental(Loc(), "make sure you have a compiler like `%s` installed and set $CC or pass -gcc accordingly", choices[0][0].c_str());
   }
 
   fatal();
