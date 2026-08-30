@@ -919,6 +919,15 @@ add_subdirectory(tools)
 # Compiler ldc2.conf configuration
 #
 
+# --- issue #1958: expose LDC's own major.minor version to std.compiler ---
+string(REGEX MATCH "^[0-9]+\\.[0-9]+" LDC_VERSION_MAJOR_MINOR "${LDC_VERSION}")
+if(NOT LDC_VERSION_MAJOR_MINOR)
+    set(LDC_VERSION_MAJOR_MINOR "0.0")
+endif()
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/import")
+file(WRITE "${PROJECT_BINARY_DIR}/import/ldccompilerversion.txt" "${LDC_VERSION_MAJOR_MINOR}")
+# --- end issue #1958 (part 1) ---
+
 set(switches "-defaultlib=phobos2-ldc,druntime-ldc")
 makeConfSection(NAME "30-compiler" SECTION "default"
     BUILD
@@ -927,13 +936,15 @@ makeConfSection(NAME "30-compiler" SECTION "default"
     POST_SWITCHES
         "-I${PROJECT_SOURCE_DIR}/runtime/druntime/src"
         "-I${PROJECT_BINARY_DIR}/import"
+        "-J${PROJECT_BINARY_DIR}/import"
         "-I${PROJECT_SOURCE_DIR}/runtime/phobos"
         "-I${PROJECT_SOURCE_DIR}/runtime/jit-rt/d"
 
     INSTALL
     SWITCHES ${switches}
-    POST_SWITCHES "-I${INCLUDE_INSTALL_DIR}"
+    POST_SWITCHES "-I${INCLUDE_INSTALL_DIR}" "-J${INCLUDE_INSTALL_DIR}"
 )
+# --- end issue #1958 (part 2) ---
 
 # Add a base config for all wasm targets, setting some linker defaults and enabling EH.
 set(wasm_eh_switches --wasm-enable-eh)
@@ -1090,6 +1101,7 @@ foreach(p core etc ldc)
     install(DIRECTORY runtime/druntime/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
 endforeach()
 install(DIRECTORY runtime/phobos/std DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+install(FILES "${PROJECT_BINARY_DIR}/import/ldccompilerversion.txt" DESTINATION ${INCLUDE_INSTALL_DIR})
 install(DIRECTORY runtime/phobos/etc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
 install(DIRECTORY runtime/jit-rt/d/ldc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
 install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
