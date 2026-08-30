@@ -1,6 +1,14 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.43.0 (2026-08-30)
+
+#### Big news
 - Frontend, druntime and Phobos are at version [2.113.0](https://dlang.org/changelog/2.113.0.html), incl. new command-line option `-foptimize-nothrow` to restore the `nothrow` optimizations. (#5113, #5221, #5239, #5273)
   - `-foptimize-nothrow` is the default setting when targeting Windows or WebAssembly, to make hitting https://github.com/ldc-developers/ldc/issues/3504 much less likely.
 - Support for [LLVM 22](https://releases.llvm.org/22.1.0/docs/ReleaseNotes.html). The prebuilt packages use v22.1.8. (#5097, #5102, #5172)
