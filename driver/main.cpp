@@ -1177,6 +1177,9 @@ int cppmain() {
   global._init();
   global.ldc_version = {strlen(ldc::ldc_version), ldc::ldc_version};
   global.llvm_version = {strlen(ldc::llvm_version), ldc::llvm_version};
+#if defined(LDC_VERSION_MAJOR) && defined(LDC_VERSION_MINOR)
+  global.compileEnv.ldcVersionNumber = LDC_VERSION_MAJOR * 1000 + LDC_VERSION_MINOR;
+#endif
 
   // Initialize LLVM before parsing the command line so that --version shows
   // registered targets.

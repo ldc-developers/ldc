@@ -178,6 +178,7 @@ immutable Msgtable[] msgtable =
     { "TIMESTAMP", "__TIMESTAMP__" },
     { "VENDOR", "__VENDOR__" },
     { "VERSIONX", "__VERSION__" },
+    { "LDC_VERSIONX", "__LDC_VERSION__" }, // IN_LLVM
     { "EOFX", "__EOF__" },
 
     { "nan" },

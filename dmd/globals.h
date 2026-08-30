@@ -408,6 +408,7 @@ const DString s_ext = "s";
 struct CompileEnv
 {
     uint32_t versionNumber;
+    uint32_t ldcVersionNumber;
     DString date;
     DString time;
     DString vendor;

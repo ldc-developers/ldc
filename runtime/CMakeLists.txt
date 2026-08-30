@@ -54,12 +54,6 @@ set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest -checkaction=
 
 # Shadow the D_FLAGS cache variable by a regular variable containing all base D flags
 set(D_FLAGS ${D_FLAGS} ${D_EXTRA_FLAGS})
-
-# --- issue #1958: expose LDC's own major.minor version to std.compiler (build-time) ---
-list(APPEND D_FLAGS "-J${CMAKE_BINARY_DIR}/import")
-# --- end issue #1958 (build-time) ---
-
-
 if (RT_SUPPORT_SANITIZERS)
     message(STATUS "Building runtime libraries with sanitizer support")
     list(APPEND D_FLAGS -d-version=SupportSanitizers)
