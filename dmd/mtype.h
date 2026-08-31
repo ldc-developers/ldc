@@ -33,6 +33,8 @@ class TemplateDeclaration;
 class TypeBasic;
 class Parameter;
 
+class UnpackDeclaration;
+
 // Back end
 #ifdef IN_GCC
 typedef union tree_node type;
@@ -133,7 +135,6 @@ enum VarArgValues
     VARARGnone     = 0,  /// fixed number of arguments
     VARARGvariadic = 1,  /// T t, ...)  can be C-style (core.stdc.stdarg) or D-style (core.vararg)
     VARARGtypesafe = 2,  /// T t ...) typesafe https://dlang.org/spec/function.html#typesafe_variadic_functions
-                         ///   or https://dlang.org/spec/function.html#typesafe_variadic_functions
     VARARGKRvariadic = 3 /// K+R C style variadics (no function prototype)
 };
 typedef unsigned char VarArg;
@@ -226,7 +227,7 @@ public:
 
     static void _init() { return dmd::Type_init(); }
 
-    virtual const char *kind();
+    virtual const char *kind() const;
     Type *copy() const;
     virtual Type *syntaxCopy();
     bool equals(const Type * const t) const;
@@ -295,7 +296,7 @@ public:
 class TypeError final : public Type
 {
 public:
-    const char *kind() override;
+    const char *kind() const override;
     TypeError *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -316,7 +317,7 @@ public:
     const char *dstring;
     unsigned flags;
 
-    const char *kind() override;
+    const char *kind() const override;
     TypeBasic *syntaxCopy() override;
 
     // For eliminating dynamic_cast
@@ -330,7 +331,7 @@ public:
     Type *basetype;
 
     static TypeVector *create(Type *basetype);
-    const char *kind() override;
+    const char *kind() const override;
     TypeVector *syntaxCopy() override;
     TypeBasic *elementType();
 
@@ -349,7 +350,7 @@ class TypeSArray final : public TypeArray
 public:
     Expression *dim;
 
-    const char *kind() override;
+    const char *kind() const override;
     TypeSArray *syntaxCopy() override;
     bool isIncomplete();
 
@@ -360,7 +361,7 @@ public:
 class TypeDArray final : public TypeArray
 {
 public:
-    const char *kind() override;
+    const char *kind() const override;
     TypeDArray *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -373,7 +374,7 @@ public:
     Loc loc;
 
     static TypeAArray *create(Type *t, Type *index);
-    const char *kind() override;
+    const char *kind() const override;
     TypeAArray *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -383,7 +384,7 @@ class TypePointer final : public TypeNext
 {
 public:
     static TypePointer *create(Type *t);
-    const char *kind() override;
+    const char *kind() const override;
     TypePointer *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -392,7 +393,7 @@ public:
 class TypeReference final : public TypeNext
 {
 public:
-    const char *kind() override;
+    const char *kind() const override;
     TypeReference *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -434,9 +435,11 @@ public:
     Identifier *ident;
     Expression *defaultArg;
     UserAttributeDeclaration *userAttribDecl;   // user defined attributes
+    UnpackDeclaration *unpack;
 
     static Parameter *create(Loc loc, StorageClass storageClass, Type *type, Identifier *ident,
-                             Expression *defaultArg, UserAttributeDeclaration *userAttribDecl);
+                             Expression *defaultArg, UserAttributeDeclaration *userAttribDecl,
+                             UnpackDeclaration *unpack);
     Parameter *syntaxCopy();
     bool isLazy() const;
     bool isReference() const;
@@ -475,7 +478,7 @@ public:
     ArgumentList inferenceArguments; // function arguments
 
     static TypeFunction *create(Parameters *parameters, Type *treturn, VarArg varargs, LINK linkage, StorageClass stc = 0);
-    const char *kind() override;
+    const char *kind() const override;
     TypeFunction *syntaxCopy() override;
     bool hasLazyParameters();
     bool isDstyleVariadic() const;
@@ -495,6 +498,8 @@ public:
     void isReturnScope(bool v);
     bool isRvalue() const;
     void isRvalue(bool v);
+    bool isCtfeOnly() const;
+    void isCtfeOnly(bool v);
     bool isScopeQual() const;
     void isScopeQual(bool v);
     bool isReturnInferred() const;
@@ -520,7 +525,7 @@ public:
     // .next is a TypeFunction
 
     static TypeDelegate *create(TypeFunction *t);
-    const char *kind() override;
+    const char *kind() const override;
     TypeDelegate *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -534,7 +539,7 @@ class TypeTraits final : public Type
     /// Cached type/symbol after semantic analysis.
     RootObject *obj;
 
-    const char *kind() override;
+    const char *kind() const override;
     TypeTraits *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -545,7 +550,7 @@ class TypeMixin final : public Type
     Expressions *exps;
     RootObject *obj;
 
-    const char *kind() override;
+    const char *kind() const override;
     TypeMixin *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -568,7 +573,7 @@ public:
     Identifier *ident;
 
     static TypeIdentifier *create(Loc loc, Identifier *ident);
-    const char *kind() override;
+    const char *kind() const override;
     TypeIdentifier *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -580,7 +585,7 @@ class TypeInstance final : public TypeQualified
 public:
     TemplateInstance *tempinst;
 
-    const char *kind() override;
+    const char *kind() const override;
     TypeInstance *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -591,7 +596,7 @@ public:
     Expression *exp;
     int inuse;
 
-    const char *kind() override;
+    const char *kind() const override;
     TypeTypeof *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -599,7 +604,7 @@ public:
 class TypeReturn final : public TypeQualified
 {
 public:
-    const char *kind() override;
+    const char *kind() const override;
     TypeReturn *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -624,7 +629,7 @@ public:
     d_bool inuse;
 
     static TypeStruct *create(StructDeclaration *sym);
-    const char *kind() override;
+    const char *kind() const override;
     TypeStruct *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -635,7 +640,7 @@ class TypeEnum final : public Type
 public:
     EnumDeclaration *sym;
 
-    const char *kind() override;
+    const char *kind() const override;
     TypeEnum *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -648,7 +653,7 @@ public:
     AliasThisRec att;
     CPPMANGLE cppmangle;
 
-    const char *kind() override;
+    const char *kind() const override;
     TypeClass *syntaxCopy() override;
     ClassDeclaration *isClassHandle() override;
     bool isScopeClass() override;
@@ -668,7 +673,7 @@ public:
     static TypeTuple *create();
     static TypeTuple *create(Type *t1);
     static TypeTuple *create(Type *t1, Type *t2);
-    const char *kind() override;
+    const char *kind() const override;
     TypeTuple *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -679,7 +684,7 @@ public:
     Expression *lwr;
     Expression *upr;
 
-    const char *kind() override;
+    const char *kind() const override;
     TypeSlice *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -687,7 +692,7 @@ public:
 class TypeNull final : public Type
 {
 public:
-    const char *kind() override;
+    const char *kind() const override;
 
     TypeNull *syntaxCopy() override;
 
@@ -697,7 +702,7 @@ public:
 class TypeNoreturn final : public Type
 {
 public:
-    const char *kind() override;
+    const char *kind() const override;
     TypeNoreturn *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -741,7 +746,7 @@ namespace dmd
     Type *sharedWildOf(Type *type);
     Type *sharedWildConstOf(Type *type);
     Type *unqualify(Type *type, unsigned m);
-    Type *toHeadMutable(Type *type);
+    Type *toHeadMutable(const Type *type);
     Type *aliasthisOf(Type *type);
     Type *castMod(Type *type, MOD mod);
     Type *addMod(Type *type, MOD mod);

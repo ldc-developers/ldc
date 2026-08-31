@@ -135,11 +135,17 @@ else version (AArch64)
     else version = WithArgTypes;
 }
 
+static assert(Object.__monitor.offsetof == size_t.sizeof);
+
 /**
  * All D class objects inherit from Object.
  */
 class Object
 {
+    // This is an internal field that is omitted from .tupleof, __traits(allMembers), pointer bitmaps etc.
+    // It can be removed in a custom druntime, but if it's there it must remain the first field.
+    void* __monitor;
+
     /**
      * Convert Object to a human readable string.
      */
@@ -4119,22 +4125,36 @@ auto ref inout(T[]) assumeSafeAppend(T)(auto ref inout(T[]) arr) nothrow @system
     return arr;
 }
 
-///
-@system unittest
+version (D_Ddoc)
 {
-    int[] a = [1, 2, 3, 4];
-
-    // Without assumeSafeAppend. Appending relocates.
-    int[] b = a [0 .. 3];
-    b ~= 5;
-    assert(a.ptr != b.ptr);
-
-    debug(SENTINEL) {} else
+    ///
+    @system unittest
     {
+        int[] a = [1, 2, 3, 4];
+        // Without assumeSafeAppend. Appending relocates.
+        int[] b = a [0 .. 3];
+        b ~= 5;
+        assert(a.ptr != b.ptr);
         // With assumeSafeAppend. Appending overwrites.
         int[] c = a [0 .. 3];
         c.assumeSafeAppend() ~= 5;
         assert(a.ptr == c.ptr);
+    }
+}
+else
+{
+    @system unittest
+    {
+        debug (SENTINEL) {} else
+        {
+            int[] a = [1, 2, 3, 4];
+            int[] b = a [0 .. 3];
+            b ~= 5;
+            assert(a.ptr != b.ptr);
+            int[] c = a [0 .. 3];
+            c.assumeSafeAppend() ~= 5;
+            assert(a.ptr == c.ptr);
+        }
     }
 }
 
@@ -4777,34 +4797,40 @@ they are only intended to be instantiated by the compiler, not the user.
 
 public import core.internal.entrypoint : _d_cmain;
 
-public import core.internal.array.appending : _d_arrayappendT;
 version (D_ProfileGC)
 {
-    public import core.internal.array.appending : _d_arrayappendTTrace;
-    public import core.internal.array.appending : _d_arrayappendcTXTrace;
-    public import core.internal.array.concatenation : _d_arraycatnTXTrace;
-    public import core.lifetime : _d_newitemTTrace;
-    public import core.internal.array.construction : _d_newarrayTTrace;
-    public import core.internal.array.construction : _d_newarrayUTrace;
-    public import core.internal.array.construction : _d_newarraymTXTrace;
-    public import core.internal.array.capacity: _d_arraysetlengthTTrace;
-    public import core.internal.array.construction : _d_arrayliteralTXTrace;
+    public import core.internal.profile_gc : _d_arrayappendT;
+    public import core.internal.profile_gc : _d_arrayappendcTX;
+    public import core.internal.profile_gc : _d_arraycatnTX;
+    public import core.internal.profile_gc : _d_newitemT;
+    public import core.internal.profile_gc : _d_newarrayT;
+    public import core.internal.profile_gc : _d_newarrayU;
+    public import core.internal.profile_gc : _d_newarraymTX;
+    public import core.internal.profile_gc : _d_arraysetlengthT;
+    public import core.internal.profile_gc : _d_arrayliteralTX;
+    public import core.internal.profile_gc : _d_newclassT;
 }
-public import core.internal.array.appending : _d_arrayappendcTX;
+else
+{
+    public import core.internal.array.appending : _d_arrayappendT;
+    public import core.internal.array.appending : _d_arrayappendcTX;
+    public import core.internal.array.concatenation : _d_arraycatnTX;
+    public import core.lifetime : _d_newitemT;
+    public import core.internal.array.construction : _d_newarrayT;
+    public import core.internal.array.construction : _d_newarrayU;
+    public import core.internal.array.construction : _d_newarraymTX;
+    public import core.internal.array.capacity : _d_arraysetlengthT;
+    public import core.internal.array.construction : _d_arrayliteralTX;
+    public import core.lifetime : _d_newclassT;
+}
 public import core.internal.array.comparison : __cmp;
 public import core.internal.array.equality : __equals;
 public import core.internal.array.casting: __ArrayCast;
-public import core.internal.array.concatenation : _d_arraycatnTX;
 public import core.internal.array.construction : _d_arrayctor;
 public import core.internal.array.construction : _d_arraysetctor;
-public import core.internal.array.construction : _d_newarrayT;
-public import core.internal.array.construction : _d_newarrayU;
-public import core.internal.array.construction : _d_newarraymTX;
-public import core.internal.array.construction : _d_arrayliteralTX;
 public import core.internal.array.arrayassign : _d_arrayassign_l;
 public import core.internal.array.arrayassign : _d_arrayassign_r;
 public import core.internal.array.arrayassign : _d_arraysetassign;
-public import core.internal.array.capacity : _d_arraysetlengthT;
 public import core.internal.cast_: _d_cast;
 
 public import core.internal.dassert: _d_assert_fail;
@@ -4818,11 +4844,29 @@ public import core.internal.postblit: __ArrayPostblit;
 public import core.internal.switch_: __switch;
 public import core.internal.switch_: __switch_error;
 
-public import core.lifetime : _d_delstructImpl;
+// Forwarding hook for the ^^ (pow) operator on floating-point types.
+// TODO: move implementation to druntime instead of Phobos.
+auto _d_pow(Base, Exp)(Base base, Exp exp)
+{
+    import std.math : pow;
+    return pow(base, exp);
+}
+
+// Forwarding hook for the e1 ^^ 0.5 optimisation (square root).
+auto _d_sqrt(T)(T x)
+{
+    import core.math : sqrt;
+    return sqrt(x);
+}
+
+// Forwarding hook for shared static ctor/dtor gate operations.
+auto _d_atomicOp(string op, T, V1)(ref shared T val, V1 mod)
+{
+    import core.atomic : atomicOp;
+    return atomicOp!op(val, mod);
+}
+
 public import core.lifetime : _d_newThrowable;
-public import core.lifetime : _d_newclassT;
-public import core.lifetime : _d_newclassTTrace;
-public import core.lifetime : _d_newitemT;
 
 public @trusted @nogc nothrow pure extern (C) void _d_delThrowable(scope Throwable);
 
