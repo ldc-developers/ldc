@@ -7,7 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cstdio>
 
 #include "dmd/compiler.h"
 #include "dmd/cond.h"
