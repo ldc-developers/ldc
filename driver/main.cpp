@@ -1179,14 +1179,8 @@ int cppmain() {
   global._init();
   global.ldc_version = {strlen(ldc::ldc_version), ldc::ldc_version};
   global.llvm_version = {strlen(ldc::llvm_version), ldc::llvm_version};
-  {
-    // Parse the "major.minor[...]" prefix of ldc::ldc_version (e.g.
-    // "1.43.0" or "1.43.0-git-abcdef1") at startup, avoiding any
-    // build-system-level macros for this.
-    unsigned major = 0, minor = 0;
-    sscanf(ldc::ldc_version, "%u.%u", &major, &minor);
-    global.compileEnv.ldcVersionNumber = major * 1000 + minor;
-  }
+  global.compileEnv.ldcVersionNumber =
+      ldc::ldc_version_major * 1000 + ldc::ldc_version_minor;
 
   // Initialize LLVM before parsing the command line so that --version shows
   // registered targets.
