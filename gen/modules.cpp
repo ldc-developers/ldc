@@ -104,7 +104,7 @@ RegistryStyle getModuleRegistryStyle() {
   if (t.isOSWindows() || t.getEnvironment() == llvm::Triple::Android ||
       t.isOSBinFormatWasm() || t.isOSDarwin() || t.isOSLinux() ||
       t.isOSFreeBSD() || t.isOSNetBSD() || t.isOSOpenBSD() ||
-      t.isOSDragonFly()) {
+      t.isOSDragonFly() || t.isOSHurd()) {
     return RegistryStyle::section;
   }
 
