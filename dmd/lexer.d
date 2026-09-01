@@ -42,6 +42,7 @@ struct CompileEnv
     import dmd.common.charactertables;
 
     uint versionNumber;      /// __VERSION__
+    uint ldcVersionNumber;   /// __LDC_VERSION__ (IN_LLVM)
     const(char)[] date;      /// __DATE__
     const(char)[] time;      /// __TIME__
     const(char)[] vendor;    /// __VENDOR__
@@ -665,6 +666,11 @@ class Lexer
                         {
                             t.value = TOK.int64Literal;
                             t.unsvalue = compileEnv.versionNumber;
+                        }
+                        else if (t.ident == Id.LDC_VERSIONX) // IN_LLVM
+                        {
+                            t.value = TOK.int64Literal;
+                            t.unsvalue = compileEnv.ldcVersionNumber;
                         }
                         else if (t.ident == Id.EOFX)
                         {

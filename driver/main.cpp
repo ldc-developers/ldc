@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+
 #include "dmd/compiler.h"
 #include "dmd/cond.h"
 #include "dmd/errors.h"
@@ -1177,6 +1178,8 @@ int cppmain() {
   global._init();
   global.ldc_version = {strlen(ldc::ldc_version), ldc::ldc_version};
   global.llvm_version = {strlen(ldc::llvm_version), ldc::llvm_version};
+  global.compileEnv.ldcVersionNumber =
+      ldc::ldc_version_major * 1000 + ldc::ldc_version_minor;
 
   // Initialize LLVM before parsing the command line so that --version shows
   // registered targets.
