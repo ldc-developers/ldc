@@ -401,7 +401,8 @@ void DtoAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
       if (src != dst)
-        DtoMemCpy(DtoType(lhs->type), dst, src);
+        DtoMemCpy(DtoType(lhs->type), dst, src, false,
+                  DtoAlignment(lhs->type));
     }
   } else if (t->ty == TY::Tarray || t->ty == TY::Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);

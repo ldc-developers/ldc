@@ -5,6 +5,7 @@
 #### Platform support
 
 #### Bug fixes
+- Struct assignments and struct-literal initialisations now carry the D type's alignment on the emitted `llvm.memcpy`/`llvm.memset` instead of alignment 1. This matters on targets with strict alignment (e.g. `-mattr=+strict-align`), where an alignment-1 memcpy is lowered to byte-wise loads and stores. (#5279)
 
 # LDC 1.43.0 (2026-08-30)
 
