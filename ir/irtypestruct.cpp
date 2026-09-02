@@ -75,12 +75,8 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
   std::optional<DcomputePointer> p;
 
   if (gIR->dcomputetarget && (p = toDcomputePointer(sd))) {
-    // Translate the virtual dcompute address space into the real one for
-    // the target
-    int realAS = gIR->dcomputetarget->mapping[p->addrspace];
-
     llvm::SmallVector<LLType *, 1> body;
-    body.push_back(LLPointerType::get(getGlobalContext(), realAS));
+    body.push_back(p->toLLVMType(true));
 
     isaStruct(t->type)->setBody(body, false);
     VarGEPIndices v;
