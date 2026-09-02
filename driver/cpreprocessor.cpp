@@ -12,20 +12,32 @@
 #include "llvm/Target/TargetMachine.h"
 
 namespace {
-const char *getPathToImportc_h(Loc loc) {
+struct ImportCPaths {
+  const char *importc_h;
+  const char *includePath;
+};
+
+auto getImportCPaths(Loc loc) -> const ImportCPaths & {
   // importc.h should be next to object.d
-  static const char *cached = nullptr;
-  if (!cached) {
-    cached = FileName::searchPath(global.importPaths, "importc.h", false);
-    if (!cached) {
+  // include should be next to importc.h
+  static ImportCPaths cached = {};
+  if (!cached.importc_h) {
+    const char *importc_h =
+        FileName::searchPath(global.importPaths, "importc.h", false);
+    if (!importc_h) {
       error(loc, "cannot find \"importc.h\" along import path");
       fatal();
     }
-
 #ifdef _WIN32
-    // if the path to importc.h is relative, cl.exe (but not clang-cl) treats it as relative to the .c file!
-    cached = FileName::toAbsolute(cached);
+    // if the path to importc.h is relative, cl.exe (but not clang-cl) treats it
+    // as relative to the .c file!
+    importc_h = FileName::toAbsolute(importc_h);
 #endif
+    const auto parentPath = std::string(importc_h, FileName::name(importc_h));
+    const char *includePath = FileName::combine(parentPath.c_str(), "include");
+
+    cached.includePath = includePath;
+    cached.importc_h = importc_h;
   }
   return cached;
 }
@@ -55,7 +67,9 @@ FileName getOutputPath(Loc loc, const char *csrcfile) {
 FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
   dmd::TimeTraceScope timeScope("Preprocess C file", csrcfile.toChars(), loc);
 
-  const char *importc_h = getPathToImportc_h(loc);
+  const ImportCPaths &paths = getImportCPaths(loc);
+  const char *importc_h = paths.importc_h;
+  const char *includePath = paths.includePath;
 
   const auto &triple = *global.params.targetTriple;
   const bool isMSVC = triple.isWindowsMSVCEnvironment();
@@ -145,6 +159,8 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
     args.push_back((llvm::Twine("/FI") + importc_h).str());
     // preprocessed output file
     args.push_back((llvm::Twine("/Fi") + ipath.toChars()).str());
+
+    args.push_back((llvm::Twine("/I") + includePath).str());
   } else { // Posix
     // merge #define's with output:
     // https://gcc.gnu.org/onlinedocs/cpp/Invocation.html#index-dD
@@ -152,6 +168,9 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
 
     // need to redefine some macros in importc.h
     args.push_back("-Wno-builtin-macro-redefined");
+
+    args.push_back("-I");
+    args.push_back(includePath);
 
     args.push_back("-E"); // run preprocessor only
     args.push_back("-include");
