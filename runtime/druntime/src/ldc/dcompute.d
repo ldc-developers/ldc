@@ -14,6 +14,7 @@ enum ReflectTarget : uint
     Host = 0,
     OpenCL = 1,
     CUDA = 2,
+    Metal = 3,
 }
 /**
  * The pseudo conditional compilation function.
@@ -23,8 +24,9 @@ enum ReflectTarget : uint
  * arguments MUST be compiletime constants
  * valid values of _version are for OpenCL 100 110 120 200 210
  * and for CUDA are x*100 + y*10 for x any valid values of sm x.y
+ * and 400 for Metal 4.0.0
  * use 0 as a wildcard to match any version.
- 
+
  * This is mostly used for selecting the correct intrinsic for the
  * given target and version, but could also be used to tailor for
  * performance characteristics. See dcompute.std.index for an example

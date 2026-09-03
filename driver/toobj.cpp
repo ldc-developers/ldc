@@ -19,12 +19,18 @@
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
@@ -35,10 +41,10 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 #include <cstddef>
-#include <fstream>
 
 namespace llvm {
 namespace codegen {
@@ -58,6 +64,96 @@ void runDLLImportRelocationPass(llvm::TargetMachine &Target, llvm::Module &m) {
   pm.run(m);
 }
 
+void inlineDComputeKernelFunctions(llvm::Module *m) {
+  // Create a PassManager to hold and optimize the collection of passes we are
+  // about to build.
+  llvm::legacy::PassManager Passes;
+
+  llvm::SmallPtrSet<llvm::Function*, 8> kernels;
+  llvm::SmallPtrSet<llvm::Function*, 16> reachable;
+  llvm::SmallVector<llvm::Function*, 16> worklist;
+
+  // Extract all the kernel functions
+  // Prepare worklist to run simple fixed point for calling functions
+  if (auto *kernelMetadata = m->getNamedMetadata("air.kernel")) {
+    for(auto *op: kernelMetadata->operands()) {
+      auto *F = llvm::mdconst::dyn_extract<llvm::Function>(op->getOperand(0));
+
+      if (!F) {
+        continue;
+      }
+
+      kernels.insert(F);
+
+      if (reachable.insert(F).second) {
+        worklist.push_back(F);
+      }
+    }
+  }
+
+  if (kernels.empty()) {
+    return;
+  }
+
+  size_t index = 0;
+  while (index < worklist.size()) {
+    llvm::Function *F = worklist[index++];
+
+    for (llvm::BasicBlock &BB: *F) {
+      for (llvm::Instruction &I: BB) {
+          auto *call = llvm::dyn_cast<llvm::CallBase>(&I);
+
+          if (!call) {
+            continue;
+          }
+
+          auto *callee = call->getCalledFunction();
+
+          if (!callee || callee->isDeclaration()) {
+            continue;
+          }
+
+          if (reachable.insert(callee).second) {
+            worklist.push_back(callee);
+          }
+      }
+    }
+  }
+
+  for (llvm::Function *F: reachable) {
+    // Inline everything that is not kernel function and not intrinsics
+    if (!kernels.contains(F) && !F->isDeclaration()) {
+      F->addFnAttr(llvm::Attribute::AlwaysInline);
+    }
+  }
+
+  Passes.add(llvm::createAlwaysInlinerLegacyPass());
+
+  Passes.run(*m);
+
+  // Terminate upon errors during the LLVM passes.
+  if (global.errors || global.warnings) {
+  error(Loc(), "Aborting because of errors/warnings during LLVM passes");
+    fatal();
+  }
+
+  llvm::SmallVector<llvm::Function*, 16> deadFunctions;
+
+  for (auto& F: *m) {
+    if (F.isDeclaration() || kernels.contains(&F)) {
+      continue;
+    }
+
+    if (F.use_empty()) {
+      deadFunctions.push_back(&F);
+    }
+  }
+
+  for (auto &F : deadFunctions) {
+      F->eraseFromParent();
+  }
+}
+
 // based on llc code, University of Illinois Open Source License
 void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
                    const char *filename,
@@ -72,6 +168,35 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
     return;
 #endif
   }
+
+#ifdef LDC_LLVM_SUPPORTED_TARGET_AArch64
+  if (cb == ComputeBackend::METAL) {
+    {
+      // Inline non-kernel functions for Metal dcompute target
+      inlineDComputeKernelFunctions(&m);
+
+      std::error_code errinfo;
+      llvm::ToolOutputFile out(filename, errinfo, llvm::sys::fs::OF_None);
+      if (errinfo) {
+        error(Loc(), "cannot write file '%s': %s", filename,
+              errinfo.message().c_str());
+        fatal();
+      }
+
+      llvm::WriteBitcodeToFile(m, out.os());
+
+      out.keep();
+
+      // Terminate upon errors during the LLVM passes.
+      if (global.errors || global.warnings) {
+        error(Loc(), "Aborting because of errors/warnings during LLVM passes!");
+        fatal();
+      }
+    }
+
+    return;
+  }
+#endif
 
   std::error_code errinfo;
   llvm::ToolOutputFile out(filename, errinfo, llvm::sys::fs::OF_None);
@@ -303,6 +428,15 @@ std::string replaceExtensionWith(const DArray<const char> &ext,
 }
 
 void writeModule(llvm::Module *m, const char *filename) {
+// Inline non-kernel functions for Metal dcompute target
+#ifdef LDC_LLVM_SUPPORTED_TARGET_AArch64
+  const ComputeBackend::Type cb = getComputeTargetType(m);
+
+  if (cb == ComputeBackend::METAL) {
+    inlineDComputeKernelFunctions(m);
+  }
+#endif
+
   const bool doLTO = opts::isUsingLTO();
   const bool outputObj = shouldOutputObjectFile();
   const bool assembleExternally = shouldAssembleExternally();
