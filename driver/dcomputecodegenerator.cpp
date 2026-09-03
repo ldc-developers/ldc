@@ -28,6 +28,14 @@ DComputeCodeGenManager::~DComputeCodeGenManager() {}
 
 DComputeTarget *
 DComputeCodeGenManager::createComputeTarget(const std::string &s) {
+  if (s.substr(0, 6) == "vulkan") {
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV && LDC_LLVM_VER >= 2100
+    //TODO version this for vulkan 1.3/1.4
+    return createVulkanTarget(ctx, 0);
+#else
+    error(Loc(), "LDC was not built with Vulkan DCompute support.");
+#endif
+  }
   if (s.substr(0, 4) == "ocl-") {
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
 #define OCL_VALID_VER_INIT 100, 110, 120, 200, 210, 220
