@@ -3840,6 +3840,8 @@ version (IN_LLVM)
         //printf("AsmStatement()::semantic()\n");
         version (NoBackend)
             result = s;
+        else version (LDC)
+            result = asmSemantic(s, sc);
         else
         {
             import dmd.iasm;

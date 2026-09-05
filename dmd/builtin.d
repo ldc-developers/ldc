@@ -537,6 +537,7 @@ Expression eval_llvm(Loc, FuncDeclaration, Expression[])
 version (IN_LLVM)
 {
 import dmd.globals : uinteger_t;
+import dmd.errors : error;
 
 private Type getTypeOfOverloadedIntrinsic(FuncDeclaration fd)
 {

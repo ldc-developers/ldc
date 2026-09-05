@@ -106,7 +106,7 @@ version (IN_LLVM)
 version (IN_LLVM) // not restricted to a single string arg
 {
             if (!pd.args || pd.args.length == 0)
-                .error(pd.loc, "%s `%s` one or more string arguments expected for pragma(linkerDirective)", pd.kind, pd.toPrettyChars);
+                eSink.error(pd.loc, "%s `%s` one or more string arguments expected for pragma(linkerDirective)", pd.kind, pd.toPrettyChars);
             else
             {
                 for (size_t i = 0; i < pd.args.length; ++i)
@@ -116,7 +116,7 @@ version (IN_LLVM) // not restricted to a single string arg
                         break;
                     (*pd.args)[i] = se;
                     if (global.params.v.verbose)
-                        message("linkopt   %.*s", cast(int)se.len, se.peekString().ptr);
+                        eSink.message(Loc.init, "linkopt   %.*s", cast(int)se.len, se.peekString().ptr);
                 }
             }
 }
@@ -375,7 +375,7 @@ bool pragmaStmtSemantic(PragmaStatement ps, Scope* sc)
         bool emitInstr = true;
         if (!ps.args || ps.args.length != 1 || !DtoCheckProfileInstrPragma((*ps.args)[0], emitInstr))
         {
-            error(ps.loc, "pragma(LDC_profile_instr, true or false) expected");
+            eSink.error(ps.loc, "pragma(LDC_profile_instr, true or false) expected");
             return false;
         }
         else
@@ -383,7 +383,7 @@ bool pragmaStmtSemantic(PragmaStatement ps, Scope* sc)
             auto fd = sc.func;
             if (fd is null)
             {
-                error(ps.loc, "pragma(LDC_profile_instr, ...) is not inside a function");
+                eSink.error(ps.loc, "pragma(LDC_profile_instr, ...) is not inside a function");
                 return false;
             }
             fd.emitInstrumentation = emitInstr;

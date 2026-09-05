@@ -734,10 +734,11 @@ private Identifier getTypeInfoIdent(Type t)
 
     OutBuffer buf2;
     // LDC: hash long symbol names
-    if (IN_LLVM && global.params.hashThreshold && (slice.length > global.params.hashThreshold))
+    version (IN_LLVM) import dmd.globals;
+    if (IN_LLVM && global.params.hashThreshold && (buf.length > global.params.hashThreshold))
     {
         import std.digest.md;
-        auto md5hash = md5Of(slice);
+        auto md5hash = md5Of(buf[]);
         auto hashedname = toHexString(md5hash);
         buf2.printf("_D%uTypeInfo_%.*s6__initZ",
             uint(9 + hashedname.length), cast(int) hashedname.length, hashedname.ptr);
