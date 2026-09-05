@@ -220,57 +220,43 @@ struct Array
     // Define members and types like std::vector
     typedef size_t size_type;
 
-    Array(const Array &a) : length(0), data()
+    Array(const Array &a) : Array()
     {
         setDim(a.length);
-        memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
+        memcpy(data(), a.data(), length * sizeof(TYPE));
     }
 
     Array &operator=(Array &a)
     {
         setDim(a.length);
-        memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
+        memcpy(data(), a.data(), length * sizeof(TYPE));
         return *this;
     }
 
-    Array(Array &&a)
+    Array(Array &&a) : Array()
     {
-        if (data.ptr != &smallarray[0])
-            mem.xfree(data.ptr);
         length = a.length;
-        if (a.data.ptr == &a.smallarray[0])
-        {
-            data.ptr = &smallarray[0];
-            data.length = a.data.length;
-            memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
-        }
+        allocated = a.allocated;
+        if (allocated <= SMALLARRAYCAP)
+            memcpy(smallarray, a.smallarray, length * sizeof(TYPE));
         else
-        {
-            data = a.data;
-            a.data.ptr = nullptr;
-        }
+            _ptr = a._ptr;
         a.length = 0;
-        a.data.length = 0;
+        a.allocated = SMALLARRAYCAP;
     }
 
     Array &operator=(Array<TYPE> &&a)
     {
-        if (data.ptr != &smallarray[0])
-            mem.xfree(data.ptr);
+        if (allocated > SMALLARRAYCAP)
+            mem.xfree(_ptr);
         length = a.length;
-        if (a.data.ptr == &a.smallarray[0])
-        {
-            data.ptr = &smallarray[0];
-            data.length = a.data.length;
-            memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
-        }
+        allocated = a.allocated;
+        if (allocated <= SMALLARRAYCAP)
+            memcpy(smallarray, a.smallarray, length * sizeof(TYPE));
         else
-        {
-            data = a.data;
-            a.data.ptr = nullptr;
-        }
+            _ptr = a._ptr;
         a.length = 0;
-        a.data.length = 0;
+        a.allocated = SMALLARRAYCAP;
         return *this;
     }
 
@@ -279,7 +265,7 @@ struct Array
 #ifdef DEBUG
         assert(index < length);
 #endif
-        return data.ptr[index];
+        return data()[index];
     }
 
     size_type size() const
@@ -294,12 +280,12 @@ struct Array
 
     TYPE front() const
     {
-        return data.ptr[0];
+        return data()[0];
     }
 
     TYPE back() const
     {
-        return data.ptr[length-1];
+        return data()[length-1];
     }
 
     void push_back(TYPE a)
@@ -317,21 +303,21 @@ struct Array
     typedef std::reverse_iterator<iterator> reverse_iterator;
     typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
-    iterator begin() { return static_cast<iterator>(data.ptr); }
-    iterator end() { return static_cast<iterator>(&data.ptr[length]); }
+    iterator begin() { return static_cast<iterator>(data()); }
+    iterator end() { return static_cast<iterator>(&data()[length]); }
     reverse_iterator rbegin() { return reverse_iterator(end()); }
     reverse_iterator rend() { return reverse_iterator(begin()); }
 
-    const_iterator begin() const { return static_cast<const_iterator>(data.ptr); }
-    const_iterator end() const { return static_cast<const_iterator>(&data.ptr[length]); }
+    const_iterator begin() const { return static_cast<const_iterator>(data()); }
+    const_iterator end() const { return static_cast<const_iterator>(&data()[length]); }
     const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
     const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
 
     iterator erase(iterator pos)
     {
-        size_t index = pos - data.ptr;
+        size_t index = pos - data();
         remove(index);
-        return static_cast<iterator>(&data.ptr[index]);
+        return static_cast<iterator>(&data()[index]);
     }
 #endif // IN_LLVM
 };
