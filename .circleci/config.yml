@@ -99,24 +99,24 @@ commonSteps: &commonSteps
           cd ../build
           ctest -j$PARALLELISM --output-on-failure -E "$excludes" --timeout 180
 
-version: 2
+version: 2.1
 jobs:
-  Ubuntu-24.04-multilib-rtSanitizers:
+  Ubuntu-24-multilib-rtSanitizers:
     <<: *commonSteps
     machine:
       image: ubuntu-2404:current
-    resource_class: large
+    resource_class: large.gen3
     environment:
       - PARALLELISM: 4
       - CI_OS: linux
       - LLVM_MAJOR: 18
       - HOST_LDC_VERSION: 1.39.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
-  Ubuntu-26.04-sharedLibsOnly-gdmd:
+  Ubuntu-26-sharedLibsOnly-gdmd:
     <<: *commonSteps
     machine:
       image: ubuntu-2604:current
-    resource_class: large
+    resource_class: large.gen3
     environment:
       - PARALLELISM: 4
       - CI_OS: linux
@@ -126,8 +126,7 @@ jobs:
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
 
 workflows:
-  version: 2
   build:
     jobs:
-      - Ubuntu-24.04-multilib-rtSanitizers
-      - Ubuntu-26.04-sharedLibsOnly-gdmd
+      - Ubuntu-24-multilib-rtSanitizers
+      - Ubuntu-26-sharedLibsOnly-gdmd

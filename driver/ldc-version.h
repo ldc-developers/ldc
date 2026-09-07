@@ -17,4 +17,6 @@ extern const char *const llvm_version;
 extern const char *const llvm_version_base; /// the base LLVM version without svn/git suffix
 extern const char *const built_with_Dcompiler_version;
 
+extern const unsigned ldc_version_major;
+extern const unsigned ldc_version_minor;
 }
