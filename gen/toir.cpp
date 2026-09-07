@@ -574,7 +574,7 @@ public:
       Logger::println("performing aggregate zero initialization");
       assert(toInteger(e->e2) == 0);
       LLValue *lval = DtoLVal(lhs);
-      DtoMemSetZero(DtoType(lhs->type), lval);
+      DtoMemSetZero(DtoType(lhs->type), lval, DtoAlignment(lhs->type));
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
       if (ts->sym->isNested() && ts->sym->vthis)
         DtoResolveNestedContext(e->loc, ts->sym, lval);
@@ -2487,11 +2487,12 @@ public:
         dstMem = DtoAlloca(e->type, ".structliteral");
 
       if (sd->zeroInit()) {
-        DtoMemSetZero(DtoType(e->type), dstMem);
+        DtoMemSetZero(DtoType(e->type), dstMem, DtoAlignment(e->type));
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
         assert(dstMem->getType() == initsym->getType());
-        DtoMemCpy(DtoType(e->type), dstMem, initsym);
+        DtoMemCpy(DtoType(e->type), dstMem, initsym, false,
+                  DtoAlignment(e->type));
       }
 
       return new DLValue(e->type, dstMem);
@@ -2862,7 +2863,8 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
         DtoResolveStruct(sd);
         if (sd->zeroInit()) {
           Logger::println("success, zeroing out");
-          DtoMemSetZero(DtoType(lhs->type) ,DtoLVal(lhs));
+          DtoMemSetZero(DtoType(lhs->type), DtoLVal(lhs),
+                        DtoAlignment(lhs->type));
           return true;
         }
       }
