@@ -31,6 +31,7 @@ enum OUTPUTFLAG
 template <typename TYPE> struct Array;
 
 class ErrorSink;
+class ErrorSinkCompiler;
 class FileManager;
 struct Loc;
 
@@ -463,8 +464,8 @@ struct Global
     unsigned recursionLimit; // number of recursive template expansions before abort
 #endif
 
-    ErrorSink* errorSink;       // where the error messages go
-    ErrorSink* errorSinkNull;   // where the error messages disappear
+    ErrorSinkCompiler* errorSink; // where the error messages go
+    ErrorSink* errorSinkNull;     // where the error messages disappear
 
 #if IN_LLVM
     FileName (*preprocess)(FileName, Loc, OutBuffer &);
