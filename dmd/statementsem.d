@@ -3840,7 +3840,7 @@ version (IN_LLVM)
         //printf("AsmStatement()::semantic()\n");
         version (NoBackend)
             result = s;
-        else version (LDC)
+        else version (IN_LLVM)
             result = asmSemantic(s, sc);
         else
         {
