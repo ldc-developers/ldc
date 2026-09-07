@@ -437,7 +437,16 @@ else
     enum recursionLimit = 500; /// number of recursive template expansions before abort
 }
 
+version (IN_LLVM)
+{
+    // LDC: use a statically-allocated ErrorSinkCompiler instance, so that we can
+    //      modify its parameters directly during command-line parsing
+    ErrorSinkCompiler errorSink = new ErrorSinkCompiler;  /// where the error messages go
+}
+else
+{
     ErrorSinkCompiler errorSink;  /// where the error messages go
+}
     ErrorSink errorSinkNull;      /// where the error messages are ignored
 
 version (IN_LLVM)

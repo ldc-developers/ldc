@@ -9,6 +9,7 @@
 
 #include "driver/cl_options.h"
 
+#include "dmd/errors.h"
 #include "gen/logger.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Operator.h"
@@ -42,7 +43,7 @@ cl::opt<bool> invokedByLDMD("ldmd", cl::desc("Invoked by LDMD?"),
 
 static cl::opt<Diagnostic, true> useDeprecated(
     cl::desc("Allow deprecated language features and symbols:"), cl::ZeroOrMore,
-    cl::location(global.params.useDeprecated), cl::init(DIAGNOSTICinform),
+    cl::location(global.errorSink->useDeprecated),
     cl::values(
         clEnumValN(DIAGNOSTICoff, "d",
                    "Silently allow deprecated features and symbols"),
@@ -152,7 +153,7 @@ static cl::opt<unsigned, true> errorLimit(
 
 static cl::opt<bool, true>
     showGaggedErrors("verrors-spec", cl::ZeroOrMore,
-                     cl::location(global.params.v.showGaggedErrors),
+                     cl::location(global.errorSink->showGaggedErrors),
                      cl::desc("Show errors from speculative compiles such as "
                               "__traits(compiles,...)"));
 
@@ -185,13 +186,13 @@ static cl::opt<unsigned, true>
                                "each error (0 means unlimited)"));
 
 static cl::opt<Diagnostic, true> warnings(
-    cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.useWarnings),
+    cl::desc("Warnings:"), cl::ZeroOrMore,
+    cl::location(global.errorSink->useWarnings),
     cl::values(
         clEnumValN(DIAGNOSTICerror, "w",
                    "Enable warnings as errors (compilation will halt)"),
         clEnumValN(DIAGNOSTICinform, "wi",
-                   "Enable warnings as messages (compilation will continue)")),
-    cl::init(DIAGNOSTICoff));
+                   "Enable warnings as messages (compilation will continue)")));
 
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas (default)"), cl::ZeroOrMore,
