@@ -33,11 +33,6 @@ version (Posix)
     else version (WatchOS)
         version = Darwin;
 }
-else
-version (WASI)
-{
-    alias ThreadID = ubyte; // dummy; always 1
-}
 
 package struct ThreadDescr
 {
@@ -55,11 +50,6 @@ package struct ThreadDescr
 
         HANDLE hndl;
     }
-}
-else
-version (WASI)
-{
-    alias ThreadID = ubyte; // dummy; always 1
 }
 
 struct ll_ThreadData
