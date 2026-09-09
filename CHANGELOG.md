@@ -5,6 +5,7 @@
 #### Platform support
 
 #### Bug fixes
+- dcompute: A `ref` return whose referent is reached through a `Pointer!(as, T)` does not emit an extra load anymore, so a `ref T opIndex()` accessor over a `GlobalPointer!T` no longer faults with `CUDA_ERROR_MISALIGNED_ADDRESS`. (#5284, #5285)
 
 # LDC 1.43.0 (2026-08-30)
 

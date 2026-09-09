@@ -34,3 +34,13 @@ void foo(GenericPointer!float f) {
     // PTX: ld.{{f|b}}32
     float g = *f;
 }
+
+// A `ref` return whose referent is reached through a non-generic pointer must
+// convert the address space; dereferencing it there yields the element value
+// instead of its address. See GH issue #5284.
+ref float refReturn(GlobalPointer!float f, size_t i) {
+    // LL: addrspacecast ptr addrspace(1) %{{[0-9]+}} to ptr
+    // LL-NEXT: ret ptr %
+    // PTX: cvta.global.u64
+    return f[i];
+}

@@ -245,6 +245,31 @@ public:
         // do abi specific transformations on the return value
         returnValue = getIrFunc(fd)->irFty.putRet(dval);
 
+        // A `ref` return is a plain pointer in the LLVM function type, but in
+        // `@compute` code the referent may live in a non-generic address space
+        // (e.g. an element of a `GlobalPointer!T`). Convert the address space
+        // here; otherwise the mismatch falls through to the load-from-alloca
+        // fixup further down and the address gets dereferenced once too often.
+        if (irs->dcomputetarget && f->type->isRef() &&
+            returnValue->getType() != funcType->getReturnType()) {
+          LLPointerType *const src = isaPointer(returnValue);
+          LLPointerType *const dst = isaPointer(funcType->getReturnType());
+          if (src && dst) {
+            // DCompute nominal address spaces: Private = 0, Global = 1,
+            // Shared = 2, Constant = 3, Generic = 4. See gen/dcompute/target.h.
+            const int genericAS = irs->dcomputetarget->mapping[4];
+            if (dst->getAddressSpace() == static_cast<unsigned>(genericAS)) {
+              returnValue = irs->ir->CreateAddrSpaceCast(returnValue, dst);
+            } else {
+              error(stmt->loc,
+                    "cannot return a `ref` to a variable in address space %d, "
+                    "this `@compute` target has no generic address space to "
+                    "convert it to",
+                    static_cast<int>(src->getAddressSpace()));
+            }
+          }
+        }
+
         // Hack around LDC assuming structs and static arrays are in memory:
         // If the function returns a struct or a static array, and the return
         // value is a pointer to a struct or a static array, load from it
