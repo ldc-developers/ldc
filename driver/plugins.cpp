@@ -43,11 +43,15 @@ cl::list<std::string> pluginFiles("plugin", cl::CommaSeparated,
 
 struct SemaPlugin {
   llvm::sys::DynamicLibrary library;
+  void (*runPreSemanticAnalysis)(Module *);
   void (*runSemanticAnalysis)(Module *);
 
   SemaPlugin(const llvm::sys::DynamicLibrary &library,
+             void (*runPreSemanticAnalysis)(Module *),
              void (*runSemanticAnalysis)(Module *))
-      : library(library), runSemanticAnalysis(runSemanticAnalysis) {}
+      : library(library),
+        runPreSemanticAnalysis(runPreSemanticAnalysis),
+        runSemanticAnalysis(runSemanticAnalysis) {}
 };
 
 llvm::SmallVector<SemaPlugin, 1> sema_plugins;
@@ -66,16 +70,21 @@ bool loadSemanticAnalysisPlugin(const std::string &filename) {
     return true; // No success, but no need to try loading again as LLVM plugin.
   }
 
-  // SemanticAnalysis plugins need to export the `runSemanticAnalysis` function.
+  // SemanticAnalysis plugins export `runSemanticAnalysis` (called after
+  // semantic3) and/or `runPreSemanticAnalysis` (called before dsymbolSemantic).
   void *runSemanticAnalysisFnPtr =
       library.getAddressOfSymbol("runSemanticAnalysis");
+  void *runPreSemanticAnalysisFnPtr =
+      library.getAddressOfSymbol("runPreSemanticAnalysis");
 
-  // If the symbol isn't found, this is probably an LLVM plugin.
-  if (!runSemanticAnalysisFnPtr)
+  // If neither symbol is found, this is probably an LLVM plugin.
+  if (!runSemanticAnalysisFnPtr && !runPreSemanticAnalysisFnPtr)
     return false;
 
   sema_plugins.emplace_back(
-      library, reinterpret_cast<void (*)(Module *)>(runSemanticAnalysisFnPtr));
+      library,
+      reinterpret_cast<void (*)(Module *)>(runPreSemanticAnalysisFnPtr),
+      reinterpret_cast<void (*)(Module *)>(runSemanticAnalysisFnPtr));
   return true;
 }
 
@@ -117,10 +126,17 @@ void registerAllPluginsWithPassBuilder(llvm::PassBuilder &PB) {
   }
 }
 
+void runAllPreSemanticAnalysisPlugins(Module *m) {
+  for (auto &plugin : sema_plugins) {
+    if (plugin.runPreSemanticAnalysis)
+      plugin.runPreSemanticAnalysis(m);
+  }
+}
+
 void runAllSemanticAnalysisPlugins(Module *m) {
   for (auto &plugin : sema_plugins) {
-    assert(plugin.runSemanticAnalysis);
-    plugin.runSemanticAnalysis(m);
+    if (plugin.runSemanticAnalysis)
+      plugin.runSemanticAnalysis(m);
   }
 }
 
@@ -130,6 +146,7 @@ class Module;
 
 void loadAllPlugins() {}
 void registerAllPluginsWithPassBuilder(llvm::PassBuilder &) {}
+void runAllPreSemanticAnalysisPlugins(Module *m) {}
 void runAllSemanticAnalysisPlugins(Module *m) {}
 
 #endif // LDC_ENABLE_PLUGINS
