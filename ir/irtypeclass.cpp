@@ -99,7 +99,7 @@ llvm::Type *IrTypeClass::getMemoryLLType() {
         cd->vtblInterfaces ? cd->vtblInterfaces->length : 0;
   } else {
     // classes have monitor and fields
-    if (!cd->isCPPclass() && !cd->isCPPinterface()) {
+    if (cd->hasMonitor()) {
       // add monitor
       builder.addType(getOpaquePtrType(), target.ptrsize);
     }

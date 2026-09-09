@@ -37,7 +37,8 @@ RTTIBuilder::RTTIBuilder(Type *baseType) {
     // just start with adding the vtbl
     push(baseir->getVtblSymbol());
     // and monitor
-    push_null_vp();
+    if (cd->hasMonitor())
+      push_null_vp();
   }
 }
 

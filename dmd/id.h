@@ -106,5 +106,6 @@ struct Id
     static Identifier *udaNoSanitize;
     static Identifier *udaNoSplitStack;
     static Identifier *io;
+    static Identifier *__monitor;
 #endif
 };

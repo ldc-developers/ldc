@@ -9,6 +9,7 @@
 
 #include "dmd/ctfe.h"
 #include "dmd/errors.h"
+#include "dmd/id.h"
 #include "dmd/template.h"
 #include "gen/arrays.h"
 #include "gen/binops.h"
@@ -579,10 +580,11 @@ public:
         while (!classHierachy.empty()) {
           cur = classHierachy.top();
           classHierachy.pop();
-          for (size_t j = 0; j < cur->fields.length; ++j) {
+          for (auto field : cur->fields) {
+            if (field->ident == Id::__monitor)
+              continue;
             if (auto elem = (*value->elements)[i]) {
               if (!elem->isVoidInitExp()) {
-                VarDeclaration *field = cur->fields[j];
                 IF_LOG Logger::println("Getting initializer for: %s",
                                        field->toChars());
                 LOG_SCOPE;
