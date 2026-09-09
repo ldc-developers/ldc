@@ -109,6 +109,15 @@ else version (Solaris)
     enum WNOHANG        = 64;
     enum WUNTRACED      = 4;
 }
+else version (Hurd)
+{
+    enum WNOHANG        = 1;
+    enum WUNTRACED      = 2;
+    private
+    {
+        enum __W_CONTINUED = 0xFFFF;
+    }
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -432,6 +441,20 @@ else version (Solaris)
         P_CTID,         /* A (process) contract identifier.     */
         P_CPUID,        /* CPU identifier.                      */
         P_PSETID,       /* Processor set identifier             */
+    }
+}
+ else version (Hurd)
+{
+    enum WEXITED    = 16;
+    enum WSTOPPED   = WUNTRACED;
+    enum WCONTINUED = 4;
+    enum WNOWAIT    = 8;
+
+    enum idtype_t
+    {
+        P_ALL,
+        P_PID,
+        P_PGID
     }
 }
 else

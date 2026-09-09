@@ -217,7 +217,7 @@ nothrow @nogc:
      * Wait for the event to be signaled without timeout.
      *
      * Returns:
-     *  `true` if the event is in signaled state, `false` if the event is uninitialized or another error occured
+     *  `true` if the event is in signaled state, `false` if the event is uninitialized or another error occurred
      */
     bool wait()
     {
@@ -238,7 +238,7 @@ nothrow @nogc:
      *  tmout = the maximum time to wait
      * Returns:
      *  `true` if the event is in signaled state, `false` if the event was nonsignaled for the given time or
-     *  the event is uninitialized or another error occured
+     *  the event is uninitialized or another error occurred
      */
     bool wait(Duration tmout)
     {
@@ -356,12 +356,12 @@ unittest
         group.create(&testFn);
 
     auto start = MonoTime.currTime;
-    assert(numRunning == 0);
+    assert(atomicLoad(numRunning) == 0);
 
     event.setIfInitialized();
     group.joinAll();
 
-    assert(numRunning == numThreads);
+    assert(atomicLoad(numRunning) == numThreads);
 
     assert(MonoTime.currTime - start < 5.dur!"seconds");
 }

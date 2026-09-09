@@ -160,7 +160,6 @@ void Target::_init(const Param &params) {
   realsize = gDataLayout->getTypeAllocSize(realType);
   realpad = realsize - gDataLayout->getTypeStoreSize(realType);
   realalignsize = gDataLayout->getABITypeAlign(realType).value();
-  classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
   c.crtDestructorsSupported = true; // unused as of 2.099

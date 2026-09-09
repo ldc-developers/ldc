@@ -53,7 +53,7 @@ public:
   using Visitor::visit;
 
   void visit(CompoundStatement *stmt) override {
-    for (auto s : *stmt->statements) {
+    for (auto s : stmt->statements) {
       recurse(s);
     }
   }
@@ -135,7 +135,7 @@ public:
   void visit(DefaultStatement *stmt) override { recurse(stmt->statement); }
 
   void visit(UnrolledLoopStatement *stmt) override {
-    recurse(stmt->statements);
+    recurse(&stmt->statements);
   }
 
   void visit(LabelStatement *stmt) override { recurse(stmt->statement); }
@@ -294,7 +294,7 @@ public:
   }
 
   void visit(CompoundStatement *stmt) override {
-    call_visitor(stmt) || recurse(stmt->statements);
+    call_visitor(stmt) || recurse(&stmt->statements);
   }
 
   void visit(ReturnStatement *stmt) override {
@@ -371,7 +371,7 @@ public:
   }
 
   void visit(UnrolledLoopStatement *stmt) override {
-    call_visitor(stmt) || recurse(stmt->statements);
+    call_visitor(stmt) || recurse(&stmt->statements);
   }
 
   void visit(LabelStatement *stmt) override {

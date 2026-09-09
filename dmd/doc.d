@@ -403,7 +403,7 @@ struct DocComment
                 p++;
             }
             size_t len = p - start;
-            char* s = cast(char*)memcpy(mem.xmalloc(len + 1), start, len);
+            char* s = cast(char*)memcpy(mem.xmalloc_noscan(len + 1), start, len);
             s[len] = 0;
             escapetable.strings[c] = s[0 .. len];
             //printf("\t%c = '%s'\n", c, s);
@@ -882,8 +882,11 @@ final class ParamSection : Section
         TypeFunction tf = a.length == 1 ? isTypeFunction(s) : null;
         if (tf)
         {
-            size_t pcount = (tf.parameterList.parameters ? tf.parameterList.parameters.length : 0) +
-                            cast(int)(tf.parameterList.varargs == VarArg.variadic);
+            size_t pcount = cast(int)(tf.parameterList.varargs == VarArg.variadic);
+            if (tf.parameterList.parameters)
+                foreach (param; *tf.parameterList.parameters)
+                    if (param.ident)
+                        pcount++;
             if (pcount != paramcount)
             {
                 sc.eSink.warning(s.loc, "Ddoc: parameter count mismatch, expected %llu, got %llu",
@@ -966,6 +969,7 @@ immutable ddoc_decl_dd_e = ")\n";
  *  respectBackslashEscapes = if true, always replace parentheses that are
  *    directly preceeded by a backslash with $(LPAREN) or $(RPAREN) instead of
  *    counting them as stray parentheses
+ *  eSink = send error messages to eSink
  */
 private void escapeStrayParenthesis(Loc loc, ref OutBuffer buf, size_t start, bool respectBackslashEscapes, ErrorSink eSink)
 {
@@ -1441,8 +1445,12 @@ void emitComment(Dsymbol s, ref OutBuffer buf, Scope* sc)
                 buf.writestring(ddoc_decl_dd_s);
                 {
                     dc.writeSections(sc, &dc.a, *buf);
-                    if (ScopeDsymbol sds = dc.a[0].isScopeDsymbol())
-                        emitMemberComments(sds, *buf, sc);
+                    foreach (sym; dc.a)
+                        if (ScopeDsymbol sds = sym.isScopeDsymbol())
+                        {
+                            emitMemberComments(sds, *buf, sc);
+                            break;
+                        }
                 }
                 buf.writestring(ddoc_decl_dd_e);
                 buf.writeByte(')');
@@ -1758,6 +1766,20 @@ void toDocBuffer(Dsymbol s, ref OutBuffer buf, Scope* sc)
             if (d.isDeprecated())
                 buf.writestring(")");
             buf.writestring(";\n");
+        }
+
+        override void visit(TemplateDeclaration td)
+        {
+            HdrGenState hgs;
+            hgs.ddoc = true;
+            hgs.skipConstraints = true;
+            toCBuffer(td, *buf, hgs);
+            if (td.constraint)
+            {
+                buf.writestring("$(DDOC_CONSTRAINT ");
+                toCBuffer(td.constraint, *buf, hgs);
+                buf.writestring(")");
+            }
         }
 
         override void visit(AliasDeclaration ad)
@@ -4597,7 +4619,7 @@ void highlightText(Scope* sc, Dsymbols* a, Loc loc, ref OutBuffer buf, size_t of
                 else
                 {
                     i += endRowAndTable(buf, iLineStart, i, inlineDelimiters, columnAlignments);
-                    if (!lineQuoted && quoteLevel)
+                    if (!lineQuoted && (quoteLevel || nestedLists.length))
                     {
                         const delta = endAllListsAndQuotes(buf, iLineStart, nestedLists, quoteLevel, quoteMacroLevel);
                         i += delta;
@@ -5066,7 +5088,7 @@ void highlightCode(Scope* sc, Dsymbols* a, ref OutBuffer buf, size_t offset)
 
                 // build the template parameters
                 Array!(size_t) paramLens;
-                paramLens.reserve(td.parameters.length);
+                paramLens.setDim(td.parameters.length);
 
                 OutBuffer parametersBuf;
                 HdrGenState hgs;

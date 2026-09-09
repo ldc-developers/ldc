@@ -83,6 +83,10 @@ public:
 
     TemplatePrevious *previous;         // threaded list of previous instantiation attempts on stack
 
+    Expression *lastConstraint;     // the constraint after the last failed evaluation
+    Expressions lastConstraintNegs; // its negative parts
+    Objects *lastConstraintTiargs;  // template instance arguments for lastConstraint
+
 #if IN_LLVM
     const char *intrinsicName;
 #endif

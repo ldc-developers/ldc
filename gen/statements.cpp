@@ -149,7 +149,7 @@ public:
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
-    for (auto s : *stmt->statements) {
+    for (auto s : stmt->statements) {
       if (s) {
         s->accept(this);
       }
@@ -1243,7 +1243,7 @@ public:
     PGO.setCurrentStmt(stmt);
 
     // if no statements, there's nothing to do
-    if (!stmt->statements || !stmt->statements->length) {
+    if (!stmt->statements.length) {
       return;
     }
 
@@ -1258,7 +1258,7 @@ public:
     llvm::BasicBlock *endbb = irs->insertBB("unrolledend");
 
     // create a block for each statement
-    size_t nstmt = stmt->statements->length;
+    size_t nstmt = stmt->statements.length;
     llvm::SmallVector<llvm::BasicBlock *, 4> blocks(nstmt, nullptr);
     for (size_t i = 0; i < nstmt; i++)
       blocks[i] = irs->insertBBBefore(endbb, "unrolledstmt");
@@ -1269,10 +1269,8 @@ public:
     }
 
     // do statements
-    Statement **stmts = &(*stmt->statements)[0];
-
     for (size_t i = 0; i < nstmt; i++) {
-      Statement *s = stmts[i];
+      Statement *s = stmt->statements[i];
 
       // get blocks
       llvm::BasicBlock *thisbb = blocks[i];

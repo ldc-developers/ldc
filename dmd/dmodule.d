@@ -64,9 +64,9 @@ version (IN_LLVM)
 /**
  * Remove generated .di files on error and exit
  */
-void removeHdrFilesAndFail(ref Param params, ref Modules modules) nothrow
+void removeHdrFilesAndFail(bool removeHeaders, ref Modules modules) nothrow
 {
-    if (params.dihdr.doOutput)
+    if (removeHeaders)
     {
         foreach (m; modules)
         {
@@ -623,7 +623,7 @@ version (IN_LLVM)
      * Params:
      *  loc = The location at which the file read originated (e.g. import)
      */
-    private void onFileReadError(Loc loc)
+    private void onFileReadError(Loc loc, bool removeHeaders)
     {
         const name = srcfile.toString();
         if (FileName.equals(name, "object.d"))
@@ -665,7 +665,7 @@ version (IN_LLVM)
                 fprintf(stderr, "Specify path to file '%.*s' with -I switch\n", cast(int)name.length, name.ptr);
             }
 
-            removeHdrFilesAndFail(global.params, Module.amodules);
+            removeHdrFilesAndFail(removeHeaders, Module.amodules);
         }
     }
 
@@ -725,7 +725,7 @@ else
             return true;
         }
 
-        this.onFileReadError(loc);
+        this.onFileReadError(loc, global.params.dihdr.doOutput);
         return false;
     }
 
@@ -928,7 +928,7 @@ else
             if (Module mprev = prev.isModule())
             {
                 if (!FileName.equals(srcname, mprev.srcfile.toChars()))
-                    error(loc, "%s `%s` from file %s conflicts with another module %s from file %s", kind, toPrettyChars, srcname, mprev.toChars(), mprev.srcfile.toChars());
+                    error(loc, "%s `%s` from file %s conflicts with another module %s from file %s", kind, toPrettyChars, srcname, mprev.toErrMsg(), mprev.srcfile.toChars());
                 else if (isRoot() && mprev.isRoot())
                     error(loc, "%s `%s` from file %s is specified twice on the command line", kind, toPrettyChars, srcname);
                 else
@@ -943,7 +943,7 @@ else
                 if (isPackageFile)
                     amodules.push(this); // Add to global array of all modules
                 else
-                    error(md ? md.loc : loc, "%s `%s` from file %s conflicts with package name %s", kind, toPrettyChars, srcname, pkg.toChars());
+                    error(md ? md.loc : loc, "%s `%s` from file %s conflicts with package name %s", kind, toPrettyChars, srcname, pkg.toErrMsg());
             }
             else
                 assert(global.errors);

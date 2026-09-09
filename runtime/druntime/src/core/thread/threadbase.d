@@ -122,7 +122,7 @@ class ThreadBase
     {
         destroyDataStorageIfAvail();
 
-        bool no_context = m_addr == m_addr.init;
+        bool no_context = m_tdescr.tid == m_tdescr.tid.init;
         bool not_registered = !next && !prev && (sm_tbeg !is this);
 
         return (no_context || not_registered);
@@ -193,7 +193,18 @@ class ThreadBase
      *  Any exception not handled by this thread if rethrow = false, null
      *  otherwise.
      */
-    abstract Throwable join(bool rethrow = true);
+    abstract Throwable join(bool rethrow = true)
+    {
+        if ( m_unhandled )
+        {
+            if ( rethrow )
+                throw m_unhandled;
+
+            return m_unhandled;
+        }
+
+        return null;
+    }
 
     /**
      * Filter any exceptions that escaped the thread entry point.
@@ -234,7 +245,7 @@ class ThreadBase
     {
         synchronized(this)
         {
-            return m_addr;
+            return m_tdescr.tid;
         }
     }
 
@@ -326,7 +337,7 @@ class ThreadBase
      */
     @property bool isRunning() nothrow @nogc
     {
-        if (m_addr == m_addr.init)
+        if (m_tdescr.tid == m_tdescr.tid.init)
             return false;
 
         return true;
@@ -461,7 +472,7 @@ class ThreadBase
     // Thread entry point.  Invokes the function or delegate passed on
     // construction (if any).
     //
-    package final void run()
+    package final void runFromEntryPoint()
     {
         m_call();
     }
@@ -483,7 +494,7 @@ package:
     //
     // Standard thread data
     //
-    ThreadID            m_addr;
+    ThreadDescr         m_tdescr;
     Callable            m_call;
     string              m_name;
     size_t              m_sz;
@@ -738,8 +749,7 @@ package(core.thread):
         assert(t.isRunning); // check this with slock to ensure pthread_create already returned
         assert(!suspendDepth); // must be 0 b/c it's only set with slock held
 
-        if (rmAboutToStart)
-            decrementAboutToStart(t);
+        if (rmAboutToStart) decrementAboutToStart(t);
 
         if (sm_tbeg)
         {
@@ -814,6 +824,11 @@ package(core.thread):
         add(t, rmAboutToStart);
     }
 
+    package final void unloadStackInfo() nothrow @nogc
+    {
+        if (!m_lock)
+            m_curr.tstack = m_curr.bstack;
+    }
 }
 
 
@@ -960,11 +975,11 @@ static ThreadBase thread_findByAddr(ThreadID addr)
     // also return just spawned thread so that
     // DLL_THREAD_ATTACH knows it's a D thread
     foreach (t; ThreadBase.pAboutToStart[0 .. ThreadBase.nAboutToStart])
-        if (t.m_addr == addr)
+        if (t.m_tdescr.tid == addr)
             return t;
 
     foreach (t; ThreadBase)
-        if (t.m_addr == addr)
+        if (t.m_tdescr.tid == addr)
             return t;
 
     return null;
