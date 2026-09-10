@@ -1,9 +1,11 @@
 # LDC master
 
 #### Big news
+- Support for [LLVM 23](https://releases.llvm.org/23.1.0/docs/ReleaseNotes.html). (#5288)
 - Windows: The bundled `libcurl.dll` (from https://curl.se/windows/) doesn't need/come with a `curl-ca-bundle.crt` file anymore, except for 32-bit, where we bundle an old DLL version (as the official 32-bit libcurl Windows build was discontinued earlier this year). (#5308)
 
 #### Platform support
+- Supports LLVM 18 - 23.
 
 #### Bug fixes
 - Android:
