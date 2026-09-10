@@ -900,8 +900,15 @@ static void emitInstrumentationFn(const char *name) {
   LLFunction *fn = getRuntimeFunction(Loc(), gIR->module, name);
 
   // Grab the address of the calling function
-  auto *caller =
-      gIR->ir->CreateCall(GET_INTRINSIC_DECL(returnaddress, {}), DtoConstInt(0));
+#if LLVM_VERSION_MAJOR >= 23
+  LLType *overloadTypes[1] = {
+      getOpaquePtrType(gDataLayout->getProgramAddressSpace())};
+#else
+  llvm::ArrayRef<LLType *> overloadTypes;
+#endif
+  auto *caller = gIR->ir->CreateCall(
+      GET_INTRINSIC_DECL(returnaddress, overloadTypes), DtoConstInt(0));
+
   auto callee = gIR->topfunc();
 
   gIR->ir->CreateCall(fn, {callee, caller});
