@@ -1,8 +1,10 @@
 # LDC master
 
 #### Big news
+- Support for [LLVM 23](https://releases.llvm.org/23.1.0/docs/ReleaseNotes.html). (#5288)
 
 #### Platform support
+- Supports LLVM 18 - 23.
 
 #### Bug fixes
 - dcompute: A `ref` return whose referent is reached through a `Pointer!(as, T)` does not emit an extra load anymore, so a `ref T opIndex()` accessor over a `GlobalPointer!T` no longer faults with `CUDA_ERROR_MISALIGNED_ADDRESS`. (#5284, #5285)

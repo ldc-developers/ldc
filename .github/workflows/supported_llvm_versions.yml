@@ -19,6 +19,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: macOS 26, LLVM 23, latest LDC beta
+            os: macos-26
+            host_dc: ldc-beta
+            llvm_version: 23
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON
+          # v22 is tested in the main workflow
           - job_name: macOS 14, LLVM 21, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
