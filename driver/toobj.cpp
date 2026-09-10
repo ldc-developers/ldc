@@ -41,9 +41,15 @@
 #include <fstream>
 
 namespace llvm {
+#if LLVM_VERSION_MAJOR >= 24
+namespace mc {
+bool getDisableIntegratedAS();
+}
+#else
 namespace codegen {
 bool getDisableIntegratedAS();
 }
+#endif
 }
 
 namespace {
@@ -276,7 +282,11 @@ bool shouldAssembleExternally() {
   // There is no integrated assembler on AIX because XCOFF is not supported.
   // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
   return global.params.output_o &&
+#if LLVM_VERSION_MAJOR >= 24
+         (llvm::mc::getDisableIntegratedAS() ||
+#else
          (llvm::codegen::getDisableIntegratedAS() ||
+#endif
           global.params.targetTriple->getOS() == llvm::Triple::AIX);
 }
 

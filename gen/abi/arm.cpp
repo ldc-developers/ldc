@@ -44,7 +44,11 @@ struct ArmTargetABI : TargetABI {
 
     return rt->ty == TY::Tsarray ||
            (rt->ty == TY::Tstruct && size(rt) > 4 &&
+#if LLVM_VERSION_MAJOR >= 24
+            (!gTargetMachine->getTargetTriple().isHardFloatABI() ||
+#else
             (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft ||
+#endif
              !isHFVA(rt, hfvaToArray.maxElements)));
   }
 
