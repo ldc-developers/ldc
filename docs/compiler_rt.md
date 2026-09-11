@@ -44,6 +44,10 @@ Remember to adapt them to the appropriate version of the package you have instal
 - Arch: `/usr/lib/clang/<major_version>/lib/linux/`
 - Gentoo: `/usr/lib/clang/<major_version>/lib/linux/`
 
+> [!TIP]
+> If you have the respective C compiler installed,
+> you can also run `clang -print-runtime-dir` to determine the runtime directory.
+
 You now need to edit the ldc2 configuration file.
 Since you're installing ldc2 through your package manager the config file is probably in `/etc/ldc2.conf`.
 If it's not there it should be in `../etc/ldc2.conf` relative to the directory of the ldc2 executable.
