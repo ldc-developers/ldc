@@ -3,7 +3,7 @@
 // RUN: %ldc -output-ll -of=%t.ll %s -O3 && FileCheck %s < %t.ll
 
 // one load regressed with LLVM 22: https://github.com/ldc-developers/ldc/pull/5102#issuecomment-4106838813
-// XFAIL: llvm22
+// XFAIL: atleast_llvm22
 
 class A {
     void foo();

@@ -47,7 +47,7 @@ nothrow:
 /// The 'llvm.returnaddress' intrinsic attempts to compute a target-specific
 /// value indicating the return address of the current function or one of its
 /// callers.
-pragma(LDC_intrinsic, "llvm.returnaddress")
+pragma(LDC_intrinsic, LLVM_major >= 23 ? "llvm.returnaddress.p0" : "llvm.returnaddress")
     void* llvm_returnaddress(uint level);
 
 /// The 'llvm.frameaddress' intrinsic attempts to return the target-specific

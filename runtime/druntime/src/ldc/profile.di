@@ -40,11 +40,19 @@ extern(C++) struct ProfileData {
         else
             return cast(inout(ulong)*) ((cast(size_t) &this) + cast(size_t) RelativeCounters);
     }
+    version (LDC_LLVM_23)
+    {
+        private void* UniformCounters;
+    }
     void* BitmapPtr;
     void* FunctionPointer;
     void* Values;
     uint NumCounters;
     ushort NumValueSites;
+    version (LDC_LLVM_23)
+    {
+        ushort OffloadDeviceWaveSize;
+    }
     uint NumBitmapBytes;
 }
 
