@@ -2491,7 +2491,7 @@ public:
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
         assert(dstMem->getType() == initsym->getType());
-        DtoMemCpy(DtoType(e->type), dstMem, initsym);
+        DtoMemCpy(DtoType(e->type), dstMem, initsym, DtoAlignment(e->type));
       }
 
       return new DLValue(e->type, dstMem);
