@@ -149,6 +149,8 @@ void Target::_init(const Param &params) {
     os = OS_DragonFlyBSD;
   } else if (triple.isOSSolaris()) {
     os = OS_Solaris;
+  } else if (triple.isOSHurd()) {
+    os = OS_Hurd;
   } else {
     os = OS_Freestanding;
   }
