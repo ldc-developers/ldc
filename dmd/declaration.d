@@ -22,7 +22,6 @@ import dmd.errors;
 import dmd.errorsink;
 import dmd.expression;
 import dmd.func;
-import dmd.globals;
 import dmd.id;
 import dmd.identifier;
 import dmd.init;
@@ -40,6 +39,7 @@ import dmd.visitor;
  */
 void ObjectNotFound(Loc loc, Identifier id)
 {
+    import dmd.globals;
     global.gag = 0; // never gag the fatal error
     const dmdConfFile = global.inifilename.length ? FileName.canonicalName(global.inifilename) : "not found";
 
@@ -505,7 +505,6 @@ version (IN_LLVM)
             }
         }
 
-        assert(type || _init);
         this.type = type;
         this._init = _init;
         ctfeAdrOnStack = AdrOnStackNone;
@@ -719,53 +718,38 @@ extern (C++) final class SymbolDeclaration : Declaration
 }
 
 /***********************************************************
+ * Generate Identifier for TypeInfo corresponding to `t`
+ * Params:
+ *      t = type to generate TypeInfo identifier for
+ * Returns:
+ *      the identifier
  */
 private Identifier getTypeInfoIdent(Type t)
 {
-    import dmd.mangle;
-    import core.stdc.stdlib;
-    import dmd.root.rmem;
     // _init_10TypeInfo_%s
     OutBuffer buf;
     buf.reserve(32);
+    import dmd.mangle;
     mangleToBuffer(t, buf);
 
-    const slice = buf[];
-
-    // Allocate buffer on stack, fail over to using malloc()
-    char[128] namebuf;
-
+    OutBuffer buf2;
     // LDC: hash long symbol names
-    char* name;
-    int length;
-    if (IN_LLVM && global.params.hashThreshold && (slice.length > global.params.hashThreshold))
+    version (IN_LLVM) import dmd.globals;
+    if (IN_LLVM && global.params.hashThreshold && (buf.length > global.params.hashThreshold))
     {
         import std.digest.md;
-        auto md5hash = md5Of(slice);
+        auto md5hash = md5Of(buf[]);
         auto hashedname = toHexString(md5hash);
-        static assert(hashedname.length < namebuf.length-30);
-        name = namebuf.ptr;
-        length = snprintf(name, namebuf.length, "_D%lluTypeInfo_%.*s6__initZ",
-            9LU + hashedname.length, cast(int) hashedname.length, hashedname.ptr);
+        buf2.printf("_D%uTypeInfo_%.*s6__initZ",
+            uint(9 + hashedname.length), cast(int) hashedname.length, hashedname.ptr);
     }
     else
     {
-    // else path is DMD original:
-
-    const namelen = 19 + size_t.sizeof * 3 + slice.length + 1;
-    name = namelen <= namebuf.length ? namebuf.ptr : cast(char*)Mem.check(malloc(namelen));
-
-    length = snprintf(name, namelen, "_D%lluTypeInfo_%.*s6__initZ",
-            cast(ulong)(9 + slice.length), cast(int)slice.length, slice.ptr);
-    //printf("%p %s, deco = %s, name = %s\n", this, toChars(), deco, name);
-    assert(0 < length && length < namelen); // don't overflow the buffer
-
+        buf2.reserve(19 + size_t.sizeof * 3 + buf.length + 1);
+        buf2.printf("_D%uTypeInfo_%.*s6__initZ", cast(uint)(9+buf.length), cast(int)buf.length, buf[].ptr);
     }
 
-    auto id = Identifier.idPool(name[0 .. length]);
-
-    if (name != namebuf.ptr)
-        free(name);
+    auto id = Identifier.idPool(buf2[]);
     return id;
 }
 

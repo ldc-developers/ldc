@@ -23,11 +23,33 @@ version (Posix)
     import core.sys.posix.sys.types : pthread_t;
 
     alias ThreadID = pthread_t;
+
+    version (OSX)
+        version = Darwin;
+    else version (iOS)
+        version = Darwin;
+    else version (TVOS)
+        version = Darwin;
+    else version (WatchOS)
+        version = Darwin;
 }
-else
-version (WASI)
+
+package struct ThreadDescr
 {
-    alias ThreadID = ubyte; // dummy; always 1
+    ThreadID tid;
+
+    version (Darwin)
+    {
+        import core.sys.darwin.mach.port : mach_port_t;
+
+        mach_port_t tmach;
+    }
+    else version (Windows)
+    {
+        import core.sys.windows.basetsd;
+
+        HANDLE hndl;
+    }
 }
 
 struct ll_ThreadData

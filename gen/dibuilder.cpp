@@ -1020,7 +1020,7 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
     // emit into module & use fully qualified name
     scope = GetCU();
     name = processDIName(fd->toPrettyChars(true));
-  } else if (fd->isMain()) {
+  } else if (fd->isDMain()) {
     scope = GetSymbolScope(fd);
     name = fd->toPrettyChars(true); // `D main`
   } else {

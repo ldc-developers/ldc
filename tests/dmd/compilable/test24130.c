@@ -1,5 +1,5 @@
 /*
- * DISABLED: freebsd32 freebsd64 linux32 linux64 osx32 osx64 win64 dragonflybsd openbsd
+ * DISABLED: freebsd32 freebsd64 linux32 linux64 osx32 osx64 win64 dragonflybsd openbsd hurd
  * DISABLED: LDC // LDC's DMD-style inline assembler chokes on lowercase register names etc.
  */
 

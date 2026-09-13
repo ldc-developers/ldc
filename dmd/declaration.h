@@ -119,9 +119,10 @@ namespace dmd
     #define STClive               0x10000000000000ULL    /// function `@live` attribute
     #define STCregister           0x20000000000000ULL    /// `register` storage class (ImportC)
     #define STCvolatile           0x40000000000000ULL    /// destined for volatile in the back end
+    #define STCctfeOnly           0x80000000000000ULL    /// `@__ctfe` - can only be used at compile time
 
 #define STC_TYPECTOR    (STCconst | STCimmutable | STCshared | STCwild)
-#define STC_FUNCATTR    (STCref | STCnothrow | STCnogc | STCpure | STCproperty | STCsafe | STCtrusted | STCsystem)
+#define STC_FUNCATTR    (STCref | STCnothrow | STCnogc | STCpure | STCproperty | STCsafe | STCtrusted | STCsystem | STCctfeOnly)
 
 /**************************************************************/
 
@@ -489,9 +490,9 @@ public:
 
 enum class ILS : unsigned char
 {
-    ILSuninitialized,   // not computed yet
-    ILSno,              // cannot inline
-    ILSyes              // can inline
+    uninitialized,  // not computed yet
+    no,             // cannot inline
+    yes             // can inline
 };
 
 /**************************************************************/
@@ -730,9 +731,9 @@ public:
 
     bool inUnittest();
     LabelDsymbol *searchLabel(Identifier *ident, Loc loc);
-    const char *toPrettyChars(bool QualifyTypes = false) override;
+    const char *toPrettyChars(bool QualifyTypes = false, bool keepOneMember = false) override;
     const char *toFullSignature();  // for diagnostics, e.g. 'int foo(int x, int y) pure'
-    bool isMain() const;
+    bool isDMain() const;
     bool isCMain() const;
     bool isWinMain() const;
     bool isDllMain() const;
@@ -782,7 +783,7 @@ public:
     AggregateDeclaration *isThis() override;
 
     const char *kind() const override;
-    const char *toPrettyChars(bool QualifyTypes = false) override;
+    const char *toPrettyChars(bool QualifyTypes = false, bool keepOneMember = false) override;
     void accept(Visitor *v) override { v->visit(this); }
 };
 

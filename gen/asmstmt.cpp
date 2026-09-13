@@ -449,10 +449,9 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   LOG_SCOPE;
 
   const bool isCompoundGccAsmStatement =
-      (stmt->statements && stmt->statements->length &&
-       stmt->statements->front()->isGccAsmStatement());
+      stmt->statements.length && stmt->statements.front()->isGccAsmStatement();
   if (isCompoundGccAsmStatement) {
-    for (Statement *s : *stmt->statements) {
+    for (Statement *s : stmt->statements) {
       if (auto gas = s->isGccAsmStatement()) {
         Statement_toIR(gas, p);
       } else {
@@ -478,7 +477,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   p->asmBlock = asmblock;
 
   // do asm statements
-  for (Statement *s : *stmt->statements) {
+  for (Statement *s : stmt->statements) {
     if (s) {
       if (s->isGccAsmStatement()) {
         error(s->loc,

@@ -219,11 +219,6 @@ public:
     CondExp* isCondExp();
     GenericExp* isGenericExp();
     DefaultInitExp* isDefaultInitExp();
-    FileInitExp* isFileInitExp();
-    LineInitExp* isLineInitExp();
-    ModuleInitExp* isModuleInitExp();
-    FuncInitExp* isFuncInitExp();
-    PrettyFuncInitExp* isPrettyFuncInitExp();
     ClassReferenceExp* isClassReferenceExp();
     ThrownExceptionExp* isThrownExceptionExp();
     UnaExp* isUnaExp();
@@ -293,7 +288,6 @@ public:
     Dsymbol *s;
     d_bool hasOverloads;
 
-    DsymbolExp *syntaxCopy() override;
     void accept(Visitor *v) override { v->visit(this); }
 };
 
@@ -806,6 +800,7 @@ public:
     d_bool inDebugStatement;    // true if this was in a debug statement
     d_bool ignoreAttributes;    // don't enforce attributes (e.g. call @gc function in @nogc code)
     d_bool isUfcsRewrite;       // the first argument was pushed in here by a UFCS rewrite
+    d_bool fromOpOverload;      // set for operator overload method call
     d_bool fromOpAssignment;    // set when operator overload method call from assignment (2024 edition)
     VarDeclaration *vthis2;     // container for multi-context
     Expression* loweredFrom;    // set if this is the result of a lowering
@@ -921,7 +916,6 @@ public:
 class ArrayLengthExp final : public UnaExp
 {
 public:
-    Expression lowering;
     void accept(Visitor *v) override { v->visit(this); }
 };
 
@@ -974,6 +968,7 @@ class CommaExp final : public BinExp
 {
 public:
     d_bool isGenerated;
+    d_bool isInlineSequence;
     d_bool allowCommaExp;
     Expression* originalExp;
     void accept(Visitor *v) override { v->visit(this); }
@@ -1306,37 +1301,9 @@ class GenericExp final : Expression
 class DefaultInitExp : public Expression
 {
 public:
+    TOK tok;
     void accept(Visitor *v) override { v->visit(this); }
-};
-
-class FileInitExp final : public DefaultInitExp
-{
-public:
-    void accept(Visitor *v) override { v->visit(this); }
-};
-
-class LineInitExp final : public DefaultInitExp
-{
-public:
-    void accept(Visitor *v) override { v->visit(this); }
-};
-
-class ModuleInitExp final : public DefaultInitExp
-{
-public:
-    void accept(Visitor *v) override { v->visit(this); }
-};
-
-class FuncInitExp final : public DefaultInitExp
-{
-public:
-    void accept(Visitor *v) override { v->visit(this); }
-};
-
-class PrettyFuncInitExp final : public DefaultInitExp
-{
-public:
-    void accept(Visitor *v) override { v->visit(this); }
+    Expression* syntaxCopy() override;
 };
 
 /****************************************************************/

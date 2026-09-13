@@ -262,14 +262,14 @@ extern (C++) final class TemplateDeclaration : ScopeDsymbol
     // threaded list of previous instantiation attempts on stack
     TemplatePrevious* previous;
 
+    Expression lastConstraint; /// the constraint after the last failed evaluation
+    Array!Expression lastConstraintNegs; /// its negative parts
+    Objects* lastConstraintTiargs; /// template instance arguments for `lastConstraint`
+
 version (IN_LLVM)
 {
     const(char)* intrinsicName;
 }
-
-    Expression lastConstraint; /// the constraint after the last failed evaluation
-    Array!Expression lastConstraintNegs; /// its negative parts
-    Objects* lastConstraintTiargs; /// template instance arguments for `lastConstraint`
 
     extern (D) this(Loc loc, Identifier ident, TemplateParameters* parameters, Expression constraint, Dsymbols* decldefs, bool ismixin = false, bool literal = false)
     {
@@ -968,8 +968,8 @@ extern (C++) class TemplateInstance : ScopeDsymbol
             // Set error here as we don't want it to depend on the number of
             // entries that are being printed.
             if (cl == Classification.error ||
-                (cl == Classification.warning && global.params.useWarnings == DiagnosticReporting.error) ||
-                (cl == Classification.deprecation && global.params.useDeprecated == DiagnosticReporting.error))
+                (cl == Classification.warning && global.errorSink.useWarnings == DiagnosticReporting.error) ||
+                (cl == Classification.deprecation && global.errorSink.useDeprecated == DiagnosticReporting.error))
                 cur.errors = true;
 
             // If two instantiations use the same declaration, they are recursive.

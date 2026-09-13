@@ -113,6 +113,7 @@ class StaticIfDeclaration;
 class MixinDeclaration;
 class StaticForeachDeclaration;
 class UserAttributeDeclaration;
+class UnpackDeclaration;
 class ForwardingAttribDeclaration;
 
 class ScopeDsymbol;
@@ -293,11 +294,6 @@ class EqualExp;
 class IdentityExp;
 class CondExp;
 class DefaultInitExp;
-class FileInitExp;
-class LineInitExp;
-class ModuleInitExp;
-class FuncInitExp;
-class PrettyFuncInitExp;
 class ClassReferenceExp;
 class VoidInitExp;
 class ThrownExceptionExp;
@@ -382,6 +378,7 @@ public:
     virtual void visit(StorageClassDeclaration *s) { visit((AttribDeclaration *)s); }
     virtual void visit(ConditionalDeclaration *s) { visit((AttribDeclaration *)s); }
     virtual void visit(StaticForeachDeclaration *s) { visit((AttribDeclaration *)s); }
+    virtual void visit(UnpackDeclaration *s) { visit((AttribDeclaration *)s); }
 
     // Miscellaneous
     virtual void visit(DeprecatedDeclaration *s) { visit((StorageClassDeclaration *)s); }
@@ -526,12 +523,6 @@ public:
     virtual void visit(DotTemplateInstanceExp *e) { visit((UnaExp *)e); }
     virtual void visit(ArrayExp *e) { visit((UnaExp *)e); }
 
-    // DefaultInitExp
-    virtual void visit(FuncInitExp *e) { visit((DefaultInitExp *)e); }
-    virtual void visit(PrettyFuncInitExp *e) { visit((DefaultInitExp *)e); }
-    virtual void visit(FileInitExp *e) { visit((DefaultInitExp *)e); }
-    virtual void visit(LineInitExp *e) { visit((DefaultInitExp *)e); }
-    virtual void visit(ModuleInitExp *e) { visit((DefaultInitExp *)e); }
 
     // BinExp
     virtual void visit(CommaExp *e) { visit((BinExp *)e); }

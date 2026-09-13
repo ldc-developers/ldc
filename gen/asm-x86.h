@@ -3598,7 +3598,7 @@ struct AsmProcessor {
         e = parseAsmExp();
       } else if (token->ident == Id::offset || token->ident == Id::offsetof) {
         if (token->ident == Id::offset &&
-            global.params.useDeprecated == DIAGNOSTICerror) {
+            global.errorSink->useDeprecated == DIAGNOSTICerror) {
           error(stmt->loc, "offset deprecated, use `offsetof`");
         }
         nextToken();

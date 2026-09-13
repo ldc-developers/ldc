@@ -1100,8 +1100,9 @@ version (CoreUnittest)
             static struct List { size_t gen; List* next; }
             shared(List) head;
             assert(cas(&head, shared(List)(0, null), shared(List)(1, cast(List*)1)));
-            assert(head.gen == 1);
-            assert(cast(size_t)head.next == 1);
+            auto loaded = atomicLoad(head);
+            assert(loaded.gen == 1);
+            assert(cast(size_t) loaded.next == 1);
         }
 
         // https://issues.dlang.org/show_bug.cgi?id=20629
@@ -1140,7 +1141,8 @@ version (CoreUnittest)
     @betterC pure nothrow @nogc @safe unittest
     {
         int a;
-        if (casWeak!(MemoryOrder.acq_rel, MemoryOrder.raw)(&a, 0, 4))
+        int expected = 0;
+        if (casWeakByRef(a, expected, 4))
             assert(a == 4);
     }
 
