@@ -400,8 +400,11 @@ void DtoAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
       // Check whether source and destination values are the same at compile
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
-      if (src != dst)
-        DtoMemCpy(DtoType(lhs->type), dst, src);
+      if (src != dst) {
+        unsigned align = DtoAlignment(lhs->type);
+        DtoMemCpy(DtoType(lhs->type), dst, src, false,
+                  align ? align : 1);
+      }
     }
   } else if (t->ty == TY::Tarray || t->ty == TY::Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);
