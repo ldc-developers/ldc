@@ -102,7 +102,8 @@ struct RemoveStructPadding : ABIRewrite {
     // Make sure the padding is zero, so struct comparisons work.
     // TODO: Only do this if there's padding, and/or only initialize padding.
     DtoMemSetZero(DtoType(dty), lval,
-                  DtoConstSize_t(getTypeAllocSize(DtoType(dty))));
+                  DtoConstSize_t(getTypeAllocSize(DtoType(dty))),
+                  DtoAlignment(dty));
     DtoPaddedStruct(dty->toBasetype(), v, lval);
     return lval;
   }
