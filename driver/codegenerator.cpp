@@ -35,6 +35,7 @@
 #if LDC_MLIR_ENABLED
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/OwningOpRef.h"
 #endif
 
 #if LLVM_VERSION_MAJOR < 22
@@ -363,7 +364,9 @@ void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
       fatal();
     }
 
-    // module->print(aos);
+    if (module && *module) {
+      (*module)->print(aos.os());
+    }
 
     // Terminate upon errors during the LLVM passes.
     if (global.errors || global.warnings) {

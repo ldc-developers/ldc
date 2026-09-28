@@ -1,58 +1,69 @@
-# - Try to find MLIR project at LLVM
+# - Find MLIR headers and libraries.
 #
 # The following are set after configuration is done:
-#   MLIR_FOUND   ON if MLIR installation was found
-#   MLIR_ROOT_DIR
-#   MLIR_INCLUDE_DIR
-#   MLIR_LIB_DIR
-#   MLIR_LIBRARIES
-#   MLIR_TABLEGEN  The mlir-tblgen executable
+#   MLIR_FOUND         - ON if MLIR installation was found
+#   MLIR_DIR           - Directory containing MLIRConfig.cmake
+#   MLIR_INCLUDE_DIRS  - Directory containing MLIR include files
+#   MLIR_INCLUDE_DIR   - Alias to MLIR_INCLUDE_DIRS
+#   MLIR_LIBRARIES     - List of MLIR libraries to link against
+#   MLIR_TABLEGEN_EXE  - The mlir-tblgen executable (if present)
 
 set(MLIR_FOUND OFF)
 
-# We only want to find an MLIR version that is compatible with our LLVM version,
-# so for now only look in the same installation dir as LLVM.
-find_program(MLIR_TABLEGEN
-    NAMES mlir-tblgen
-    PATHS ${MLIR_ROOT_DIR}/bin ${LLVM_ROOT_DIR}/bin NO_DEFAULT_PATH
-    DOC "Path to mlir-tblgen tool.")
+# Prefer finding MLIRConfig.cmake via CMake's CONFIG mode
+set(_mlir_hints
+    ${MLIR_DIR}
+    "${LLVM_CMAKEDIR}/../mlir"
+    "${LLVM_LIBRARY_DIRS}/cmake/mlir"
+    "${LLVM_ROOT_DIR}/lib/cmake/mlir"
+)
 
-if(NOT MLIR_TABLEGEN)
-    message(STATUS "Could not find mlir-tblgen. Try manually setting MLIR_ROOT_DIR or MLIR_TABLEGEN.")
+find_package(MLIR QUIET CONFIG HINTS ${_mlir_hints})
+
+if(MLIR_FOUND)
+    set(MLIR_INCLUDE_DIR ${MLIR_INCLUDE_DIRS})
+    message(STATUS "Found MLIR: ${MLIR_DIR}")
+
+    # MLIR targets required for inline MLIR:
+    # 1. Target Translation to LLVM IR
+    # 2. Supported Dialects (LLVM, Func, Arith, ControlFlow)
+    # 3. Conversions to LLVM dialect
+    # 4. Transforms, Passes & Diagnostics
+    # 5. Core IR & Parser
+    set(_mlir_targets
+        # Target Translation to LLVM IR
+        MLIRTargetLLVMIRExport
+        MLIRToLLVMIRTranslationRegistration
+        MLIRBuiltinToLLVMIRTranslation
+        MLIRLLVMToLLVMIRTranslation
+
+        # Dialects
+        MLIRLLVMDialect
+        MLIRFuncDialect
+        MLIRArithDialect
+        MLIRControlFlowDialect
+        MLIRSCFDialect
+
+        # Conversions to LLVM
+        MLIRFuncToLLVM
+        MLIRArithToLLVM
+        MLIRControlFlowToLLVM
+        MLIRReconcileUnrealizedCasts
+        MLIRSCFToControlFlow
+
+        # Transforms & Passes
+        MLIRPass
+        MLIRTransforms
+
+        # Core IR & Parsing
+        MLIRParser
+        MLIRIR
+        MLIRSupport
+    )
+
+    set(MLIR_LIBRARIES ${_mlir_targets})
 else()
-    set(MLIR_FOUND ON)
-    message(STATUS "Found mlir-tblgen: ${MLIR_TABLEGEN}")
-    get_filename_component(MLIR_BIN_DIR ${MLIR_TABLEGEN} DIRECTORY CACHE)
-    get_filename_component(MLIR_ROOT_DIR "${MLIR_BIN_DIR}/.." ABSOLUTE CACHE)
-    set(MLIR_INCLUDE_DIR ${MLIR_ROOT_DIR}/include)
-    set(MLIR_LIB_DIR     ${MLIR_ROOT_DIR}/lib)
-
-    # To be done: add the required MLIR libraries. Hopefully we don't have to manually list all MLIR libs.
-    if(EXISTS "${MLIR_LIB_DIR}/MLIRIR.lib")
-      set(MLIR_LIBRARIES ${MLIR_LIB_DIR}/MLIRIR.lib ${MLIR_LIB_DIR}/MLIRSupport.lib)
-    elseif(EXISTS "${MLIR_LIB_DIR}/libMLIRIR.a")
-      set(MLIR_LIBRARIES ${MLIR_LIB_DIR}/libMLIRIR.a ${MLIR_LIB_DIR}/libMLIRSupport.a)
-    endif()  
-
-    # XXX: This function is untested and will need adjustment.
-    function(mlir_tablegen)
-        cmake_parse_arguments(
-         ARG
-         "NAME"
-         "TARGET;OUTS;FLAG;SRCS"
-         ${ARGN}
-         )
-
-        MESSAGE(STATUS "Setting target for Ops_" ${ARG_TARGET})
-
-        set(TABLEGEN_OUTPUT ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_SRCS}
-                PARENT_SCOPE)
-        #mlir-tblgen ops.td --gen-op-* -I*-o=ops.*.inc
-        add_custom_command(
-                OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_OUTS}
-                COMMAND ${MLIR_TABLEGEN} ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_SRCS} -I${MLIR_INCLUDE_DIR}  -o=${CMAKE_CURRENT_SOURCE_DIR}/${ARG_OUTS}
-                ARGS ${ARG_FLAG}
-        )
-        add_custom_target(Ops_${ARG_TARGET} ALL DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_OUTS})
-    endfunction()
+    if(NOT MLIR_FIND_QUIETLY)
+        message(STATUS "Could not find MLIR (searched hints: ${_mlir_hints}). Set MLIR_DIR to the directory containing MLIRConfig.cmake.")
+    endif()
 endif()
