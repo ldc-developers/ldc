@@ -15,6 +15,7 @@
 #include "mtype.h"
 #include <cassert>
 #include <memory>
+#include <mlir/IR/Types.h>
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Attributes.h"
@@ -51,6 +52,7 @@
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+#include "mlir/Target/LLVMIR/TypeFromLLVM.h"
 #endif
 
 using namespace dmd;
@@ -189,6 +191,7 @@ DValue *DtoInlineMLIR(Loc loc, FuncDeclaration *fdecl, Expressions *arguments, l
                       mlir::LLVM::LLVMDialect>();
 
       mlir::MLIRContext context(registry);
+      mlir::LLVM::TypeFromLLVMIRTranslator typeTranslator(context);
 
       context.loadDialect<mlir::func::FuncDialect,
                           mlir::arith::ArithDialect,
@@ -199,6 +202,7 @@ DValue *DtoInlineMLIR(Loc loc, FuncDeclaration *fdecl, Expressions *arguments, l
       std::string str;
       llvm::raw_string_ostream stream(str);
 
+      // Declare mlir function using `func` dialect
       stream << "func.func " << "@" << mangled_name << "(";
 
       for(size_t i = 0; i < arg_types.length; i ++) {
@@ -214,18 +218,22 @@ DValue *DtoInlineMLIR(Loc loc, FuncDeclaration *fdecl, Expressions *arguments, l
           stream << ", ";
         }
 
-        stream << "%arg" << i << ": ";
-        stream << *DtoType(ty);
+        mlir::Type mlir_ty = typeTranslator.translateType(DtoType(ty));
+
+        stream << "%arg" << i << ": " << mlir_ty;
       }
+
+      stream << ")";
 
       if (ret->ty != TY::Tvoid) {
-        stream << ")" << " -> " << *DtoType(ret) << "\n{\n";
+        mlir::Type mlir_return_ty = typeTranslator.translateType(DtoType(ret));
+        stream << " -> " << mlir_return_ty;
       }
 
-      stream << code;
+      stream << "\n{\n" << code;
 
       if (ret->ty == TY::Tvoid) {
-        stream << "\nreturn";
+        stream << "\n\treturn";
       }
 
       stream << "\n}";

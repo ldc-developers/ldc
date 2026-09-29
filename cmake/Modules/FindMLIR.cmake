@@ -36,6 +36,7 @@ if(MLIR_FOUND)
         MLIRToLLVMIRTranslationRegistration
         MLIRBuiltinToLLVMIRTranslation
         MLIRLLVMToLLVMIRTranslation
+        MLIRTargetLLVMIRImport
 
         # Dialects
         MLIRLLVMDialect

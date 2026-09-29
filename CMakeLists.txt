@@ -48,9 +48,11 @@ endforeach()
 
 # Set MLIR support variables if it is found.
 set(LDC_WITH_MLIR "AUTO" CACHE STRING "Build LDC with MLIR support (AUTO|ON|OFF)")
+set(LDC_MLIR_ENABLED OFF)
 if(NOT LDC_WITH_MLIR STREQUAL "OFF")
     include(FindMLIR)
     if(MLIR_FOUND)
+        set(LDC_MLIR_ENABLED ON)
         message(STATUS "-- Building LDC with MLIR support (${MLIR_DIR})")
         include_directories(SYSTEM ${MLIR_INCLUDE_DIRS})
         add_definitions("-DLDC_MLIR_ENABLED")
