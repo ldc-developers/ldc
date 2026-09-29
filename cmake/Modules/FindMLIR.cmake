@@ -24,12 +24,6 @@ if(MLIR_FOUND)
     set(MLIR_INCLUDE_DIR ${MLIR_INCLUDE_DIRS})
     message(STATUS "Found MLIR: ${MLIR_DIR}")
 
-    # MLIR targets required for inline MLIR:
-    # 1. Target Translation to LLVM IR
-    # 2. Supported Dialects (LLVM, Func, Arith, ControlFlow)
-    # 3. Conversions to LLVM dialect
-    # 4. Transforms, Passes & Diagnostics
-    # 5. Core IR & Parser
     set(_mlir_targets
         # Target Translation to LLVM IR
         MLIRTargetLLVMIRExport
