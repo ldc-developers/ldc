@@ -15,7 +15,6 @@
 #include "mtype.h"
 #include <cassert>
 #include <memory>
-#include <mlir/IR/Types.h>
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Attributes.h"
@@ -35,6 +34,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
+#include <mlir/IR/Types.h>
 #include "mlir/Support/LLVM.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/IR/DialectRegistry.h"
