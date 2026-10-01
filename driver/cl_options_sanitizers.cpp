@@ -185,6 +185,9 @@ SanitizerCheck parseSanitizerName(llvm::StringRef name,
                                    .Case("leak", LeakSanitizer)
                                    .Case("memory", MemorySanitizer)
                                    .Case("thread", ThreadSanitizer)
+#if LDC_LLVM_VER >= 2000
+                                   .Case("realtime", RealTimeSanitizer)
+#endif
                                    .Default(NoneSanitizer);
 
   if (parsedValue == NoneSanitizer) {
