@@ -31,6 +31,7 @@ config.default_target_bits = @DEFAULT_TARGET_BITS@
 config.with_PGO            = True
 config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
 config.plugins_supported   = @LDC_ENABLE_PLUGINS@
+config.with_mlir           = "@LDC_MLIR_ENABLED@" == "ON"
 config.gnu_make_bin        = "@GNU_MAKE_BIN@"
 config.ldc_host_arch       = "@LLVM_NATIVE_ARCH@"
 config.ldc_with_lld        = @LDC_WITH_LLD@
@@ -131,6 +132,9 @@ if canDoLTO:
 
 if config.ldc_with_lld:
     config.available_features.add('internal_lld')
+
+if config.with_mlir:
+        config.available_features.add('MLIR')
 
 config.target_triple = '(unused)'
 

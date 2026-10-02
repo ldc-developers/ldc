@@ -25,7 +25,9 @@
 #if LDC_MLIR_ENABLED
 namespace mlir {
 class MLIRContext;
-class OwningModuleRef;
+class ModuleOp;
+template <typename OpTy> class OwningOpRef;
+using OwningModuleRef = OwningOpRef<ModuleOp>;
 }
 #endif
 
