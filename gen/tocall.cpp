@@ -1134,7 +1134,8 @@ DValue *DtoCallFunction(Loc loc, Type *resulttype, DValue *fnval,
   }
 
   if (retValIsLVal) {
-    return new DLValue(resulttype, retllval);
+    return new DLValue(resulttype, retllval,
+                       tf->isRef() ? DtoAlignment(resulttype) : 1);
   }
 
   if (rbase->ty == TY::Tarray) {
