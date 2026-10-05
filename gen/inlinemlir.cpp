@@ -1,3 +1,12 @@
+//===-- gen/inlinemlir.cpp - Inline MLIR implementation-----------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+
+#if LDC_MLIR_ENABLED
+
 #include "gen/inlinemlir.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
@@ -26,7 +35,6 @@
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/raw_ostream.h"
 
-#if LDC_MLIR_ENABLED
 // Dialects
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
@@ -53,7 +61,6 @@
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Target/LLVMIR/TypeFromLLVM.h"
-#endif
 
 using namespace dmd;
 
@@ -345,7 +352,6 @@ DValue *DtoInlineMLIR(Loc loc, FuncDeclaration *fdecl, Expressions *arguments, l
       // return call as im value
       return new DImValue(type, rv);
   }
-
-
 #endif
 }
+#endif // MLIR_ENABLED
