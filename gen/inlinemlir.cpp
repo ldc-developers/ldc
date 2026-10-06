@@ -5,8 +5,6 @@
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
 
-#if LDC_MLIR_ENABLED
-
 #include "gen/inlinemlir.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
@@ -35,6 +33,7 @@
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/raw_ostream.h"
 
+#if LDC_MLIR_ENABLED
 // Dialects
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
@@ -62,8 +61,6 @@
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Target/LLVMIR/TypeFromLLVM.h"
 
-using namespace dmd;
-
 namespace {
 /// Adds the idol's function attributes to the wannabe
 /// Note: don't add function _parameter_ attributes
@@ -79,6 +76,9 @@ llvm::StringRef exprToString(StringExp *strexp) {
   return {str.ptr, str.length};
 }
 } // anonymous namespace
+#endif // LDC_MLIR_ENABLED
+
+using namespace dmd;
 
 void DtoCheckInlineMLIRPragma(Identifier *ident, Dsymbol *s) {
   assert(ident != nullptr);
@@ -352,6 +352,5 @@ DValue *DtoInlineMLIR(Loc loc, FuncDeclaration *fdecl, Expressions *arguments, l
       // return call as im value
       return new DImValue(type, rv);
   }
-#endif
+#endif // LDC_MLIR_ENABLED
 }
-#endif // MLIR_ENABLED

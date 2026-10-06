@@ -47,7 +47,7 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
 endforeach()
 
 # Set MLIR support variables if it is found.
-set(LDC_WITH_MLIR "AUTO" CACHE STRING "Build LDC with MLIR support (AUTO|ON|OFF)")
+set(LDC_WITH_MLIR "OFF" CACHE STRING "Build LDC with MLIR support (AUTO|ON|OFF)")
 set(LDC_MLIR_ENABLED OFF)
 if(NOT LDC_WITH_MLIR STREQUAL "OFF")
     include(FindMLIR)
