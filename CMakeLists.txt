@@ -50,13 +50,34 @@ endforeach()
 set(LDC_WITH_MLIR "OFF" CACHE STRING "Build LDC with MLIR support (AUTO|ON|OFF)")
 set(LDC_MLIR_ENABLED OFF)
 if(NOT LDC_WITH_MLIR STREQUAL "OFF")
-    include(FindMLIR)
+    # include(FindMLIR)
+    set(_mlir_hints
+        ${MLIR_DIR}
+        "${LLVM_CMAKEDIR}/../mlir"
+        "${LLVM_LIBRARY_DIRS}/cmake/mlir"
+        "${LLVM_ROOT_DIR}/lib/cmake/mlir"
+    )
+
+    find_package(MLIR QUIET CONFIG HINTS ${_mlir_hints})
+    # message("MLIR_EXPORTED_TARGETS: ${MLIR_EXPORTED_TARGETS}")
     if(MLIR_FOUND)
         set(LDC_MLIR_ENABLED ON)
         message(STATUS "-- Building LDC with MLIR support (${MLIR_DIR})")
         include_directories(SYSTEM ${MLIR_INCLUDE_DIRS})
         add_definitions("-DLDC_MLIR_ENABLED")
-        list(PREPEND LLVM_LIBRARIES ${MLIR_LIBRARIES})
+
+        get_property(MLIR_DIALECTS GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+        get_property(MLIR_TRANSLATION_LIBS GLOBAL PROPERTY
+                     MLIR_TRANSLATION_LIBS)
+        get_property(MLIR_CONVERSION_LIBS GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+        set(MLIR_LIBS ${MLIR_DIALECTS} ${MLIR_TRANSLATION_LIBS}
+            ${MLIR_CONVERSION_LIBS})
+
+        list(TRANSFORM MLIR_LIBS PREPEND "-l")
+        # message("MLIR LIBS: ${MLIR_LIBS}")
+        list(PREPEND LLVM_LIBRARIES ${MLIR_LIBS})
+
+        message("LLVM LIBRARIES: ${LLVM_LIBRARIES}")
     elseif(LDC_WITH_MLIR STREQUAL "ON")
         message(FATAL_ERROR "MLIR support was requested (LDC_WITH_MLIR=ON), but MLIR was not found.")
     else()
@@ -730,6 +751,7 @@ endfunction()
 
 
 function(copy_and_install_llvm_library llvm_lib_path ldc_lib_name fixup_dylib)
+        message("copy_and_install_llvm_library: ${llvm_lib_path} ${ldc_lib_name}")
         set(ldc_lib_path ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name})
         copy_and_rename_file(${llvm_lib_path} ${ldc_lib_path})
         if (APPLE AND fixup_dylib)

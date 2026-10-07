@@ -56,7 +56,7 @@ if(MLIR_FOUND)
         MLIRSupport
     )
 
-    set(MLIR_LIBRARIES ${_mlir_targets})
+    # set(MLIR_LIBRARIES ${_mlir_targets})
 else()
     if(NOT MLIR_FIND_QUIETLY)
         message(STATUS "Could not find MLIR (searched hints: ${_mlir_hints}). Set MLIR_DIR to the directory containing MLIRConfig.cmake.")
