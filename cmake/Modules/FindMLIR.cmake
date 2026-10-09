@@ -17,7 +17,16 @@ set(_mlir_hints
     "${LLVM_ROOT_DIR}/lib/cmake/mlir"
 )
 
+set(_saved_llvm_config "${LLVM_CONFIG}")
+
 find_package(MLIR QUIET CONFIG HINTS ${_mlir_hints})
+
+# upon calling find_package(MLIR ...) with CONFIG mode
+# it loads and executes MLIRConfig.cmake and sets
+# ${MLIR_CONFIG} to be path to MLIRConfig.cmake and in return it calls
+# find_package(LLVM ...) with config mode which also sets
+# ${LLVM_CONFIG} to be the path to LLVMConfig.cmake hence this line is needed
+set(LLVM_CONFIG "${_saved_llvm_config}")
 
 if(MLIR_FOUND)
     set(MLIR_INCLUDE_DIR ${MLIR_INCLUDE_DIRS})
