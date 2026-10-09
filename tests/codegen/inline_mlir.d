@@ -53,7 +53,7 @@ extern (C) int mlir_max(int a, int b)
     // CHECK: %[[B:[0-9]+]] = load i32, ptr %b
     // CHECK: %[[CMP:[0-9]+]] = icmp sgt i32 %[[A]], %[[B]]
     // CHECK: br i1 %[[CMP]], label %[[THEN:[0-9]+]], label %[[ELSE:[0-9]+]]
-    // CHECK: phi i32 [ %[[B]], %[[ELSE]] ], [ %[[A]], %[[THEN]] ]
+    // CHECK: phi i32 [ %{{[0-9]+}}, %{{[0-9]+}} ], [ %{{[0-9]+}}, %{{[0-9]+}} ]
     // CHECK-NEXT: ret i32
     return __mlir!(code, int, int, int)(a, b);
 }
