@@ -270,7 +270,11 @@ DValue *DtoInlineMLIR(Loc loc, FuncDeclaration *fdecl, Expressions *arguments, l
 
       mlir::PassManager pm(&context);
 
-      pm.addPass(mlir::createConvertSCFToCFPass());
+      #if LLVM_VERSION_MAJOR >= 21
+            pm.addPass(mlir::createSCFToControlFlowPass());
+      #else
+            pm.addPass(mlir::createConvertSCFToCFPass());
+      #endif
       pm.addPass(mlir::createArithToLLVMConversionPass());
       pm.addPass(mlir::createConvertControlFlowToLLVMPass());
       pm.addPass(mlir::createConvertFuncToLLVMPass());
