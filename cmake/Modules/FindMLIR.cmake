@@ -5,8 +5,7 @@
 #   MLIR_DIR           - Directory containing MLIRConfig.cmake
 #   MLIR_INCLUDE_DIRS  - Directory containing MLIR include files
 #   MLIR_INCLUDE_DIR   - Alias to MLIR_INCLUDE_DIRS
-#   MLIR_LIBRARIES     - List of MLIR libraries to link against
-#   MLIR_TABLEGEN_EXE  - The mlir-tblgen executable (if present)
+#   MLIR_LIBS          - List of MLIR libraries to link against
 
 set(MLIR_FOUND OFF)
 
@@ -24,39 +23,55 @@ if(MLIR_FOUND)
     set(MLIR_INCLUDE_DIR ${MLIR_INCLUDE_DIRS})
     message(STATUS "Found MLIR: ${MLIR_DIR}")
 
-    set(_mlir_targets
-        # Target Translation to LLVM IR
-        MLIRTargetLLVMIRExport
-        MLIRToLLVMIRTranslationRegistration
-        MLIRBuiltinToLLVMIRTranslation
-        MLIRLLVMToLLVMIRTranslation
-        MLIRTargetLLVMIRImport
+    if(LDC_LINK_MANUALLY)
+      set(MLIR_LIBS
+          # Target Translation to LLVM IR
+          MLIRTargetLLVMIRExport
+          MLIRToLLVMIRTranslationRegistration
+          MLIRBuiltinToLLVMIRTranslation
+          MLIRLLVMToLLVMIRTranslation
+          MLIRTargetLLVMIRImport
 
-        # Dialects
-        MLIRLLVMDialect
-        MLIRFuncDialect
-        MLIRArithDialect
-        MLIRControlFlowDialect
-        MLIRSCFDialect
+          # Dialects
+          MLIRLLVMDialect
+          MLIRFuncDialect
+          MLIRArithDialect
+          MLIRControlFlowDialect
+          MLIRSCFDialect
 
-        # Conversions to LLVM
-        MLIRFuncToLLVM
-        MLIRArithToLLVM
-        MLIRControlFlowToLLVM
-        MLIRReconcileUnrealizedCasts
-        MLIRSCFToControlFlow
+          # Conversions to LLVM
+          MLIRFuncToLLVM
+          MLIRArithToLLVM
+          MLIRControlFlowToLLVM
+          MLIRReconcileUnrealizedCasts
+          MLIRSCFToControlFlow
 
-        # Transforms & Passes
-        MLIRPass
-        MLIRTransforms
+          # Transforms & Passes
+          MLIRPass
+          MLIRTransforms
 
-        # Core IR & Parsing
-        MLIRParser
-        MLIRIR
-        MLIRSupport
-    )
+          # Core IR & Parsing
+          MLIRParser
+          MLIRIR
+          MLIRSupport
+      )
+    else()
+      get_property(MLIR_ALL_LIBS GLOBAL PROPERTY MLIR_ALL_LIBS)
 
-    # set(MLIR_LIBRARIES ${_mlir_targets})
+      set(MLIR_LIBS "")
+
+      foreach(lib IN  LISTS MLIR_ALL_LIBS)
+        get_target_property(_type ${lib} TYPE)
+        if (_type STREQUAL "STATIC_LIBRARY")
+          list(APPEND MLIR_LIBS ${lib})
+        endif()
+      endforeach()
+
+      list(LENGTH MLIR_LIBS _n)
+      message(STATUS "MLIR static libs: ${_n}")
+      list(TRANSFORM MLIR_LIBS PREPEND "-l")
+    endif()
+
 else()
     if(NOT MLIR_FIND_QUIETLY)
         message(STATUS "Could not find MLIR (searched hints: ${_mlir_hints}). Set MLIR_DIR to the directory containing MLIRConfig.cmake.")

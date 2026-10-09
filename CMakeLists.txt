@@ -25,6 +25,17 @@ include(CheckDSourceCompiles)
 include(CheckLinkFlag)
 include(BuildDExecutable)
 
+if(NOT DEFINED LDC_LINK_MANUALLY)
+    if(MSVC)
+        # Use the D host compiler for linking D executables.
+        set(LDC_LINK_MANUALLY OFF)
+    else()
+        # On Unix-like systems, default to having CMake link the D executables via the C++ compiler.
+        # (Using the D compiler needs -Xcc and -gcc support, see file BuildDExecutable.cmake.)
+        set(LDC_LINK_MANUALLY ON)
+    endif()
+endif()
+
 #
 # Locate LLVM.
 #
@@ -47,34 +58,18 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
 endforeach()
 
 # Set MLIR support variables if it is found.
-set(LDC_WITH_MLIR "OFF" CACHE STRING "Build LDC with MLIR support (AUTO|ON|OFF)")
+set(LDC_WITH_MLIR "AUTO" CACHE STRING
+    "Build LDC with MLIR support (AUTO|ON|OFF)")
 set(LDC_MLIR_ENABLED OFF)
 if(NOT LDC_WITH_MLIR STREQUAL "OFF")
-    # include(FindMLIR)
-    set(_mlir_hints
-        ${MLIR_DIR}
-        "${LLVM_CMAKEDIR}/../mlir"
-        "${LLVM_LIBRARY_DIRS}/cmake/mlir"
-        "${LLVM_ROOT_DIR}/lib/cmake/mlir"
-    )
+    include(FindMLIR)
 
-    find_package(MLIR QUIET CONFIG HINTS ${_mlir_hints})
-    # message("MLIR_EXPORTED_TARGETS: ${MLIR_EXPORTED_TARGETS}")
     if(MLIR_FOUND)
         set(LDC_MLIR_ENABLED ON)
         message(STATUS "-- Building LDC with MLIR support (${MLIR_DIR})")
         include_directories(SYSTEM ${MLIR_INCLUDE_DIRS})
         add_definitions("-DLDC_MLIR_ENABLED")
 
-        get_property(MLIR_DIALECTS GLOBAL PROPERTY MLIR_DIALECT_LIBS)
-        get_property(MLIR_TRANSLATION_LIBS GLOBAL PROPERTY
-                     MLIR_TRANSLATION_LIBS)
-        get_property(MLIR_CONVERSION_LIBS GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
-        set(MLIR_LIBS ${MLIR_DIALECTS} ${MLIR_TRANSLATION_LIBS}
-            ${MLIR_CONVERSION_LIBS})
-
-        list(TRANSFORM MLIR_LIBS PREPEND "-l")
-        # message("MLIR LIBS: ${MLIR_LIBS}")
         list(PREPEND LLVM_LIBRARIES ${MLIR_LIBS})
 
         message("LLVM LIBRARIES: ${LLVM_LIBRARIES}")
@@ -625,16 +620,6 @@ if(LDC_WITH_LLD)
     endif()
 endif()
 
-if(NOT DEFINED LDC_LINK_MANUALLY)
-    if(MSVC)
-        # Use the D host compiler for linking D executables.
-        set(LDC_LINK_MANUALLY OFF)
-    else()
-        # On Unix-like systems, default to having CMake link the D executables via the C++ compiler.
-        # (Using the D compiler needs -Xcc and -gcc support, see file BuildDExecutable.cmake.)
-        set(LDC_LINK_MANUALLY ON)
-    endif()
-endif()
 if(LDC_LINK_MANUALLY AND NOT DEFINED D_LINKER_ARGS)
     include(ExtractDMDSystemLinker)
     message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
