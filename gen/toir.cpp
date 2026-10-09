@@ -32,6 +32,7 @@
 #include "gen/functions.h"
 #include "gen/funcgenstate.h"
 #include "gen/inlineir.h"
+#include "gen/inlinemlir.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -728,6 +729,10 @@ public:
         }
         if (fd->llvmInternal == LLVMinline_ir) {
           return DtoInlineIRExpr(e->loc, fd, e->arguments, sretPointer);
+        }
+
+        if (fd->llvmInternal == LLVMinline_mlir) {
+          return DtoInlineMLIR(e->loc, fd, e->arguments, sretPointer);
         }
 
         DValue *result = nullptr;

@@ -19,6 +19,7 @@
 #include "dmd/scope.h"
 #include "dmd/template.h"
 #include "gen/inlineir.h"
+#include "gen/inlinemlir.h"
 #include "gen/llvmhelpers.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -323,6 +324,15 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
     return LLVMinline_ir;
   }
 
+  // pragma(LDC_inline_mlir) { templdecl(s) }
+  if (ident == Id::LDC_inline_mlir) {
+    if (args && args->length > 0) {
+      pragmaError("takes no parameters");
+      fatal();
+    }
+    return LLVMinline_mlir;
+  }
+
   // pragma(LDC_extern_weak) { vardecl(s) }
   if (ident == Id::LDC_extern_weak) {
     if (args && args->length > 0) {
@@ -523,6 +533,26 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       td->llvmInternal = llvm_internal;
     });
     if (count != 1) {
+      error(s->loc,
+            "the `%s` pragma doesn't affect exactly 1 template declaration",
+            ident->toChars());
+      fatal();
+    }
+    break;
+  }
+
+  case LLVMinline_mlir: {
+    DtoCheckInlineMLIRPragma(ident, s);
+    const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
+      if (!td->onemember) {
+        error(s->loc, "the `%s` pragma template must have exactly one member", ident->toChars());
+        fatal();
+      }
+
+      td->llvmInternal = llvm_internal;
+    });
+
+    if (count !=1) {
       error(s->loc,
             "the `%s` pragma doesn't affect exactly 1 template declaration",
             ident->toChars());

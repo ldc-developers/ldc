@@ -25,6 +25,17 @@ include(CheckDSourceCompiles)
 include(CheckLinkFlag)
 include(BuildDExecutable)
 
+if(NOT DEFINED LDC_LINK_MANUALLY)
+    if(MSVC)
+        # Use the D host compiler for linking D executables.
+        set(LDC_LINK_MANUALLY OFF)
+    else()
+        # On Unix-like systems, default to having CMake link the D executables via the C++ compiler.
+        # (Using the D compiler needs -Xcc and -gcc support, see file BuildDExecutable.cmake.)
+        set(LDC_LINK_MANUALLY ON)
+    endif()
+endif()
+
 #
 # Locate LLVM.
 #
@@ -47,14 +58,23 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
 endforeach()
 
 # Set MLIR support variables if it is found.
-# FIXME: LLVM 14+ (`mlir::OwningModuleRef` replacement)
-if(NOT LDC_WITH_MLIR STREQUAL "OFF" AND LLVM_VERSION_MAJOR LESS 14)
+set(LDC_WITH_MLIR "AUTO" CACHE STRING
+    "Build LDC with MLIR support (AUTO|ON|OFF)")
+set(LDC_MLIR_ENABLED OFF)
+if(NOT LDC_WITH_MLIR STREQUAL "OFF")
     include(FindMLIR)
+
     if(MLIR_FOUND)
-        message(STATUS "-- Building LDC with MLIR support (${MLIR_ROOT_DIR})")
-        include_directories(${MLIR_INCLUDE_DIR})
+        set(LDC_MLIR_ENABLED ON)
+        message(STATUS "-- Building LDC with MLIR support (${MLIR_DIR})")
+        include_directories(SYSTEM ${MLIR_INCLUDE_DIRS})
         add_definitions("-DLDC_MLIR_ENABLED")
-        set(LLVM_LIBRARIES "${MLIR_LIBRARIES}" ${LLVM_LIBRARIES})
+
+        list(PREPEND LLVM_LIBRARIES ${MLIR_LIBS})
+
+        message("LLVM LIBRARIES: ${LLVM_LIBRARIES}")
+    elseif(LDC_WITH_MLIR STREQUAL "ON")
+        message(FATAL_ERROR "MLIR support was requested (LDC_WITH_MLIR=ON), but MLIR was not found.")
     else()
         message(STATUS "-- Building LDC without MLIR support: not found")
     endif()
@@ -600,16 +620,6 @@ if(LDC_WITH_LLD)
     endif()
 endif()
 
-if(NOT DEFINED LDC_LINK_MANUALLY)
-    if(MSVC)
-        # Use the D host compiler for linking D executables.
-        set(LDC_LINK_MANUALLY OFF)
-    else()
-        # On Unix-like systems, default to having CMake link the D executables via the C++ compiler.
-        # (Using the D compiler needs -Xcc and -gcc support, see file BuildDExecutable.cmake.)
-        set(LDC_LINK_MANUALLY ON)
-    endif()
-endif()
 if(LDC_LINK_MANUALLY AND NOT DEFINED D_LINKER_ARGS)
     include(ExtractDMDSystemLinker)
     message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
@@ -726,6 +736,7 @@ endfunction()
 
 
 function(copy_and_install_llvm_library llvm_lib_path ldc_lib_name fixup_dylib)
+        message("copy_and_install_llvm_library: ${llvm_lib_path} ${ldc_lib_name}")
         set(ldc_lib_path ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name})
         copy_and_rename_file(${llvm_lib_path} ${ldc_lib_path})
         if (APPLE AND fixup_dylib)
