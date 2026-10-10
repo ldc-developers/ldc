@@ -35,6 +35,7 @@
 #if LDC_MLIR_ENABLED
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/OwningOpRef.h"
 #endif
 
 #if LLVM_VERSION_MAJOR < 22
@@ -334,21 +335,19 @@ void CodeGenerator::emitMLIR(Module *m) {
     fatal();
   }
 
-  mlir::OwningModuleRef module;
-  /*module = mlirGen(mlirContext, m, irs);
-  if(!module){
-    IF_LOG Logger::println("Error generating MLIR:'%s'", llpath.c_str());
-    fatal();
-  }*/
+  // TODO: no MLIR generation yet. It emits an empty module so
+  // --output-mlir produces a valid file
+  mlir::OwningOpRef<mlir::ModuleOp> module =
+    mlir::ModuleOp::create(mlir::UnknownLoc::get(&mlirContext_));
 
-  writeMLIRModule(&module, m->objfile.toChars());
+  writeMLIRModule(*module, m->objfile.toChars());
 
   if (m->llvmForceLogging && !loggerWasEnabled) {
     Logger::disable();
   }
 }
 
-void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
+void CodeGenerator::writeMLIRModule(mlir::ModuleOp module,
                                     const char *filename) {
   // Write MLIR
   if (global.params.output_mlir) {
@@ -363,7 +362,7 @@ void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
       fatal();
     }
 
-    // module->print(aos);
+    module->print(aos.os());
 
     // Terminate upon errors during the LLVM passes.
     if (global.errors || global.warnings) {
