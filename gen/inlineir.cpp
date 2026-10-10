@@ -239,13 +239,13 @@ DValue *DtoInlineIRExpr(Loc loc, FuncDeclaration *fdecl,
 
     if (sretPointer) {
       DtoStore(rv, sretPointer);
-      return new DLValue(type, sretPointer);
+      return new DLValue(type, sretPointer, DtoAlignment(type));
     }
 
     // dump struct and static array return values to memory
     if (DtoIsInMemoryOnly(type->toBasetype())) {
       LLValue *lval = DtoAllocaDump(rv, type, ".__ir_ret");
-      return new DLValue(type, lval);
+      return new DLValue(type, lval, DtoAlignment(type));
     }
 
     // return call as im value

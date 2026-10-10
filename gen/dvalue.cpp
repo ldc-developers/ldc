@@ -45,6 +45,18 @@ LLValue *DtoLVal(DValue *v) {
   return lval->getLVal()->val;
 }
 
+unsigned DtoLValAlignment(DValue *v) {
+  if (auto ref = v->isSpecialRef())
+    return ref->referentAlignment;
+  auto lval = v->isLVal();
+  assert(lval);
+  return lval->alignment;
+}
+
+DLValue *DtoRepaintLVal(DValue *v, Type *to) {
+  return new DLValue(to, DtoLVal(v), DtoLValAlignment(v));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 DValue::DValue(Type *t, LLValue *v) : type(t), val(v) {
@@ -156,17 +168,20 @@ DRValue *DLValue::getRVal() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DSpecialRefValue::DSpecialRefValue(Type *t, LLValue *v) : DLValue(v, t) {
+DSpecialRefValue::DSpecialRefValue(Type *t, LLValue *v,
+                                   unsigned referentAlignment)
+    : DLValue(v, t, getABITypeAlign(getOpaquePtrType())),
+      referentAlignment(referentAlignment) {
   assert(v->getType()->isPointerTy());
 }
 
 DRValue *DSpecialRefValue::getRVal() {
-  return DLValue(type, DtoLoad(getOpaquePtrType(), val)).getRVal();
+  return getLVal()->getRVal();
 }
 
 DLValue *DSpecialRefValue::getLVal() {
   return new DLValue(type, DtoLoad(getOpaquePtrType(), val),
-                     DtoAlignment(type));
+                     referentAlignment);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -226,7 +241,9 @@ void DBitFieldLValue::store(LLValue *value) {
   gIR->ir->CreateAlignedStore(newVal, ptr, llvm::MaybeAlign(1));
 }
 
-DDcomputeLValue::DDcomputeLValue(Type *t, llvm::Type * llt, LLValue *v) : DLValue(t, v) {
+DDcomputeLValue::DDcomputeLValue(Type *t, llvm::Type *llt, LLValue *v,
+                                 unsigned alignment)
+    : DLValue(t, v, alignment) {
     lltype = llt;
 }
 DRValue *DDcomputeLValue::getRVal() {

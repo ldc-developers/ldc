@@ -2,11 +2,11 @@
 // pointee type's alignment.
 // RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
-struct S8 { long a; int b; }
+align(8) struct S8 { long a; int b; }
 align(1) struct P5 { int a; ubyte b; }
 align(16) struct A16 { int a; }
-struct Z8 { long a; long b; }
-struct I8 { long a = 1; int b; }
+align(8) struct Z8 { long a; long b; }
+align(8) struct I8 { long a = 1; int b; }
 align(1) struct Packed { ubyte pad; S8 s; }
 class C { S8 s; }
 
@@ -85,8 +85,6 @@ void staticInit(out I8 dst)
     // CHECK: call void @llvm.memcpy.{{.*}}(ptr align 8 %{{.*}}, ptr align 8 @{{.*}}2I86__initZ, i{{32|64}} 16
 }
 
-// Field addresses don't carry an alignment (yet).
-
 // CHECK-LABEL: define {{.*}}_D{{.*}}packedFieldCopy
 void packedFieldCopy(ref Packed dst, ref S8 src)
 {
@@ -97,6 +95,6 @@ void packedFieldCopy(ref Packed dst, ref S8 src)
 // CHECK-LABEL: define {{.*}}_D{{.*}}classFieldCopy
 void classFieldCopy(C dst, ref S8 src)
 {
-    // CHECK: call void @llvm.memcpy.{{.*}}(ptr align 1 %{{.*}}, ptr align 8 %{{.*}}, i{{32|64}} 16
+    // CHECK: call void @llvm.memcpy.{{.*}}(ptr align 8 %{{.*}}, ptr align 8 %{{.*}}, i{{32|64}} 16
     dst.s = src;
 }

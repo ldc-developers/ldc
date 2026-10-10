@@ -269,7 +269,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     // variadic extern(D) function with implicit _argptr?
     if (LLValue *argptrMem = p->func()->_argptr) {
       // then va_copy the _argptr
-      DLValue argptr(ap->type, argptrMem);
+      DLValue argptr(ap->type, argptrMem, DtoAlignment(ap->type));
       gABI->vaCopy(ap, &argptr);
     } else {
       LLValue *llAp = gABI->prepareVaStart(ap);
@@ -434,7 +434,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     llvm::Value *val = load;
     if (loadedType != pointeeType) {
       val = DtoAllocaDump(val, retType);
-      result = new DLValue(retType, val);
+      result = new DLValue(retType, val, DtoAlignment(retType));
     } else {
       result = new DImValue(retType, val);
     }
@@ -496,7 +496,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     DtoStore(p->ir->CreateExtractValue(ret, 0), DtoGEP(memty, mem, 0u, 0));
     DtoStoreZextI8(p->ir->CreateExtractValue(ret, 1), DtoGEP(memty, mem, 0, 1));
 
-    result = new DLValue(e->type, mem);
+    result = new DLValue(e->type, mem, DtoAlignment(e->type));
     return true;
   }
 
@@ -1130,12 +1130,11 @@ DValue *DtoCallFunction(Loc loc, Type *resulttype, DValue *fnval,
   // cleanups (see struct ctor hack in ToElemVisitor::visit(CallExp *)).
   if (dfnval && dfnval->func && dfnval->func->isCtorDeclaration() &&
       dfnval->func->isMember2()->isStructDeclaration()) {
-    return new DLValue(resulttype, dfnval->vthis);
+    return new DLValue(resulttype, dfnval->vthis, DtoAlignment(resulttype));
   }
 
   if (retValIsLVal) {
-    return new DLValue(resulttype, retllval,
-                       tf->isRef() ? DtoAlignment(resulttype) : 1);
+    return new DLValue(resulttype, retllval, DtoAlignment(resulttype));
   }
 
   if (rbase->ty == TY::Tarray) {
