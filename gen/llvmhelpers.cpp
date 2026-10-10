@@ -211,15 +211,14 @@ LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name) {
 LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
                        const char *name) {
   if (val->isLVal()) {
-    LLValue *lval = DtoLVal(val);
+    DLValue *src = val->isLVal()->getLVal();
     LLType *asMemType = i1ToI8(voidToI8(asType));
-    LLValue *copy = DtoRawAlloca(asMemType, alignment, name);
+    llvm::AllocaInst *copy = DtoRawAlloca(asMemType, alignment, name);
     const auto minSize =
         std::min(getTypeAllocSize(DtoType(val->type)),
                  getTypeAllocSize(asMemType));
-    const auto minAlignment =
-        std::min(DtoAlignment(val->type), static_cast<unsigned>(alignment));
-    DtoMemCpy(copy, lval, DtoConstSize_t(minSize), minAlignment);
+    DtoMemCpy(copy, DtoLVal(src), DtoConstSize_t(minSize),
+              copy->getAlign().value(), src->alignment);
     // TODO: zero-out any remaining bytes?
     return copy;
   }
@@ -394,14 +393,15 @@ void DtoAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
   } else if (t->ty == TY::Tstruct) {
     // don't copy anything to empty structs
     if (static_cast<TypeStruct *>(t)->sym->fields.length > 0) {
-      llvm::Value *src = DtoLVal(rhs);
-      llvm::Value *dst = DtoLVal(lhs);
+      DLValue *src = rhs->isLVal()->getLVal();
+      DLValue *dst = lhs->isLVal()->getLVal();
 
       // Check whether source and destination values are the same at compile
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
-      if (src != dst)
-        DtoMemCpy(DtoType(lhs->type), dst, src);
+      if (DtoLVal(src) != DtoLVal(dst))
+        DtoMemCpy(DtoType(lhs->type), DtoLVal(dst), DtoLVal(src), false,
+                  dst->alignment, src->alignment);
     }
   } else if (t->ty == TY::Tarray || t->ty == TY::Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);
@@ -1512,7 +1512,7 @@ DValue *DtoSymbolAddress(Loc loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
                                      "ref vars, although it can easily be "
                                      "made to.");
-      return new DLValue(type, getIrValue(vd));
+      return new DLValue(type, getIrValue(vd), DtoAlignment(type));
     }
     Logger::println("a normal variable");
 
@@ -1576,7 +1576,7 @@ DValue *DtoSymbolAddress(Loc loc, Type *type, Declaration *decl) {
     }
 
     LLValue *initsym = getIrAggr(sd)->getInitSymbol();
-    return new DLValue(type, initsym);
+    return new DLValue(type, initsym, DtoAlignment(type));
   }
 
   llvm_unreachable("Unimplemented VarExp type");

@@ -573,8 +573,9 @@ public:
         e->e2->op == EXP::int64) {
       Logger::println("performing aggregate zero initialization");
       assert(toInteger(e->e2) == 0);
-      LLValue *lval = DtoLVal(lhs);
-      DtoMemSetZero(DtoType(lhs->type), lval);
+      DLValue *dst = lhs->isLVal()->getLVal();
+      LLValue *lval = DtoLVal(dst);
+      DtoMemSetZero(DtoType(lhs->type), lval, dst->alignment);
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
       if (ts->sym->isNested() && ts->sym->vthis)
         DtoResolveNestedContext(e->loc, ts->sym, lval);
@@ -1017,7 +1018,7 @@ public:
     // get the rvalue and return it as an lvalue
     LLValue *V = DtoRVal(e->e1);
 
-    result = new DLValue(e->type, V);
+    result = new DLValue(e->type, V, DtoAlignment(e->type));
   }
 
   static llvm::PointerType * getWithSamePointeeType(llvm::PointerType *p, unsigned addressSpace) {
@@ -1152,7 +1153,7 @@ public:
     } else {
       Logger::println("normal this exp");
       LLValue *v = p->func()->thisArg;
-      result = new DLValue(e->type, v);
+      result = new DLValue(e->type, v, DtoAlignment(e->type));
     }
   }
 
@@ -1175,8 +1176,10 @@ public:
     p->arrays.pop_back();
 
     LLValue *arrptr = nullptr;
+    unsigned alignment = 1;
     if (e1type->ty == TY::Tpointer) {
       arrptr = DtoGEP1(DtoMemType(e1type->nextOf()), DtoRVal(l), DtoRVal(r));
+      alignment = DtoAlignment(e->type);
     } else if (e1type->ty == TY::Tsarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
@@ -1189,13 +1192,14 @@ public:
         DtoIndexBoundsCheck(e->loc, l, r);
       }
       arrptr = DtoGEP1(DtoMemType(l->type->nextOf()), DtoArrayPtr(l), DtoRVal(r));
+      alignment = DtoAlignment(e->type);
     } else if (e1type->ty == TY::Taarray) {
       llvm_unreachable("IndexExp for associative array should have been lowered");
     } else {
       IF_LOG Logger::println("e1type: %s", e1type->toChars());
       llvm_unreachable("Unknown IndexExp target.");
     }
-    result = new DLValue(e->type, arrptr);
+    result = new DLValue(e->type, arrptr, alignment);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2473,8 +2477,8 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  static DLValue *emitStructLiteral(StructLiteralExp *e,
-                                    LLValue *dstMem = nullptr) {
+  static DLValue *emitStructLiteral(StructLiteralExp *e, LLValue *dstMem,
+                                    unsigned dstAlign) {
     IF_LOG Logger::print("StructLiteralExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2483,39 +2487,36 @@ public:
       StructDeclaration *sd = e->sd;
       DtoResolveStruct(sd);
 
-      if (!dstMem)
-        dstMem = DtoAlloca(e->type, ".structliteral");
-
       if (sd->zeroInit()) {
-        DtoMemSetZero(DtoType(e->type), dstMem);
+        DtoMemSetZero(DtoType(e->type), dstMem, dstAlign);
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
         assert(dstMem->getType() == initsym->getType());
-        DtoMemCpy(DtoType(e->type), dstMem, initsym);
+        DtoMemCpy(DtoType(e->type), dstMem, initsym, false, dstAlign,
+                  DtoAlignment(e->type));
       }
 
-      return new DLValue(e->type, dstMem);
-    }
-
-    if (e->inProgressMemory) {
-      assert(!dstMem);
-      return new DLValue(e->type, e->inProgressMemory);
+      return new DLValue(e->type, dstMem, dstAlign);
     }
 
     // make sure the struct is fully resolved
     DtoResolveStruct(e->sd);
 
-    if (!dstMem)
-      dstMem = DtoAlloca(e->type, ".structliteral");
-
     e->inProgressMemory = dstMem;
     write_struct_literal(e->loc, dstMem, e->sd, e->elements);
     e->inProgressMemory = nullptr;
 
-    return new DLValue(e->type, dstMem);
+    return new DLValue(e->type, dstMem, dstAlign);
   }
 
-  void visit(StructLiteralExp *e) override { result = emitStructLiteral(e); }
+  void visit(StructLiteralExp *e) override {
+    if (e->inProgressMemory) {
+      result = new DLValue(e->type, e->inProgressMemory);
+      return;
+    }
+    result = emitStructLiteral(e, DtoAlloca(e->type, ".structliteral"),
+                               DtoAlignment(e->type));
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2862,7 +2863,8 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
         DtoResolveStruct(sd);
         if (sd->zeroInit()) {
           Logger::println("success, zeroing out");
-          DtoMemSetZero(DtoType(lhs->type) ,DtoLVal(lhs));
+          DLValue *dst = lhs->getLVal();
+          DtoMemSetZero(DtoType(lhs->type), DtoLVal(dst), dst->alignment);
           return true;
         }
       }
@@ -2913,7 +2915,8 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   // emit struct literals directly into the lhs lvalue
   else if (auto sle = rhs->isStructLiteralExp()) {
     Logger::println("success, in-place-constructing struct literal");
-    ToElemVisitor::emitStructLiteral(sle, DtoLVal(lhs));
+    DLValue *dst = lhs->getLVal();
+    ToElemVisitor::emitStructLiteral(sle, DtoLVal(dst), dst->alignment);
     return true;
   }
   // and static array literals
