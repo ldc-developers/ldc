@@ -193,10 +193,6 @@ version (LDC)
                 alias S = int;
                 alias U = uint;
             }
-            static if (realFormat == RealFormat.ieeeQuadruple)
-                alias M = ulong;
-            else
-                alias M = U;
             enum sig_mask = U(1) << (U.sizeof * 8 - 1);
             enum uint exp_shft = T.mant_dig - 1 - (T.sizeof > U.sizeof ? U.sizeof * 8 : 0);
             enum man_mask = (U(1) << exp_shft) - 1;
@@ -204,7 +200,6 @@ version (LDC)
         }
         enum exp_mask = (U.max >> (exp_shft + 1)) << exp_shft;
         enum int exp_msh = exp_mask >> exp_shft;
-        enum intPartMask = man_mask + 1;
 
         import core.checkedint : adds;
         alias _expect = llvm_expect;
@@ -260,57 +255,63 @@ version (LDC)
             }
             else // subnormal output
             {
-                exp = 1 - exp;
-                static if (realFormat != RealFormat.ieeeExtended)
+                static if (T.mant_dig <= 53)
                 {
-                    auto m = u & man_mask;
-                    if (exp > T.mant_dig)
-                    {
-                        exp = T.mant_dig;
-                        static if (T.sizeof > U.sizeof)
-                            (cast(U*)&vf)[MANTISSA_LSB] = 0;
-                    }
-                }
-                u &= sig_mask;
-                static if (realFormat == RealFormat.ieeeExtended)
-                {
-                    version (LittleEndian)
-                        auto mp = cast(ulong*)&vf;
-                    else
-                        auto mp = cast(ulong*)((cast(ushort*)&vf) + 1);
-                    if (exp >= ulong.sizeof * 8)
-                        *mp = 0;
-                    else
-                        *mp >>>= exp;
+                    return ldexpSubnormal(vf, exp);
                 }
                 else
                 {
-                    m ^= intPartMask;
-                    static if (T.sizeof > U.sizeof)
-                    {
-                        int exp2 = exp - int(U.sizeof) * 8;
-                        if (exp2 < 0)
-                        {
-                            (cast(U*)&vf)[MANTISSA_LSB] = ((cast(U*)&vf)[MANTISSA_LSB] >> exp) ^ (m << (U.sizeof * 8 - exp));
-                            m >>>= exp;
-                            u ^= cast(U) m;
-                        }
-                        else
-                        {
-                            exp = exp2;
-                            (cast(U*)&vf)[MANTISSA_LSB] = (exp < U.sizeof * 8) ? m >> exp : 0;
-                        }
-                    }
-                    else
-                    {
-                        m >>>= exp;
-                        u ^= cast(U) m;
-                    }
+                    // Keep all significand bits in an exact normal intermediate.
+                    // The final multiplication performs the subnormal rounding.
+                    // Clamping deeper underflow preserves directed rounding.
+                    if (exp < -T.mant_dig)
+                        exp = -T.mant_dig;
+                    exp += T.mant_dig + 1;
+                    u = cast(U)((u & ~exp_mask) | (cast(typeof(U.init + 0))exp << exp_shft));
+                    (cast(U*)&vf)[idx] = u;
+                    return vf * (T.epsilon / 4);
                 }
             }
             (cast(U*)&vf)[idx] = u;
         }
         return vf;
+    }
+
+    // Round in units of the smallest subnormal without performing slow
+    // subnormal arithmetic. Keep the library-call setup out of normal ldexp
+    // calls on targets where nearbyint does not lower to an instruction.
+    pragma(inline, false)
+    private T ldexpSubnormal(T)(T value, int exponent) @trusted
+    {
+        static if (T.mant_dig == 24)
+            alias Bits = uint;
+        else
+            alias Bits = ulong;
+        static assert(T.sizeof == Bits.sizeof);
+        enum shift = T.mant_dig - 1;
+        enum signMask = Bits(1) << (Bits.sizeof * 8 - 1);
+        enum exponentMask = (Bits.max >> (shift + 1)) << shift;
+        auto bits = *cast(Bits*)&value;
+        const sign = bits & signMask;
+
+        // All still smaller magnitudes round like a signed value below half
+        // a unit: zero for nearest/toward-zero, or one unit when directed away
+        // from zero. The clamp also keeps exponent arithmetic in range.
+        if (exponent < -T.mant_dig)
+            exponent = -T.mant_dig;
+        enum bias = T.max_exp - 1;
+        const scaledExponent = exponent + bias + T.mant_dig - 2;
+        bits = (bits & ~exponentMask) | (Bits(scaledExponent) << shift);
+        *cast(Bits*)&value = bits;
+
+        // Use the active rounding mode without introducing an inexact flag
+        // where the previous integer-shift implementation raised none.
+        const rounded = llvm_nearbyint(value);
+        // At most 2^(mant_dig-1) units, so signed conversion is exact and safe.
+        // A carry to the smallest normal value has the same integer encoding.
+        const magnitude = cast(Bits)cast(long)(rounded < 0 ? -rounded : rounded);
+        *cast(Bits*)&value = sign | magnitude;
+        return value;
     }
 
     float  ldexp(float  n, int exp) { return ldexpImpl(n, exp); }
@@ -407,6 +408,44 @@ unittest {
     check!float();
     check!double();
     check!real();
+}
+
+// Subnormal outputs must round rather than discard the low significand bits.
+unittest
+{
+    pragma(inline, false)
+    T scale(T, bool generic)(T value, int exponent)
+    {
+        static if (generic)
+            return ldexpImpl(value, exponent);
+        else
+            return ldexp(value, exponent);
+    }
+
+    void check(T, bool generic = false)()
+    {
+        const unit = T.min_normal * T.epsilon;
+        enum exponent = T.min_exp - T.mant_dig + 3;
+        foreach (sign; [T(1), T(-1)])
+        {
+            // Exactly 4.875, 4.5, 5.5, and 5 minimum-subnormal units.
+            assert(scale!(T, generic)(sign * T(0.609375), exponent) == sign * (5 * unit));
+            assert(scale!(T, generic)(sign * T(0.5625), exponent) == sign * (4 * unit));
+            assert(scale!(T, generic)(sign * T(0.6875), exponent) == sign * (6 * unit));
+            assert(scale!(T, generic)(sign * T(0.625), exponent) == sign * (5 * unit));
+            // The midpoint below the smallest normal rounds up to that value.
+            assert(scale!(T, generic)(sign * (T(2) - T.epsilon), T.min_exp - 2) == sign * T.min_normal);
+            const zero = scale!(T, generic)(sign * T(0.5), T.min_exp - T.mant_dig);
+            assert(zero == 0);
+            assert(T(1) / zero == sign * T.infinity);
+            assert(scale!(T, generic)(sign * T(0.75), T.min_exp - T.mant_dig) == sign * unit);
+        }
+    }
+    check!float();
+    check!double();
+    check!real();
+    version (LDC)
+        check!(real, true)(); // Exercise the generic wider-format path as well.
 }
 
 /*******************************
