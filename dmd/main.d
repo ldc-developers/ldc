@@ -75,7 +75,7 @@ import dmd.vsoptions;
 
 version (IN_LLVM)
 {
-    import gen.semantic : extraLDCSpecificSemanticAnalysis;
+    import gen.semantic : extraLDCSpecificPreSemanticAnalysis, extraLDCSpecificSemanticAnalysis;
     extern (C++):
 
     // in driver/main.cpp
@@ -710,6 +710,11 @@ version (IN_LLVM)
 version (IN_LLVM) {} else
 {
     backend_init(params, driverParams, target);
+}
+
+version (IN_LLVM)
+{
+    extraLDCSpecificPreSemanticAnalysis(modules);
 }
 
     // Do semantic analysis
