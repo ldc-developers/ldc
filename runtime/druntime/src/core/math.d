@@ -219,7 +219,7 @@ version (LDC)
             if (_expect(e == 0, false)) // zero or subnormal input
             {
                 if (vf == 0)
-                    return vf; // Preserve the sign of zero before adjusting the exponent.
+                    return vf; // preserve the sign of zero
 
                 bool overflow;
                 vf *= norm_factor;
@@ -390,9 +390,7 @@ unittest
             foreach (exponent; [int.min, -1510, -75, 0, 23, 24, 52, 53, 75, 1510, int.max])
             {
                 const result = scale(zero, exponent);
-                assert(result == 0);
-                // Reciprocals distinguish positive and negative zero.
-                assert(T(1) / result == T(1) / zero);
+                assert(result is zero);
             }
         }
 
