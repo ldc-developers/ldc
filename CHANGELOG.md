@@ -1,8 +1,10 @@
 # LDC master
 
 #### Big news
+- Support for [LLVM 23](https://releases.llvm.org/23.1.0/docs/ReleaseNotes.html). (#5288)
 
 #### Platform support
+- Supports LLVM 18 - 23.
 
 #### Bug fixes
 - Struct copies and zero-initialisations through pointers, slice elements and `ref`s now carry the pointee type's alignment on the emitted `llvm.memcpy`/`llvm.memset` instead of alignment 1. On targets with strict alignment (e.g. `-mattr=+strict-align`), an alignment-1 memcpy is lowered to byte-wise loads and stores. (#5297)

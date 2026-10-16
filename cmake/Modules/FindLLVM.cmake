@@ -32,7 +32,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-21.1 llvm-config211 llvm-config-21
+set(llvm_config_names llvm-config-23 llvm-config-22
+                      llvm-config-21.1 llvm-config211 llvm-config-21
                       llvm-config-20.1 llvm-config201 llvm-config-20
                       llvm-config-19.1 llvm-config191 llvm-config-19
                       llvm-config-18.1 llvm-config181 llvm-config-18
@@ -46,10 +47,12 @@ if(APPLE)
     # extra fallbacks for MacPorts & Homebrew
     find_program(LLVM_CONFIG
         NAMES ${llvm_config_names}
-        PATHS /opt/local/libexec/llvm-21/bin
+        PATHS /opt/local/libexec/llvm-23/bin
+              /opt/local/libexec/llvm-22/bin /opt/local/libexec/llvm-21/bin
               /opt/local/libexec/llvm-20/bin /opt/local/libexec/llvm-19/bin
               /opt/local/libexec/llvm-18/bin /opt/local/libexec/llvm/bin
-              /usr/local/opt/llvm@21/bin
+              /usr/local/opt/llvm@23/bin
+              /usr/local/opt/llvm@22/bin /usr/local/opt/llvm@21/bin
               /usr/local/opt/llvm@20/bin /usr/local/opt/llvm@19/bin
               /usr/local/opt/llvm@18/bin /usr/local/opt/llvm/bin
         NO_DEFAULT_PATH)

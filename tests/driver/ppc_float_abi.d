@@ -8,8 +8,8 @@
 // CHECK-IBM-LDBL-LABEL: @_Z13test_functiong
 // CHECK-MUSL-LABEL: @_Z13test_functione
 extern (C++) bool test_function(real arg) {
-    // CHECK-GNU-IEEE: fcmp ogt fp128 {{.*}}, 0xL00000000000000000000000000000000
-    // CHECK-IBM-LDBL: fcmp ogt ppc_fp128 {{.*}}, 0xM00000000000000000000000000000000
+    // CHECK-GNU-IEEE: fcmp ogt fp128 {{.*}}, {{0xL00000000000000000000000000000000|0\.000000e\+00}}
+    // CHECK-IBM-LDBL: fcmp ogt ppc_fp128 {{.*}}, {{0xM00000000000000000000000000000000|0\.000000e\+00}}
     // CHECK-MUSL: fcmp ogt double {{.*}}, 0.000000e+00
     return arg > 0.0;
 }
