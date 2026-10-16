@@ -23,22 +23,22 @@ jobs:
             os: macos-14
             host_dc: ldc-beta
             llvm_version: 21
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_WITH_MLIR=ON
           - job_name: Ubuntu 24.04, LLVM 20, bootstrap LDC
             os: ubuntu-24.04
             host_dc: ldc-1.19.0
             llvm_version: 20
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DPHOBOS_SYSTEM_ZLIB=ON
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DPHOBOS_SYSTEM_ZLIB=ON -DLDC_WITH_MLIR=ON
           - job_name: Ubuntu 24.04, LLVM 19, latest DMD beta
             os: ubuntu-24.04
             host_dc: dmd-beta
             llvm_version: 19
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DPHOBOS_SYSTEM_ZLIB=ON -DLIB_SUFFIX=64
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DPHOBOS_SYSTEM_ZLIB=ON -DLIB_SUFFIX=64 -DLDC_WITH_MLIR=ON
           - job_name: macOS 14, LLVM 18, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
             llvm_version: 18
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_WITH_MLIR=ON
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -60,12 +60,12 @@ jobs:
             python3 -m pip install --user lit psutil
           fi
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
-      - name: 'Linux: Install gdb, lld, llvm-dev and libclang-rt-dev'
+      - name: 'Linux: Install gdb, lld, llvm-dev libmlir-dev and libclang-rt-dev'
         if: runner.os == 'Linux'
         run: |
           set -eux
           sudo apt-get update
-          sudo apt-get install gdb lld-${{ matrix.llvm_version }} llvm-${{ matrix.llvm_version }}-dev libclang-rt-${{ matrix.llvm_version }}-dev ${{ matrix.llvm_version == '20' && 'libcurl4-openssl-dev' || '' }}
+          sudo apt-get install gdb lld-${{ matrix.llvm_version }} llvm-${{ matrix.llvm_version }}-dev libmlir-${{ matrix.llvm_version }}-dev libclang-rt-${{ matrix.llvm_version }}-dev ${{ matrix.llvm_version == '20' && 'libcurl4-openssl-dev' || '' }}
       - name: 'macOS: Install Homebrew llvm and a more recent GNU make'
         if: runner.os == 'macOS'
         run: |

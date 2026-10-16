@@ -1,58 +1,66 @@
-# - Try to find MLIR project at LLVM
+# - Find MLIR headers and libraries.
 #
-# The following are set after configuration is done:
-#   MLIR_FOUND   ON if MLIR installation was found
-#   MLIR_ROOT_DIR
-#   MLIR_INCLUDE_DIR
-#   MLIR_LIB_DIR
-#   MLIR_LIBRARIES
-#   MLIR_TABLEGEN  The mlir-tblgen executable
+# MLIR is a sub-project of LLVM and installs into the same prefix, so it is
+# located relative to the LLVM installation that FindLLVM.cmake discovered via
+# llvm-config. MLIRConfig.cmake is deliberately not used: it loads
+# LLVMConfig.cmake, which overrides the LLVM_* variables derived from
+# llvm-config and registers LLVM's own dependencies (zstd, zlib, ...) as CMake
+# targets, clashing with LDC's own lookups of those packages.
+#
+# Inputs (set by FindLLVM.cmake):
+#   LLVM_INCLUDE_DIRS  - LLVM include directory (MLIR headers are in <dir>/mlir)
+#   LLVM_LIBRARY_DIRS  - LLVM library directory
+#
+# Outputs:
+#   MLIR_FOUND         - ON if MLIR headers and libraries were found
+#   MLIR_INCLUDE_DIRS  - directory containing the mlir/ headers
+#   MLIR_LIBS          - MLIR libraries in the same format as LLVM_LIBRARIES:
+#                        -lMLIRFoo on Posix, MLIRFoo.lib on MSVC
 
 set(MLIR_FOUND OFF)
+set(MLIR_INCLUDE_DIRS "")
+set(MLIR_LIBS "")
 
-# We only want to find an MLIR version that is compatible with our LLVM version,
-# so for now only look in the same installation dir as LLVM.
-find_program(MLIR_TABLEGEN
-    NAMES mlir-tblgen
-    PATHS ${MLIR_ROOT_DIR}/bin ${LLVM_ROOT_DIR}/bin NO_DEFAULT_PATH
-    DOC "Path to mlir-tblgen tool.")
+if(IS_DIRECTORY "${LLVM_INCLUDE_DIRS}/mlir")
+    set(MLIR_INCLUDE_DIRS "${LLVM_INCLUDE_DIRS}")
 
-if(NOT MLIR_TABLEGEN)
-    message(STATUS "Could not find mlir-tblgen. Try manually setting MLIR_ROOT_DIR or MLIR_TABLEGEN.")
+    if(MSVC)
+        file(GLOB mlir_lib_files "${LLVM_LIBRARY_DIRS}/MLIR*.lib")
+    else()
+        file(GLOB mlir_lib_files "${LLVM_LIBRARY_DIRS}/libMLIR*.a")
+    endif()
+
+    set(mlir_names "")
+
+    foreach(file IN LISTS mlir_lib_files)
+        # libMLIRIR.a / MLIRIR.lib -> MLIRIR transformation
+        get_filename_component(name_of_file "${file}" NAME_WE)
+        string(REGEX REPLACE "^lib" "" name_of_file "${name_of_file}")
+        if(name_of_file MATCHES "^MLIR")
+            list(APPEND mlir_names "${name_of_file}")
+        endif()
+    endforeach()
+
+    if(mlir_names)
+        set(MLIR_FOUND ON)
+
+        if(MSVC)
+            list(TRANSFORM mlir_names APPEND ".lib" OUTPUT_VARIABLE MLIR_LIBS)
+        else()
+            list(TRANSFORM mlir_names PREPEND "-l" OUTPUT_VARIABLE MLIR_LIBS)
+        endif()
+
+        list(LENGTH mlir_names mlir_count)
+        message(STATUS "Found MLIR: ${mlir_count} libraries in ${LLVM_LIBRARY_DIRS}")
+    else()
+        message(STATUS "MLIR headers found, but no MLIR libraries in ${LLVM_LIBRARY_DIRS}")
+    endif()
 else()
-    set(MLIR_FOUND ON)
-    message(STATUS "Found mlir-tblgen: ${MLIR_TABLEGEN}")
-    get_filename_component(MLIR_BIN_DIR ${MLIR_TABLEGEN} DIRECTORY CACHE)
-    get_filename_component(MLIR_ROOT_DIR "${MLIR_BIN_DIR}/.." ABSOLUTE CACHE)
-    set(MLIR_INCLUDE_DIR ${MLIR_ROOT_DIR}/include)
-    set(MLIR_LIB_DIR     ${MLIR_ROOT_DIR}/lib)
-
-    # To be done: add the required MLIR libraries. Hopefully we don't have to manually list all MLIR libs.
-    if(EXISTS "${MLIR_LIB_DIR}/MLIRIR.lib")
-      set(MLIR_LIBRARIES ${MLIR_LIB_DIR}/MLIRIR.lib ${MLIR_LIB_DIR}/MLIRSupport.lib)
-    elseif(EXISTS "${MLIR_LIB_DIR}/libMLIRIR.a")
-      set(MLIR_LIBRARIES ${MLIR_LIB_DIR}/libMLIRIR.a ${MLIR_LIB_DIR}/libMLIRSupport.a)
-    endif()  
-
-    # XXX: This function is untested and will need adjustment.
-    function(mlir_tablegen)
-        cmake_parse_arguments(
-         ARG
-         "NAME"
-         "TARGET;OUTS;FLAG;SRCS"
-         ${ARGN}
-         )
-
-        MESSAGE(STATUS "Setting target for Ops_" ${ARG_TARGET})
-
-        set(TABLEGEN_OUTPUT ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_SRCS}
-                PARENT_SCOPE)
-        #mlir-tblgen ops.td --gen-op-* -I*-o=ops.*.inc
-        add_custom_command(
-                OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_OUTS}
-                COMMAND ${MLIR_TABLEGEN} ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_SRCS} -I${MLIR_INCLUDE_DIR}  -o=${CMAKE_CURRENT_SOURCE_DIR}/${ARG_OUTS}
-                ARGS ${ARG_FLAG}
-        )
-        add_custom_target(Ops_${ARG_TARGET} ALL DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_OUTS})
-    endfunction()
+    message(STATUS "Could not find MLIR: no ${LLVM_INCLUDE_DIRS}/mlir directory")
 endif()
+
+unset(mlir_lib_files)
+unset(mlir_names)
+unset(mlir_count)
+unset(file)
+unset(name_of_file)
