@@ -374,7 +374,7 @@ unittest {
 }
 
 // https://github.com/ldc-developers/ldc/issues/5302
-unittest
+@safe pure nothrow @nogc unittest
 {
     // Force a runtime call even in optimized builds.
     pragma(inline, false)
