@@ -647,17 +647,19 @@ DValue *DtoCastVector(Loc loc, DValue *val, Type *to) {
   if (totype->ty == TY::Tsarray) {
     // Reinterpret-cast without copy if the source vector is in memory.
     if (val->isLVal()) {
-      LLValue *vector = DtoLVal(val);
-      IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
+      DLValue *vector = DtoRepaintLVal(val, to);
+      IF_LOG Logger::cout() << "src: " << *DtoLVal(vector)
+                            << " to type: " << *tolltype
                             << " (casting address)\n";
-      return new DLValue(to, vector);
+      return vector;
     }
 
     LLValue *vector = DtoRVal(val);
     IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
                           << " (creating temporary)\n";
-    LLValue *array = DtoAllocaDump(vector, tolltype, DtoAlignment(val->type));
-    return new DLValue(to, array);
+    const unsigned alignment = DtoAlignment(val->type);
+    LLValue *array = DtoAllocaDump(vector, tolltype, alignment);
+    return new DLValue(to, array, alignment);
   }
   if (totype->ty == TY::Tvector && size(to) == size(val->type)) {
     return new DImValue(to, DtoBitCast(DtoRVal(val), tolltype));
@@ -673,16 +675,14 @@ DValue *DtoCastStruct(Loc loc, DValue *val, Type *to) {
     // This a cast to repaint a struct to another type, which the language
     // allows for identical layouts (opCast() and so on have been lowered
     // earlier by the frontend).
-    llvm::Value *lval = DtoLVal(val);
-    return new DLValue(to, lval);
+    return DtoRepaintLVal(val, to);
   }
 
   // A cast between fat values is possible only when the sizes match.
   // https://github.com/ldc-developers/ldc/issues/4993
   if (totype->ty == TY::Tsarray) {
     if (size(totype) == size(val->type->toBasetype())) {
-      llvm::Value *lval = DtoLVal(val);
-      return new DLValue(to, lval);
+      return DtoRepaintLVal(val, to);
     }
   }
 
@@ -699,7 +699,7 @@ DValue *DtoCast(Loc loc, DValue *val, Type *to) {
     if (totype->ty == TY::Taarray) {
       // reinterpret-cast keeping lvalue-ness, IR types will match up
       if (val->isLVal())
-        return new DLValue(to, DtoLVal(val));
+        return DtoRepaintLVal(val, to);
       return new DImValue(to, DtoRVal(val));
     }
     // DMD allows casting AAs to void*, even if they are internally
@@ -771,7 +771,7 @@ DValue *DtoPaintType(Loc loc, DValue *val, Type *to) {
   Type *tb = to->toBasetype();
 
   if (val->isLVal()) {
-    return new DLValue(to, DtoLVal(val));
+    return DtoRepaintLVal(val, to);
   }
 
   if (auto slice = val->isSlice()) {
@@ -903,6 +903,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     IrLocal *irLocal = getIrLocal(vd, true);
     // use the hidden sret pointer directly as lvalue
     irLocal->value = gIR->func()->sretArg;
+    irLocal->alignment = DtoAlignment(vd->type);
     gIR->DBuilder.EmitLocalVariable(irLocal->value, vd);
   } else {
     // normal stack variable, allocate storage on the stack if it has not
@@ -1325,7 +1326,7 @@ LLValue *makeLValue(Loc loc, DValue *value) {
     return DtoAllocaDump(value, ".makelvaluetmp");
 
   LLValue *mem = DtoAlloca(value->type, ".makelvaluetmp");
-  DLValue var(value->type, mem);
+  DLValue var(value->type, mem, DtoAlignment(value->type));
   DtoAssign(loc, &var, value, EXP::blit);
   return mem;
 }
@@ -1462,7 +1463,7 @@ DValue *DtoSymbolAddress(Loc loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                      "vars, although it can easily be made "
                                      "to.");
-      return new DLValue(type, v);
+      return new DLValue(type, v, DtoAlignment(type));
     }
     // _argptr
     if (vd->ident == Id::_argptr && gIR->func()->_argptr) {
@@ -1471,7 +1472,7 @@ DValue *DtoSymbolAddress(Loc loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                      "vars, although it can easily be made "
                                      "to.");
-      return new DLValue(type, v);
+      return new DLValue(type, v, DtoAlignment(type));
     }
     // _dollar
     if (vd->ident == Id::dollar) {
@@ -1833,8 +1834,8 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
   return nullptr;
 }
 
-DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
-                           VarDeclaration *vd) {
+DLValue *DtoIndexAggregate(LLValue *src, unsigned srcAlign,
+                           AggregateDeclaration *ad, VarDeclaration *vd) {
   IF_LOG Logger::println("Indexing aggregate field %s:", vd->toPrettyChars());
   LOG_SCOPE;
 
@@ -1852,7 +1853,8 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
     ptr = DtoBitCast(ptr, getOpaquePtrType());
     ptr = DtoGEP1(getI8Type(), ptr, tOffset);
 
-    return new DLValue(vd->type, ptr);
+    // the runtime places each ivar at its type's alignment
+    return new DLValue(vd->type, ptr, std::min(srcAlign, DtoAlignment(vd)));
   }
 
   // Look up field to index or offset to apply.
@@ -1885,11 +1887,12 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   }
 
   IF_LOG Logger::cout() << "Pointer: " << *ptr << '\n';
+  const unsigned alignment = llvm::MinAlign(srcAlign, vd->offset);
   if (auto p = isaPointer(ty)) {
     if (p->getAddressSpace())
-      return new DDcomputeLValue(vd->type, p, ptr);
+      return new DDcomputeLValue(vd->type, p, ptr, alignment);
   }
-  return new DLValue(vd->type, ptr);
+  return new DLValue(vd->type, ptr, alignment);
 }
 
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {
@@ -1910,8 +1913,14 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
 
   assert(val->getType()->isPointerTy());
 
-  if (isSpecialRefVar(vd))
-    return new DSpecialRefValue(type, val);
+  const auto kind = vd->ir->type();
+  const unsigned bound =
+      kind == IrDsymbol::LocalType || kind == IrDsymbol::ParamterType
+          ? getIrLocal(vd)->alignment
+          : 0;
 
-  return new DLValue(type, val);
+  if (isSpecialRefVar(vd))
+    return new DSpecialRefValue(type, val, bound ? bound : 1);
+
+  return new DLValue(type, val, bound ? bound : DtoAlignment(vd));
 }

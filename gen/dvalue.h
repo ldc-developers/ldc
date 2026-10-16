@@ -160,10 +160,10 @@ public:
 /// keep structs and static arrays in memory.
 class DLValue : public DValue {
 public:
-  /// The alignment the pointer is guaranteed to have, 1 if unknown.
+  /// The alignment the pointer is guaranteed to have.
   const unsigned alignment;
 
-  DLValue(Type *t, llvm::Value *v, unsigned alignment = 1);
+  DLValue(Type *t, llvm::Value *v, unsigned alignment);
 
   DRValue *getRVal() override;
   virtual DLValue *getLVal() { return this; }
@@ -171,7 +171,8 @@ public:
   DLValue *isLVal() override { return this; }
 
 protected:
-  DLValue(llvm::Value *v, Type *t) : DValue(t, v), alignment(1) {}
+  DLValue(llvm::Value *v, Type *t, unsigned alignment)
+      : DValue(t, v), alignment(alignment) {}
 
   friend llvm::Value *DtoLVal(DValue *v);
 };
@@ -179,7 +180,10 @@ protected:
 /// Represents special internal ref variables.
 class DSpecialRefValue : public DLValue {
 public:
-  DSpecialRefValue(Type *t, llvm::Value *v);
+  /// The alignment of the referenced memory.
+  const unsigned referentAlignment;
+
+  DSpecialRefValue(Type *t, llvm::Value *v, unsigned referentAlignment);
 
   DRValue *getRVal() override;
   DLValue *getLVal() override;
@@ -213,9 +217,16 @@ class DDcomputeLValue : public DLValue {
 public:
   llvm::Type *lltype;
   DDcomputeLValue *isDDcomputeLVal() override { return this; }
-    DDcomputeLValue(Type *t, llvm::Type * llt, llvm::Value *v);
+  DDcomputeLValue(Type *t, llvm::Type *llt, llvm::Value *v,
+                  unsigned alignment);
   DRValue *getRVal() override;
 };
 
 inline llvm::Value *DtoRVal(DValue *v) { return v->getRVal()->val; }
 llvm::Value *DtoLVal(DValue *v);
+
+/// The alignment of the address DtoLVal() returns.
+unsigned DtoLValAlignment(DValue *v);
+
+/// Reinterprets an lvalue as another type at the same address.
+DLValue *DtoRepaintLVal(DValue *v, Type *to);
