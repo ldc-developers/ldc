@@ -73,3 +73,27 @@ pragma(LDC_inline_ir)
 pragma(LDC_inline_ir)
     R __irEx_pure(string prefix, string code, string suffix, R, P...)(P) @trusted nothrow @nogc pure;
 
+/++
++ Calls a function whose body is written in the MLIR IR language.
++
++ Template params:
++   s = the MLIR IR function body code
++   R = the function return type
++   P... = the types of the function arguments
++
++ If the return type is `void` then `func.return` is automatically added at the
++ end of the function body by LDC.
++
++ Example:
++ ---
++ import ldc.llvmasm;
++ int add(int a, int b)
++ {
++     return __mlir!(`
+                %res = arith.addi %arg0, %arg1 : i32
+                return %res: i32`, int, int, int)(a, b);
++ }
++ ---
++/
+pragma(LDC_inline_mlir)
+    R __mlir(string s, R, P ...)(P params) @trusted nothrow @nogc;
