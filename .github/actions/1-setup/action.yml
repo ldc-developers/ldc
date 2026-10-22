@@ -65,6 +65,10 @@ runs:
           prefix="/usr/local/opt/llvm@$major"
         fi
         rm -rf "$prefix/include/c++/v1"
+        # Homebrew clang 22 isn't compatible with macOS SDK v27, use v26
+        ls -l /Library/Developer/CommandLineTools/SDKs
+        sudo ln -sfn MacOSX26.sdk /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
+        ls -l /Library/Developer/CommandLineTools/SDKs
     - name: 'Windows: Install clang ${{ inputs.clang_major }} from GitHub'
       if: runner.os == 'Windows'
       shell: bash
