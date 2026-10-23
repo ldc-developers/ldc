@@ -33,6 +33,7 @@ extern (C++) enum LDCPragma : int {
   LLVMva_arg,
   LLVMinline_asm,
   LLVMinline_ir,
+  LLVMinline_mlir,
   LLVMfence,
   LLVMatomic_store,
   LLVMatomic_load,
