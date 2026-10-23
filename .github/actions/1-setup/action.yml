@@ -171,16 +171,17 @@ runs:
       run: |
         set -eux
         cd ..
-
         mkdir libcurl
         cd libcurl
         if [[ '${{ inputs.arch }}' == x86 ]]; then
           # The official 32-bit builds were dropped at one point in 2026.
-          # Resort to the 32-bit DLL (+ curl-ca-bundle.crt) bundled with LDC v1.42.0.
+          # Resort to the 32-bit DLL bundled with LDC v1.42.0.
           curl -fL --retry 3 --max-time 120 -o ldc32.7z https://github.com/ldc-developers/ldc/releases/download/v1.42.0/ldc2-1.42.0-windows-x86.7z
           7z x ldc32.7z >/dev/null
-          mv ldc2-1.42.0-windows-x86/bin/{libcurl.dll,curl-ca-bundle.crt} .
+          mv ldc2-1.42.0-windows-x86/bin/libcurl.dll .
           rm -rf ldc2-1.42.0-windows-x86 ldc32.7z
+          # That libcurl build needs a curl-ca-bundle.crt file; download the latest one.
+          curl -fL --retry 3 --max-time 60 -o curl-ca-bundle.crt https://curl.se/ca/cacert.pem
         else
           curl -fL --retry 3 --max-time 60 -o libcurl.zip 'https://curl.se/windows/latest.cgi?p=win64-mingw.zip'
           7z x libcurl.zip >/dev/null
