@@ -28,8 +28,63 @@ module core.math;
 version (LDC)
 {
     import ldc.intrinsics;
+    import ldc.attributes : llvmAttr;
+    import ldc.llvmasm : __irEx_pure;
 
     private enum isRealX87 = (real.mant_dig == 64);
+}
+
+version (LDC) version (Posix)
+@system unittest
+{
+    import core.stdc.fenv : fenv_t, fegetenv, fesetenv, fesetround,
+        FE_TONEAREST, FE_UPWARD, FE_DOWNWARD, FE_TOWARDZERO;
+
+    fenv_t saved;
+    assert(fegetenv(&saved) == 0);
+    scope(exit) fesetenv(&saved);
+    // A stack address is not a compile-time input. Both values are in [1,2).
+    real input = 1;
+    static if (real.mant_dig == 64)
+    {
+        version (LittleEndian)
+            enum lowWord = 0;
+        else
+            enum lowWord = 1;
+        (cast(ulong*)&input)[lowWord] |= cast(size_t)&saved & 0xffff;
+        fesetround(FE_TONEAREST);
+        real nearest = ldexpImpl(input, real.min_exp - real.mant_dig - 2);
+        fesetround(FE_UPWARD);
+        real upward = ldexpImpl(input, real.min_exp - real.mant_dig - 2);
+        assert(nearest == 0);
+        assert(upward == real.min_normal * real.epsilon);
+
+        // Exercise the public x87 instruction and the generic implementation
+        // with the same exact references, including the lowest fraction bit.
+        struct Case { real value; int exponent; uint[4] units; }
+        enum e = real.min_exp - real.mant_dig;
+        Case[] cases = [
+            Case(0.609375L, e + 3, [5, 5, 4, 4]),
+            Case(0.5625L, e + 3, [4, 5, 4, 4]),
+            Case(0.6875L, e + 3, [6, 6, 5, 5]),
+            Case(0.625L, e + 3, [5, 5, 5, 5]),
+            Case(1.0L + real.epsilon, e - 1, [1, 1, 0, 0]),
+            Case(1.0L, e - 2, [0, 1, 0, 0]),
+        ];
+        foreach (negative; [false, true])
+        foreach (mi, mode; [FE_TONEAREST, FE_UPWARD, FE_DOWNWARD, FE_TOWARDZERO])
+        foreach (c; cases)
+        {
+            real value = negative ? -c.value : c.value;
+            assert(fesetround(mode) == 0);
+            auto magnitudeMode = negative && (mi == 1 || mi == 2) ? 3 - mi : mi;
+            real expected = c.units[magnitudeMode] * (real.min_normal * real.epsilon);
+            if (negative)
+                expected = -expected;
+            assert(ldexpImpl(value, c.exponent) is expected);
+            assert(ldexp(value, c.exponent) is expected);
+        }
+    }
 }
 
 public:
@@ -269,7 +324,7 @@ version (LDC)
                     exp += T.mant_dig + 1;
                     u = cast(U)((u & ~exp_mask) | (cast(typeof(U.init + 0))exp << exp_shft));
                     (cast(U*)&vf)[idx] = u;
-                    return vf * (T.epsilon / 4);
+                    return scaleSubnormal(vf, T.epsilon / 4);
                 }
             }
             (cast(U*)&vf)[idx] = u;
@@ -277,17 +332,26 @@ version (LDC)
         return vf;
     }
 
-    // Round in units of the smallest subnormal without performing slow
-    // subnormal arithmetic. Keep the library-call setup out of normal ldexp
-    // calls on targets where nearbyint does not lower to an instruction.
+    // Round the desired result y in units of the smallest subnormal q, then
+    // encode the integer. For precision p, bias B and adjusted biased exponent E,
+    // y/q has biased exponent E+B+p-2. Rewriting that exponent preserves the significand
+    // exactly. nearbyint rounds the signed units in the active mode; integer
+    // encoding preserves the historical float/double exception behavior.
+    // A rounded magnitude of 2^(p-1) encodes minimum normal directly, so the
+    // subnormal-to-normal carry needs no floating-point correction.
+    // Keep this rare path out of normal calls, including library-call setup
+    // on targets where nearbyint does not lower to an instruction.
+    // strictfp plus constrained operations prevent reuse across fenv changes.
+    // Do not introduce ordinary FP comparisons/conversions in this helper.
     pragma(inline, false)
+    @llvmAttr("strictfp")
     private T ldexpSubnormal(T)(T value, int exponent) @trusted
     {
         static if (T.mant_dig == 24)
             alias Bits = uint;
         else
             alias Bits = ulong;
-        static assert(T.sizeof == Bits.sizeof);
+        static assert((T.mant_dig == 24 || T.mant_dig == 53) && T.sizeof == Bits.sizeof);
         enum shift = T.mant_dig - 1;
         enum signMask = Bits(1) << (Bits.sizeof * 8 - 1);
         enum exponentMask = (Bits.max >> (shift + 1)) << shift;
@@ -306,12 +370,52 @@ version (LDC)
 
         // Use the active rounding mode without introducing an inexact flag
         // where the previous integer-shift implementation raised none.
-        const rounded = llvm_nearbyint(value);
-        // At most 2^(mant_dig-1) units, so signed conversion is exact and safe.
-        // A carry to the smallest normal value has the same integer encoding.
-        const magnitude = cast(Bits)cast(long)(rounded < 0 ? -rounded : rounded);
+        // The rounded magnitude is at most 2^(p-1), so conversion through
+        // signed long is exact and bounded. 2^(p-1) is also the bit encoding
+        // of the smallest normal, handling a carry without a special case.
+        // Clear the rounded sign with integer operations (including -0).
+        enum irType = is(T == float) ? "float" : "double";
+        enum irSuffix = is(T == float) ? "f32" : "f64";
+        enum intType = is(T == float) ? "i32" : "i64";
+        enum magnitudeMask = is(T == float) ? "2147483647" : "9223372036854775807";
+        const magnitude = cast(Bits)__irEx_pure!(
+            "declare " ~ irType ~ " @llvm.experimental.constrained.nearbyint." ~ irSuffix ~ "(" ~ irType ~ ", metadata, metadata) strictfp\n" ~
+            "declare i64 @llvm.experimental.constrained.fptosi.i64." ~ irSuffix ~ "(" ~ irType ~ ", metadata) strictfp",
+            "%r = call " ~ irType ~ " @llvm.experimental.constrained.nearbyint." ~ irSuffix ~ "(" ~ irType ~ " %0, metadata !\"round.dynamic\", metadata !\"fpexcept.strict\") strictfp\n" ~
+            "%b = bitcast " ~ irType ~ " %r to " ~ intType ~ "\n" ~
+            "%absbits = and " ~ intType ~ " %b, " ~ magnitudeMask ~ "\n" ~
+            "%abs = bitcast " ~ intType ~ " %absbits to " ~ irType ~ "\n" ~
+            "%mag = call i64 @llvm.experimental.constrained.fptosi.i64." ~ irSuffix ~ "(" ~ irType ~ " %abs, metadata !\"fpexcept.strict\") strictfp\nret i64 %mag",
+            "", long, T)(value);
         *cast(Bits*)&value = sign | magnitude;
         return value;
+    }
+
+
+    // Isolate the wider-format final rounding from ordinary FP operations in
+    // ldexpImpl. On soft-float targets the runtime providing multiplication
+    // must also honor the active mode; constrained IR cannot supply that
+    // guarantee for a nearest-only __multf3 implementation.
+    pragma(inline, false)
+    @llvmAttr("strictfp")
+    private T scaleSubnormal(T)(T value, T factor) @trusted pure nothrow @nogc
+    {
+        static if (T.mant_dig == 64)
+        {
+            enum irType = "x86_fp80";
+            enum irSuffix = "f80";
+        }
+        else static if (T.mant_dig == 113)
+        {
+            enum irType = "fp128";
+            enum irSuffix = "f128";
+        }
+        else
+            static assert(false, "Unsupported wider format");
+        return __irEx_pure!(
+            "declare " ~ irType ~ " @llvm.experimental.constrained.fmul." ~ irSuffix ~ "(" ~ irType ~ ", " ~ irType ~ ", metadata, metadata) strictfp",
+            "%r = call " ~ irType ~ " @llvm.experimental.constrained.fmul." ~ irSuffix ~ "(" ~ irType ~ " %0, " ~ irType ~ " %1, metadata !\"round.dynamic\", metadata !\"fpexcept.strict\") strictfp\nret " ~ irType ~ " %r",
+            "", T, T, T)(value, factor);
     }
 
     float  ldexp(float  n, int exp) { return ldexpImpl(n, exp); }
