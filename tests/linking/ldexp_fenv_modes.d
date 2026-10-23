@@ -7,6 +7,7 @@
 
 import core.math : ldexp;
 import core.stdc.fenv;
+import core.stdc.stdio : fprintf, stderr;
 
 void check(T)()
 {
@@ -67,12 +68,20 @@ void check(T)()
         assert(feclearexcept(FE_ALL_EXCEPT) == 0);
         assert(feraiseexcept(oldFlags) == 0);
         int initialFlags = fetestexcept(standardExceptions);
+        if (initialFlags != oldFlags)
+            fprintf(stderr, "fenv setup: width=%u mode=%x wanted=%x actual=%x\n",
+                cast(uint)(T.sizeof * 8), mode, oldFlags, initialFlags);
         assert(initialFlags == oldFlags,
             "failed to initialize exception flags");
         T result = ldexp(input, c.exponent);
         int flags = fetestexcept(standardExceptions);
         auto magnitudeMode = negative && (mi == 1 || mi == 2) ? 3 - mi : mi;
         Bits expected = c.expected[magnitudeMode] | (negative ? sign : 0);
+        if (*cast(Bits*)&result != expected || flags != oldFlags)
+            fprintf(stderr,
+                "ldexp: width=%u mode=%x input=%llx exponent=%d expected=%llx actual=%llx flags-before=%x flags-after=%x\n",
+                cast(uint)(T.sizeof * 8), mode, cast(ulong)inputBits, c.exponent,
+                cast(ulong)expected, cast(ulong)(*cast(Bits*)&result), initialFlags, flags);
         assert(*cast(Bits*)&result == expected);
         // Preserve this implementation's float/double behavior and old flags.
         // This is not a promise about arbitrary ldexp paths or wider formats.
