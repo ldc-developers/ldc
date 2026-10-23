@@ -594,8 +594,8 @@ version (CRuntime_Microsoft)
         FE_INVALID      = 0x10, ///
         FE_ALL_EXCEPT   = 0x1F, ///
         FE_TONEAREST    = 0, ///
-        FE_UPWARD       = 0x100, ///
-        FE_DOWNWARD     = 0x200, ///
+        FE_UPWARD       = 0x200, ///
+        FE_DOWNWARD     = 0x100, ///
         FE_TOWARDZERO   = 0x300, ///
     }
 }
@@ -1006,6 +1006,24 @@ int fesetenv(const scope fenv_t* envp);
 // MS define feraiseexcept() and feupdateenv() inline.
 version (CRuntime_Microsoft) // supported since MSVCRT 12 (VS 2013) only
 {
+    version (LDC)
+    {
+        import ldc.attributes : llvmAttr;
+        import ldc.llvmasm : __irEx;
+
+        // The division's exceptions are its observable result. Ordinary FP
+        // division can be removed when its numerical result is unused.
+        pragma(inline, false)
+        @llvmAttr("strictfp")
+        private double exceptionDivision()(double numerator, double denominator)
+        {
+            return __irEx!(
+                "declare double @llvm.experimental.constrained.fdiv.f64(double, double, metadata, metadata) strictfp",
+                "%r = call double @llvm.experimental.constrained.fdiv.f64(double %0, double %1, metadata !\"round.dynamic\", metadata !\"fpexcept.strict\") strictfp\nret double %r",
+                "", double, double, double)(numerator, denominator);
+        }
+    }
+
     ///
     int feraiseexcept()(int excepts)
     {
@@ -1032,7 +1050,12 @@ version (CRuntime_Microsoft) // supported since MSVCRT 12 (VS 2013) only
         foreach (i; 0 .. table.length)
         {
             if ((excepts & table[i].exceptVal) != 0)
-                ans = table[i].num / table[i].denom;
+            {
+                version (LDC)
+                    ans = exceptionDivision(table[i].num, table[i].denom);
+                else
+                    ans = table[i].num / table[i].denom;
+            }
         }
 
         return 0;
