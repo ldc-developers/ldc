@@ -16,6 +16,11 @@ void check(T)()
     enum Bits sign = Bits(1) << (Bits.sizeof * 8 - 1);
     enum Bits two = Bits(T.max_exp) << (T.mant_dig - 1);
     enum int tinyExponent = T.min_exp - T.mant_dig;
+    // FE_ALL_EXCEPT includes the nonstandard denormal-operand flag on some
+    // x86 runtimes. The unchanged subnormal-input normalization can set it.
+    // Check the five standard exceptions, including underflow and inexact.
+    enum standardExceptions = FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW
+        | FE_UNDERFLOW | FE_INEXACT;
 
     T fromBits(Bits bits) { return *cast(T*)&bits; }
     struct Case { T value; int exponent; Bits[4] expected; }
@@ -61,8 +66,11 @@ void check(T)()
         assert(fesetround(mode) == 0);
         assert(feclearexcept(FE_ALL_EXCEPT) == 0);
         assert(feraiseexcept(oldFlags) == 0);
+        int initialFlags = fetestexcept(standardExceptions);
+        assert(initialFlags == oldFlags,
+            "failed to initialize exception flags");
         T result = ldexp(input, c.exponent);
-        int flags = fetestexcept(FE_ALL_EXCEPT);
+        int flags = fetestexcept(standardExceptions);
         auto magnitudeMode = negative && (mi == 1 || mi == 2) ? 3 - mi : mi;
         Bits expected = c.expected[magnitudeMode] | (negative ? sign : 0);
         assert(*cast(Bits*)&result == expected);
