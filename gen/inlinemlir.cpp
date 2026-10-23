@@ -6,6 +6,13 @@
 // file for details.
 
 #include "gen/inlinemlir.h"
+#include "dmd/arraytypes.h"
+#include "dmd/declaration.h"
+#include "dmd/identifier.h"
+#include "dmd/template.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/mtype.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -13,15 +20,6 @@
 #include "gen/logger.h"
 #include "gen/to_string.h"
 #include "gen/tollvm.h"
-#include "dmd/arraytypes.h"
-#include "dmd/declaration.h"
-#include "dmd/identifier.h"
-#include "dmd/template.h"
-#include "dmd/errors.h"
-#include "expression.h"
-#include "mtype.h"
-#include <cassert>
-#include <memory>
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Attributes.h"
@@ -35,13 +33,14 @@
 
 #if LDC_MLIR_ENABLED
 // Dialects
+#include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
-#include <mlir/IR/Types.h>
+#include "mlir/IR/Types.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/IR/DialectRegistry.h"
@@ -51,7 +50,6 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OwningOpRef.h"
 #include "mlir/Parser/Parser.h"
-#include "mlir/Target/LLVMIR/Dialect/All.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
@@ -190,7 +188,9 @@ DValue *DtoInlineMLIR(Loc loc, FuncDeclaration *fdecl, Expressions *arguments, l
       Objects &arg_types = args->objects;
 
       mlir::DialectRegistry registry;
-      mlir::registerAllToLLVMIRTranslations(registry);
+      mlir::registerBuiltinDialectTranslation(registry);
+      mlir::registerLLVMDialectTranslation(registry);
+
       registry.insert<mlir::func::FuncDialect,
                       mlir::arith::ArithDialect,
                       mlir::cf::ControlFlowDialect,
