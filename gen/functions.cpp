@@ -59,7 +59,6 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include <cassert>
 #include <iostream>
 
 using namespace dmd;
