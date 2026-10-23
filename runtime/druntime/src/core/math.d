@@ -35,6 +35,7 @@ version (LDC)
 }
 
 version (LDC) version (Posix)
+static if (real.mant_dig == 64)
 @system unittest
 {
     import core.stdc.fenv : fenv_t, fegetenv, fesetenv, fesetround,
