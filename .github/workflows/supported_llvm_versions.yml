@@ -19,8 +19,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: macOS 14, LLVM 21, latest LDC beta
-            os: macos-14
+          - job_name: macOS 15, LLVM 21, latest LDC beta
+            os: macos-15
             host_dc: ldc-beta
             llvm_version: 21
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_WITH_MLIR=ON
@@ -34,8 +34,8 @@ jobs:
             host_dc: dmd-beta
             llvm_version: 19
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DPHOBOS_SYSTEM_ZLIB=ON -DLIB_SUFFIX=64 -DLDC_WITH_MLIR=ON
-          - job_name: macOS 14, LLVM 18, latest LDC beta
-            os: macos-14
+          - job_name: macOS 15, LLVM 18, latest LDC beta
+            os: macos-15
             host_dc: ldc-beta
             llvm_version: 18
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_WITH_MLIR=ON
