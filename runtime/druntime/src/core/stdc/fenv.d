@@ -212,14 +212,33 @@ else version (Darwin)
 }
 else version (FreeBSD)
 {
-    struct fenv_t
+    // FreeBSD uses different x87/MXCSR layouts on i386 and amd64.
+    version (X86_64)
     {
-        ushort __control;
-        ushort __mxcsr_hi;
-        ushort __status;
-        ushort __mxcsr_lo;
-        uint __tag;
-        byte[16] __other;
+        struct fenv_t
+        {
+            struct X87
+            {
+                uint __control;
+                uint __status;
+                uint __tag;
+                byte[16] __other;
+            }
+            X87 __x87;
+            uint __mxcsr;
+        }
+    }
+    else
+    {
+        struct fenv_t
+        {
+            ushort __control;
+            ushort __mxcsr_hi;
+            ushort __status;
+            ushort __mxcsr_lo;
+            uint __tag;
+            byte[16] __other;
+        }
     }
 
     alias fexcept_t = ushort;
