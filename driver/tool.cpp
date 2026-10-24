@@ -97,7 +97,11 @@ llvm::SmallVector<std::string, 2> findCCFallback() {
       break;
     }
   } else if (triple.isOSEmscripten()) {
+#ifdef _WIN32
+    choices = { { "emcc.bat" } };
+#else
     choices = { { "emcc" } };
+#endif
   } else {
     choices = {
       { opts::mTargetTriple + "-gcc" },
