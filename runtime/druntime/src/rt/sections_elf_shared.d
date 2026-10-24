@@ -1254,17 +1254,17 @@ else
 version (LDC)
 {
     // We do not want to depend on __tls_get_addr for non-Shared builds to support
-    // linking against a static C runtime.
+    // linking against a static glibc.
     version (X86)    version = X86_Any;
     version (X86_64) version = X86_Any;
-    version (Shared) {} else version (linux) version (X86_Any)
-        version = Static_Linux_X86_Any;
+    version (Shared) {} else version (CRuntime_Glibc) version (X86_Any)
+        version = Static_Glibc_X86_Any;
 }
 
 // LDC: added `alignment` param
 void[] getTLSRange(size_t mod, size_t sz, size_t alignment) nothrow @nogc
 {
-    version (Static_Linux_X86_Any)
+    version (Static_Glibc_X86_Any)
     {
         void* tcb;
         version (X86)
