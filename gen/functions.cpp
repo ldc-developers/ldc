@@ -366,8 +366,6 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
                   // going on.
         } else if (tempdecl->llvmInternal == LLVMinline_ir || tempdecl->llvmInternal == LLVMinline_mlir) {
           Logger::println("magic inline ir/mlir found");
-          // assert(fdecl->llvmInternal == LLVMinline_ir ||
-                 // fdecl->llvmInternal == LLVMinline_mlir);
           assert(fdecl->llvmInternal == tempdecl->llvmInternal);
           fdecl->_linkage(LINK::c);
           Type *type = fdecl->type;
