@@ -212,7 +212,7 @@ public:
 
         assert(!f->irFty.arg_sret->rewrite &&
                "ABI shouldn't have to rewrite sret returns");
-        DLValue returnValue(rt, sretPointer);
+        DLValue returnValue(rt, sretPointer, DtoAlignment(rt));
 
         // try to construct the return value in-place
         bool constructed = toInPlaceConstruction(&returnValue, stmt->exp);
@@ -1355,6 +1355,11 @@ public:
     // get length and pointer
     LLValue *niters = DtoArrayLen(aggrval);
     LLValue *val = DtoArrayPtr(aggrval);
+    Type *elemType = aggrval->type->nextOf();
+    const unsigned elemAlign =
+        aggrval->type->toBasetype()->ty == TY::Tsarray
+            ? llvm::MinAlign(DtoLValAlignment(aggrval), size(elemType))
+            : DtoAlignment(elemType);
 
     if (niters->getType() != keytype) {
       size_t sz1 = getTypeBitSize(niters->getType());
@@ -1410,13 +1415,14 @@ public:
 
     if (!stmt->value->isRef() && !stmt->value->isOut()) {
       // Copy value to local variable, and use it as the value variable.
-      DLValue dst(stmt->value->type, valvar);
-      DLValue src(stmt->value->type, gep);
+      DLValue dst(stmt->value->type, valvar, DtoAlignment(stmt->value));
+      DLValue src(stmt->value->type, gep, elemAlign);
       DtoAssign(stmt->loc, &dst, &src, EXP::assign);
       getIrLocal(stmt->value)->value = valvar;
     } else {
       // Use the GEP as the address of the value variable.
       DtoRawVarDeclaration(stmt->value, gep);
+      getIrLocal(stmt->value)->alignment = elemAlign;
     }
 
     // emit body

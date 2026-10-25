@@ -51,7 +51,8 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale);
 ///
 /// dstMem is expected to be a pointer to the array allocation.
 void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale,
-                            LLValue *dstMem, LLType *dstType);
+                            LLValue *dstMem, unsigned dstAlign,
+                            LLType *dstType);
 
 void DtoArrayAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
                     bool canSkipPostblit);

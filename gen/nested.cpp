@@ -85,7 +85,7 @@ DValue *DtoNestedVariable(Loc loc, Type *astype, VarDeclaration *vd,
   if (!fd) {
     error(loc, "function `%s` cannot access frame of function `%s`",
           irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
-    return new DLValue(astype, llvm::UndefValue::get(getOpaquePtrType()));
+    return new DLValue(astype, llvm::UndefValue::get(getOpaquePtrType()), 1);
   }
 
   // is the nested variable in this scope?
@@ -578,6 +578,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         DtoAlignedStore(irFunc.sretArg, gep);
         assert(!irLocal->value);
         irLocal->value = irFunc.sretArg;
+        irLocal->alignment = DtoAlignment(vd->type);
         gep = irFunc.sretArg; // lvalue for debuginfo
       } else {
         IF_LOG Logger::println("nested var: %s, allocating in nested frame",

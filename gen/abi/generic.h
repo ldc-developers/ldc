@@ -94,7 +94,8 @@ struct LLTypeMemoryLayout {
 /// Removes padding fields for (non-union-containing!) structs
 struct RemoveStructPadding : ABIRewrite {
   LLValue *put(DValue *v, bool, bool) override {
-    return DtoUnpaddedStruct(v->type->toBasetype(), DtoLVal(v));
+    return DtoUnpaddedStruct(v->type->toBasetype(), DtoLVal(v),
+                             DtoLValAlignment(v));
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
@@ -103,7 +104,7 @@ struct RemoveStructPadding : ABIRewrite {
     // TODO: Only do this if there's padding, and/or only initialize padding.
     DtoMemSetZero(DtoType(dty), lval,
                   DtoConstSize_t(getTypeAllocSize(DtoType(dty))));
-    DtoPaddedStruct(dty->toBasetype(), v, lval);
+    DtoPaddedStruct(dty->toBasetype(), v, lval, DtoAlignment(dty));
     return lval;
   }
 

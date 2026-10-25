@@ -261,7 +261,7 @@ DValue *DtoInlineAsmExpr(Loc loc, FuncDeclaration *fd,
     if (!lvalue)
       lvalue = DtoAlloca(returnType, ".__asm_tuple_ret");
     DtoStore(rv, lvalue);
-    return new DLValue(returnType, lvalue);
+    return new DLValue(returnType, lvalue, DtoAlignment(returnType));
   }
 
   // return call as im value

@@ -848,6 +848,10 @@ unsigned int getABITypeAlign(LLType *t) {
   return gDataLayout->getABITypeAlign(t).value();
 }
 
+unsigned DtoKnownAlignment(LLValue *ptr) {
+  return ptr->getPointerAlignment(*gDataLayout).value();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 LLStructType *DtoModuleReferenceType() {
