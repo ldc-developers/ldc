@@ -32,7 +32,6 @@
 #include "gen/functions.h"
 #include "gen/funcgenstate.h"
 #include "gen/inlineir.h"
-#include "gen/inlinemlir.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"

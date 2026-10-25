@@ -1,4 +1,4 @@
-//===-- gen/irstate.h - Inline IR implementation-----------------*- C++ -*-===//
+//===-- gen/inlineir.h - Inline IR/MLIR implementation ----------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -7,7 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Contains the implementation for the LDC-specific LLVM inline IR feature.
+// Contains the implementation for the LDC-specific LLVM inline IR and inline
+// MLIR features.
 //
 //===----------------------------------------------------------------------===//
 
@@ -31,3 +32,10 @@ void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s);
 DValue *DtoInlineIRExpr(Loc loc, FuncDeclaration *fdecl,
                         Expressions *arguments,
                         llvm::Value *sretPointer = nullptr);
+
+/// Check LDC_inline_mlir pragma declaration is valid
+/// Will call fatal() in case of errors
+void DtoCheckInlineMLIRPragma(Identifier *ident, Dsymbol *s);
+
+DValue *DtoInlineMLIR(Loc loc, FuncDeclaration *fdecl, Expressions *arguments,
+                      llvm::Value *sretPointer = nullptr);

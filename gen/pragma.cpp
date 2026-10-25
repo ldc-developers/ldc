@@ -19,7 +19,6 @@
 #include "dmd/scope.h"
 #include "dmd/template.h"
 #include "gen/inlineir.h"
-#include "gen/inlinemlir.h"
 #include "gen/llvmhelpers.h"
 #include "llvm/Support/CommandLine.h"
 
