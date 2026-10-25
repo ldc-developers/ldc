@@ -183,8 +183,9 @@ InlineIRArgs extractInlineIRArgs(TemplateInstance *tinst,
     if (!ty) {
       error(tinst->loc,
             "All parameters of a template defined with pragma "
-            "`%s`, except for the first %s, should be types",
-            pragmaName, isExtended ? "three" : "one");
+            "`%s`, except for the first one or the first three, should be "
+            "types",
+            pragmaName);
       fatal();
     }
     result.paramTypes.push_back(ty);
