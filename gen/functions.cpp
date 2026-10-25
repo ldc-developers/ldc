@@ -364,9 +364,9 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
           fdecl->ir->setDefined();
           return; // this gets mapped to a special inline asm call, no point in
                   // going on.
-        } else if (tempdecl->llvmInternal == LLVMinline_ir) {
-          Logger::println("magic inline ir found");
-          assert(fdecl->llvmInternal == LLVMinline_ir);
+        } else if (tempdecl->llvmInternal == LLVMinline_ir || tempdecl->llvmInternal == LLVMinline_mlir) {
+          Logger::println("magic inline ir/mlir found");
+          assert(fdecl->llvmInternal == tempdecl->llvmInternal);
           fdecl->_linkage(LINK::c);
           Type *type = fdecl->type;
           assert(type->ty == TY::Tfunction);
@@ -1182,7 +1182,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
       func->addFnAttr(LLAttribute::OptForFuzzing);
     }
-    
+
     if (opts::isSanitizerEnabled(opts::MemorySanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeMemory);
     }

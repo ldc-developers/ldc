@@ -731,6 +731,10 @@ public:
           return DtoInlineIRExpr(e->loc, fd, e->arguments, sretPointer);
         }
 
+        if (fd->llvmInternal == LLVMinline_mlir) {
+          return DtoInlineMLIR(e->loc, fd, e->arguments, sretPointer);
+        }
+
         DValue *result = nullptr;
         if (DtoLowerMagicIntrinsic(p, fd, e, result))
           return result;
