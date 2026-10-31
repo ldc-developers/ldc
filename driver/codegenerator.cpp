@@ -32,6 +32,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
+#include "llvm/Target/TargetMachine.h"
 #if LDC_MLIR_ENABLED
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
@@ -225,6 +226,21 @@ void CodeGenerator::prepareLLModule(Module *m) {
   ir_->module.setTargetTriple(global.params.targetTriple->str());
 #endif
   ir_->module.setDataLayout(*gDataLayout);
+
+  // Emit "PIC Level" and "PIE Level" module flags.
+  if (gTargetMachine->getRelocationModel() == llvm::Reloc::PIC_) {
+    // Always use level 2 (big PIC, like -fPIC for clang), since
+    // LDC has no -fpic equivalent.
+    ir_->module.setPICLevel(llvm::PICLevel::BigPIC);
+
+    // If we link an executable ourseleves, PIC can be relaxed to PIE, which
+    // lets LLVM select better TLS models instead of global-dynamic.
+    if (global.params.link && !global.params.lib && !global.params.dll) {
+      // Use the level matching the PIC level, like clang;
+      // LLVM only checks whether a PIE level is set.
+      ir_->module.setPIELevel(llvm::PIELevel::Large);
+    }
+  }
 
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
   // single-object compilations?
