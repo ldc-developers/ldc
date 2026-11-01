@@ -46,11 +46,12 @@ extern (C)
 // PROFUSE-LABEL: @_Dmain(
 int main()
 {
+    // PROFUSE:  [[FOO:%[0-9]+]] = {{.*}}call {{.*}}@llvm.threadlocal.address{{.*}}(ptr {{.*}}@foo)
     for (int i; i < 2000; ++i)
     {
         select_func(i);
 
-        // PROFUSE:  [[REG1:%[0-9]+]] = load ptr, ptr @foo
+        // PROFUSE:  [[REG1:%[0-9]+]] = load ptr, ptr [[FOO]]
         // PROFUSE:  [[REG2:%[0-9]+]] = icmp eq ptr [[REG1]], @hot
         // PROFUSE:  call void @hot()
         // PROFUSE:  call void [[REG1]]()
