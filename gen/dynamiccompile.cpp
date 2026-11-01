@@ -21,6 +21,7 @@
 #include "gen/llvm.h"
 #include "ir/irfunction.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
@@ -334,6 +335,21 @@ void replaceDynamicThreadLocals(llvm::Module &oldModule,
 
   for (auto &&fun : newModule.functions()) {
     iterateFuncInstructions(fun, [&](llvm::Instruction &instr) -> bool {
+      // The operand of llvm.threadlocal.address must be a thread-local
+      // global, so replace the whole intrinsic call with the accessor call.
+      if (auto intrinsic = llvm::dyn_cast<llvm::IntrinsicInst>(&instr)) {
+        if (intrinsic->getIntrinsicID() ==
+            llvm::Intrinsic::threadlocal_address) {
+          auto globalVar =
+              llvm::cast<llvm::GlobalVariable>(intrinsic->getArgOperand(0));
+          auto callResult = llvm::CallInst::Create(getAccessor(globalVar));
+          callResult->insertBefore(&instr);
+          instr.replaceAllUsesWith(callResult);
+          instr.eraseFromParent();
+          return true;
+        }
+      }
+
       bool changed = false;
       for (unsigned int i = 0; i < instr.getNumOperands(); ++i) {
         auto op = instr.getOperand(i);
