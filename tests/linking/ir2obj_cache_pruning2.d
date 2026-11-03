@@ -8,6 +8,7 @@
 // RUN: %ldc %s -cache=%t-dir -cache-prune -cache-prune-interval=0 -vv | FileCheck --check-prefix=MUST_HIT %s
 // RUN: %ldc %s -cache=%t-dir -cache-prune -cache-prune-interval=0 -vv -d-version=NEW_OBJ_FILE | FileCheck --check-prefix=NO_HIT %s
 // RUN: %ldc %s -cache=%t-dir -cache-prune -cache-prune-interval=0 -vv | FileCheck --check-prefix=MUST_HIT %s
+// RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -cache-prune-interval=0 -cache-prune-maxbytes=200000
 // RUN: %ldc -d-version=SLEEP -run %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -cache-prune-interval=0 -cache-prune-maxbytes=200000 -vv | FileCheck --check-prefix=MUST_HIT %s
 // RUN: %ldc %t%obj
