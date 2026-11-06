@@ -492,7 +492,7 @@ static void buildRuntimeModule() {
   AttrSet NoAttrs, Attr_NoUnwind, Attr_ReadOnly, Attr_ReadOnly_NoUnwind, Attr_Cold, Attr_Cold_NoReturn, Attr_Cold_NoReturn_NoUnwind,
           Attr_ReadOnly_1_NoCapture, Attr_ReadOnly_1_3_NoCapture, Attr_ReadOnly_NoUnwind_1_NoCapture,
           Attr_ReadOnly_NoUnwind_1_2_NoCapture, Attr_1_NoCapture, Attr_1_2_NoCapture, Attr_1_3_NoCapture,
-          Attr_1_4_NoCapture;
+          Attr_1_4_NoCapture, Attr_NoAlias_Return, Attr_NoAlias_Return_AllocSize0;
   // `nounwind`
   {
     auto addNoUnwind = [&](AttrSet& a) {
@@ -540,6 +540,25 @@ static void buildRuntimeModule() {
     };
     addNoReturn(Attr_Cold_NoReturn);
     addNoReturn(Attr_Cold_NoReturn_NoUnwind);
+  }
+  // `noalias` on the returned pointer of GC allocation functions: each call
+  // hands back freshly allocated memory that does not alias any pre-existing
+  // pointer (malloc-like semantics).
+  {
+    auto addNoAliasReturn = [&](AttrSet& a) {
+      llvm::AttrBuilder ab(context);
+      ab.addAttribute(llvm::Attribute::NoAlias);
+      a.addToReturn(ab);
+    };
+    addNoAliasReturn(Attr_NoAlias_Return);
+    addNoAliasReturn(Attr_NoAlias_Return_AllocSize0);
+  }
+  // `allocsize`: `_d_allocmemory(size_t sz)` returns a block of `sz` bytes
+  // (size given by parameter 0), enabling llvm.objectsize-based optimizations.
+  {
+    llvm::AttrBuilder ab(context);
+    ab.addAllocSizeAttr(0, std::nullopt);
+    Attr_NoAlias_Return_AllocSize0.addToFunction(ab);
   }
   // `nocapture`/ `captures(none)`
   {
@@ -608,10 +627,12 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // void* _d_allocmemory(size_t sz)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_allocmemory"}, {sizeTy});
+  createFwdDecl(LINK::c, voidPtrTy, {"_d_allocmemory"}, {sizeTy}, {},
+                Attr_NoAlias_Return_AllocSize0);
 
   // void* _d_allocmemoryT(TypeInfo ti)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_allocmemoryT"}, {typeInfoTy});
+  createFwdDecl(LINK::c, voidPtrTy, {"_d_allocmemoryT"}, {typeInfoTy}, {},
+                Attr_NoAlias_Return);
 
   // void[] _d_newarrayT (const TypeInfo ti, size_t length)
   // void[] _d_newarrayiT(const TypeInfo ti, size_t length)
@@ -628,7 +649,7 @@ static void buildRuntimeModule() {
   // Object _d_newclass(const ClassInfo ci)
   // Object _d_allocclass(const ClassInfo ci)
   createFwdDecl(LINK::c, objectTy, {"_d_newclass", "_d_allocclass"},
-                {classInfoTy}, {STCconst});
+                {classInfoTy}, {STCconst}, Attr_NoAlias_Return);
 
   // void _d_delarray_t(void[]* p, const TypeInfo_Struct ti)
   createFwdDecl(LINK::c, voidTy, {"_d_delarray_t"},
