@@ -1159,6 +1159,23 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
                         return ErrorExp.get();
                 }
             }
+            version (IN_LLVM)
+            {
+                // getMember + wantsym does not keep a ThisExp; LDC needs vthis in
+                // closureVars for gen/nested (see getThisSkipNestedFuncs in expressionsem.d).
+                if (ex && !ex.isErrorExp())
+                {
+                    if (auto e0 = isExpression(o))
+                    {
+                        e0 = e0.expressionSemantic(sc);
+                        if (auto te = e0.isThisExp())
+                        {
+                            if (te.var && te.var.checkNestedReference(sc, e.loc))
+                                return ErrorExp.get();
+                        }
+                    }
+                }
+            }
             return ex;
         }
         else if (e.ident == Id.getVirtualFunctions ||
