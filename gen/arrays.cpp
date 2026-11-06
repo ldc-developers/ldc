@@ -56,8 +56,8 @@ void DtoSetArrayToNull(DValue *v) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static void DtoArrayInit(Loc loc, LLValue *ptr, LLValue *length,
-                         DValue *elementValue) {
+static void DtoArrayInit(Loc loc, LLValue *ptr, unsigned elementAlign,
+                         LLValue *length, DValue *elementValue) {
   IF_LOG Logger::println("DtoArrayInit");
   LOG_SCOPE;
 
@@ -109,7 +109,10 @@ static void DtoArrayInit(Loc loc, LLValue *ptr, LLValue *length,
   LLValue *itr_val = DtoLoad(sz,itr);
   // assign array element value
   Type *elemty = elementValue->type->toBasetype();
-  DLValue arrayelem(elemty, DtoGEP1(i1ToI8(DtoType(elemty)), ptr, itr_val, "arrayinit.arrayelem"));
+  DLValue arrayelem(elemty,
+                    DtoGEP1(i1ToI8(DtoType(elemty)), ptr, itr_val,
+                            "arrayinit.arrayelem"),
+                    elementAlign);
   DtoAssign(loc, &arrayelem, elementValue, EXP::blit);
 
   // increment iterator
@@ -276,7 +279,11 @@ void DtoArrayAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
                 ? lhsSize
                 : gIR->ir->CreateExactUDiv(lhsSize, DtoConstSize_t(rhsSize));
       }
-      DtoArrayInit(loc, lhsPtr, actualLength, rhs);
+      const unsigned lhsAlign = lhs->type->toBasetype()->ty == TY::Tsarray
+                                    ? DtoLValAlignment(lhs)
+                                    : DtoAlignment(lhs->type->nextOf());
+      DtoArrayInit(loc, lhsPtr, llvm::MinAlign(lhsAlign, rhsSize),
+                   actualLength, rhs);
     } else if (isConstructing) {
       error(loc, "ICE: array construction should have been lowered to "
                  "`_d_arraysetctor`");
@@ -560,7 +567,8 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale,
-                            LLValue *dstMem, LLType *dstType) {
+                            LLValue *dstMem, unsigned dstAlign,
+                            LLType *dstType) {
   size_t elemCount = ale->elements->length;
 
   // Don't try to write nothing to a zero-element array, we might represent it
@@ -583,15 +591,18 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale,
                                            constarr, ".arrayliteral");
       gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
       DtoMemCpy(dstMem, gvar,
-                DtoConstSize_t(getTypeAllocSize(constarr->getType())));
+                DtoConstSize_t(getTypeAllocSize(constarr->getType())),
+                dstAlign, DtoKnownAlignment(gvar));
     }
   } else {
     // Store the elements one by one.
+    const uint64_t elemSize =
+        getTypeAllocSize(llvm::cast<llvm::ArrayType>(dstType)->getElementType());
     for (size_t i = 0; i < elemCount; ++i) {
       Expression *rhsExp = indexArrayLiteral(ale, i);
 
       LLValue *lhsPtr = DtoGEP(dstType, dstMem, 0, i, "", p->scopebb());
-      DLValue lhs(rhsExp->type, lhsPtr);
+      DLValue lhs(rhsExp->type, lhsPtr, llvm::MinAlign(dstAlign, i * elemSize));
 
       // try to construct it in-place
       if (!toInPlaceConstruction(&lhs, rhsExp))
@@ -956,8 +967,10 @@ DValue *DtoCastArray(Loc loc, DValue *u, Type *to) {
     IF_LOG Logger::cout() << "to sarray" << '\n';
 
     LLValue *ptr = nullptr;
+    unsigned alignment = DtoAlignment(fromtype->nextOf());
     if (fromtype->ty == TY::Tsarray) {
       ptr = DtoLVal(u);
+      alignment = DtoLValAlignment(u);
     } else {
       size_t tosize = toInteger(static_cast<TypeSArray *>(totype)->dim);
       size_t i =
@@ -967,7 +980,7 @@ DValue *DtoCastArray(Loc loc, DValue *u, Type *to) {
       ptr = DtoArrayPtr(u);
     }
 
-    return new DLValue(to, ptr);
+    return new DLValue(to, ptr, alignment);
   }
 
   if (totype->ty == TY::Tbool) {
@@ -978,7 +991,10 @@ DValue *DtoCastArray(Loc loc, DValue *u, Type *to) {
   }
 
   const auto castedPtr = DtoArrayPtr(u);
-  return new DLValue(to, castedPtr);
+  return new DLValue(to, castedPtr,
+                     fromtype->ty == TY::Tsarray
+                         ? DtoLValAlignment(u)
+                         : DtoAlignment(fromtype->nextOf()));
 }
 
 void DtoIndexBoundsCheck(Loc loc, DValue *arr, DValue *index) {

@@ -50,7 +50,8 @@ llvm::Type *DtoUnpaddedStructType(Type *dty);
 /// Unions will be expanded, with a value for each member.
 /// Note: v must be a pointer to a struct, but the return value will be a
 ///       first-class struct value.
-llvm::Value *DtoUnpaddedStruct(Type *dty, llvm::Value *v);
+llvm::Value *DtoUnpaddedStruct(Type *dty, llvm::Value *v, unsigned alignment);
 
 /// Undo the transformation performed by DtoUnpaddedStruct, writing to lval.
-void DtoPaddedStruct(Type *dty, llvm::Value *v, llvm::Value *lval);
+void DtoPaddedStruct(Type *dty, llvm::Value *v, llvm::Value *lval,
+                     unsigned alignment);

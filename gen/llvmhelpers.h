@@ -130,8 +130,8 @@ void findDefaultTarget();
 /// Returns a pointer to the given member field of an aggregate.
 ///
 /// 'src' is a pointer to the start of the memory of an 'ad' instance.
-DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
-                           VarDeclaration *vd);
+DLValue *DtoIndexAggregate(LLValue *src, unsigned srcAlign,
+                           AggregateDeclaration *ad, VarDeclaration *vd);
 
 /// Returns the index of a given member variable in the resulting LLVM type of
 /// an aggregate.

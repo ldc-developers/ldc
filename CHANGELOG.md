@@ -6,7 +6,7 @@
 #### Platform support
 
 #### Bug fixes
-- Struct copies and zero-initialisations through pointers, slice elements and `ref`s now carry the pointee type's alignment on the emitted `llvm.memcpy`/`llvm.memset` instead of alignment 1. On targets with strict alignment (e.g. `-mattr=+strict-align`), an alignment-1 memcpy is lowered to byte-wise loads and stores. (#5297)
+- Struct copies and zero-initialisations now carry the alignment of their source and destination on the emitted `llvm.memcpy`/`llvm.memset` instead of alignment 1, including through pointers, `ref`s, fields and array elements. On targets with strict alignment (e.g. `-mattr=+strict-align`), an alignment-1 memcpy is lowered to byte-wise loads and stores. (#5297, #5301)
 - dcompute: A `ref` return whose referent is reached through a `Pointer!(as, T)` does not emit an extra load anymore, so a `ref T opIndex()` accessor over a `GlobalPointer!T` no longer faults with `CUDA_ERROR_MISALIGNED_ADDRESS`. (#5284, #5285)
 
 # LDC 1.43.0 (2026-08-30)

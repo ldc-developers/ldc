@@ -55,6 +55,10 @@ struct IrLocal : IrVar {
   // Used for hybrid nested context creation.
   int nestedDepth = 0;
   int nestedIndex = -1;
+
+  // The alignment of the memory this local names when it wasn't allocated for
+  // it (0 otherwise); for a ref variable, of the memory it refers to.
+  unsigned alignment = 0;
 };
 
 // represents a function parameter

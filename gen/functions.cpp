@@ -1289,7 +1289,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     irFunc->_argptr = argptrMem;
 
     // initialize _argptr with a call to the va_start intrinsic
-    DLValue argptrVal(tvalist, argptrMem);
+    DLValue argptrVal(tvalist, argptrMem, DtoAlignment(tvalist));
     LLValue *llAp = gABI->prepareVaStart(&argptrVal);
     llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart, llAp->getType()), llAp, "",
                            gIR->scopebb());
@@ -1378,8 +1378,10 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
   if (fnarg && (fnarg->storageClass & (STCref | STCout))) {
     Loc loc;
     DValue *arg = toElem(argexp, true);
-    return new DLValue(argexp->type,
-                       arg->isLVal() ? DtoLVal(arg) : makeLValue(loc, arg));
+    if (arg->isLVal())
+      return DtoRepaintLVal(arg, argexp->type);
+    return new DLValue(argexp->type, makeLValue(loc, arg),
+                       DtoAlignment(arg->type));
   }
 
   DValue *arg = toElem(argexp);

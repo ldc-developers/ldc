@@ -169,6 +169,8 @@ size_t getPointerSizeInBits();
 
 // type alignments
 unsigned int getABITypeAlign(LLType *t);
+// The alignment the IR proves for an alloca, global or argument.
+unsigned DtoKnownAlignment(LLValue *ptr);
 
 // pair type helpers
 LLValue *DtoAggrPair(LLType *type, LLValue *V1, LLValue *V2,

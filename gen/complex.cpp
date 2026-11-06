@@ -143,10 +143,14 @@ void DtoGetComplexParts(Loc loc, Type *to, DValue *val, DValue *&re,
     DValue *v = DtoCastComplex(loc, val, to);
     if (isComplex(to)) {
       if (v->isLVal()) {
-        LLValue *reVal = DtoGEP(DtoType(v->type), DtoLVal(v), 0u, 0, ".re_part");
-        LLValue *imVal = DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1, ".im_part");
-        re = new DLValue(baserety, reVal);
-        im = new DLValue(baseimty, imVal);
+        LLType *llType = DtoType(v->type);
+        LLValue *reVal = DtoGEP(llType, DtoLVal(v), 0u, 0, ".re_part");
+        LLValue *imVal = DtoGEP(llType, DtoLVal(v), 0, 1, ".im_part");
+        const unsigned alignment = DtoLValAlignment(v);
+        const uint64_t imOffset =
+            gDataLayout->getStructLayout(isaStruct(llType))->getElementOffset(1);
+        re = new DLValue(baserety, reVal, alignment);
+        im = new DLValue(baseimty, imVal, llvm::MinAlign(alignment, imOffset));
       } else {
         LLValue *reVal =
             gIR->ir->CreateExtractValue(DtoRVal(v), 0, ".re_part");

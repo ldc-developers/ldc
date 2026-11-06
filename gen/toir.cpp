@@ -74,8 +74,8 @@ static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
-                                 Expressions *elements) {
+static void write_struct_literal(Loc loc, LLValue *mem, unsigned memAlign,
+                                 StructDeclaration *sd, Expressions *elements) {
   assert(elements && "struct literal has null elements");
   const auto numMissingElements = sd->fields.length - elements->length;
   (void)numMissingElements;
@@ -136,7 +136,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       LOG_SCOPE
 
       // get a pointer to this group's IR field
-      const auto ptr = DtoLVal(DtoIndexAggregate(mem, sd, vd));
+      const auto ptr = DtoIndexAggregate(mem, memAlign, sd, vd);
 
       // merge all initializers to a single integer value
       const auto intType =
@@ -165,7 +165,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
 
       IF_LOG Logger::cout() << "merged IR value: " << *val << '\n';
       // TODO: byte-swap val for big-endian targets?
-      gIR->ir->CreateAlignedStore(val, ptr, llvm::MaybeAlign(1));
+      gIR->ir->CreateAlignedStore(val, DtoLVal(ptr), llvm::MaybeAlign(1));
       offset += group.sizeInBytes;
 
       i += group.bitFields.size() - 1; // skip the other bit fields of the group
@@ -174,7 +174,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                              vd->type->toChars(), vd->toChars(), vd->offset);
       LOG_SCOPE
 
-      const auto field = DtoIndexAggregate(mem, sd, vd);
+      const auto field = DtoIndexAggregate(mem, memAlign, sd, vd);
 
       // initialize the field
       if (expr) {
@@ -272,11 +272,12 @@ public:
           !result->definedInFuncEntryBB()) {
         if (result->isRVal()) {
           LLValue *lval = DtoAllocaDump(result, ".toElemRValResult");
-          result = new DLValue(result->type, lval);
+          result = new DLValue(result->type, lval, DtoAlignment(result->type));
         } else {
           LLValue *lval = DtoLVal(result);
+          const unsigned alignment = DtoLValAlignment(result);
           LLValue *lvalPtr = DtoAllocaDump(lval, 0, ".toElemLValResult");
-          result = new DSpecialRefValue(result->type, lvalPtr);
+          result = new DSpecialRefValue(result->type, lvalPtr, alignment);
         }
       }
 
@@ -440,7 +441,7 @@ public:
       // with zero-initialized tail
       if (arrayLength > stringLength + 1) {
         auto constant = buildStringLiteralConstant(e, arrayLength);
-        result = new DLValue(e->type, constant);
+        result = new DLValue(e->type, constant, DtoKnownAlignment(constant));
         return;
       }
     }
@@ -452,7 +453,7 @@ public:
           e->type, DtoConstSlice(DtoConstSize_t(stringLength), gvar));
     } else if (dtype->ty == TY::Tsarray) {
       // array length matches string length with or without null terminator
-      result = new DLValue(e->type, gvar);
+      result = new DLValue(e->type, gvar, DtoKnownAlignment(gvar));
     } else if (dtype->ty == TY::Tpointer) {
       result = new DImValue(e->type, gvar);
     } else {
@@ -502,6 +503,8 @@ public:
         DSpecialRefValue *lhs = toElem(e->e1)->isSpecialRef();
         assert(lhs);
         DValue *rhs = toElem(e->e2);
+        getIrLocal(ve->var->isVarDeclaration())->alignment =
+            rhs->isLVal() ? DtoLValAlignment(rhs) : DtoAlignment(rhs->type);
 
         // We shouldn't really need makeLValue() here, but the 2.063
         // frontend generates ref variables initialized from function
@@ -680,7 +683,7 @@ public:
     if (e->type->equals(lhsLVal->type))
       return lhsLVal;
 
-    return new DLValue(e->type, DtoLVal(lhsLVal));
+    return DtoRepaintLVal(lhsLVal, e->type);
   }
 
 #define BIN_ASSIGN(Op, Func, useLValTypeForBinOp)                              \
@@ -1041,27 +1044,31 @@ public:
     if (VarDeclaration *vd = e->var->isVarDeclaration()) {
       AggregateDeclaration *ad;
       LLValue *aggrPtr;
+      unsigned aggrAlign;
       // indexing struct pointer
       if (e1type->ty == TY::Tpointer) {
         auto ts = e1type->nextOf()->isTypeStruct();
         assert(ts);
         ad = ts->sym;
         aggrPtr = DtoRVal(l);
+        aggrAlign = DtoAlignment(ts);
       }
       // indexing normal struct
       else if (auto ts = e1type->isTypeStruct()) {
         ad = ts->sym;
         aggrPtr = DtoLVal(l);
+        aggrAlign = DtoLValAlignment(l);
       }
       // indexing class
       else if (auto tc = e1type->isTypeClass()) {
         ad = tc->sym;
         aggrPtr = DtoRVal(l);
+        aggrAlign = tc->sym->alignsize;
       } else {
         llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
       }
 
-      auto ptr = DtoIndexAggregate(aggrPtr, ad, vd);
+      auto ptr = DtoIndexAggregate(aggrPtr, aggrAlign, ad, vd);
 
       // special case for bit fields (no real lvalues), and address spaced pointers
       if (auto bf = vd->isBitFieldDeclaration()) {
@@ -1074,9 +1081,10 @@ public:
         }
         else
            ptrty = DtoType(e->type);
-        result = new DDcomputeLValue(e->type, i1ToI8(ptrty), DtoLVal(d));
+        result = new DDcomputeLValue(e->type, i1ToI8(ptrty), DtoLVal(d),
+                                     d->alignment);
       } else {
-        result = new DLValue(e->type, DtoLVal(ptr));
+        result = DtoRepaintLVal(ptr, e->type);
       }
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       // This is a bit more convoluted than it would need to be, because it
@@ -1124,7 +1132,7 @@ public:
       // special cases: `this(int) { this(); }` and `this(int) { super(); }`
       Logger::println("this exp without var declaration");
       if (auto thisArg = p->func()->thisArg) {
-        result = new DLValue(e->type, thisArg);
+        result = new DLValue(e->type, thisArg, DtoAlignment(e->type));
         return;
       }
       // use the inner-most parent's `vthis`
@@ -1145,7 +1153,7 @@ public:
     if (ident == Id::ensure || ident == Id::require) {
       Logger::println("contract this exp");
       LLValue *v = p->func()->nestArg; // thisptr lvalue
-      result = new DLValue(e->type, v);
+      result = new DLValue(e->type, v, DtoAlignment(e->type));
     } else if (vd->toParent2() != p->func()->decl) {
       Logger::println("nested this exp");
       result =
@@ -1186,7 +1194,13 @@ public:
       }
       LLType *elt = DtoMemType(e1type->nextOf());
       LLType *arrty = llvm::ArrayType::get(elt, e1type->isTypeSArray()->dim->isIntegerExp()->getInteger());
-      arrptr = DtoGEP(arrty, DtoLVal(l), DtoConstUint(0), DtoRVal(r));
+      LLValue *index = DtoRVal(r);
+      arrptr = DtoGEP(arrty, DtoLVal(l), DtoConstUint(0), index);
+      const uint64_t elemSize = size(e1type->nextOf());
+      const auto constIndex = isaConstantInt(index);
+      alignment = llvm::MinAlign(
+          DtoLValAlignment(l),
+          constIndex ? constIndex->getZExtValue() * elemSize : elemSize);
     } else if (e1type->ty == TY::Tarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
@@ -1303,7 +1317,14 @@ public:
     // fixed-width slice to a static array.
     Type *const ety = e->type->toBasetype();
     if (ety->ty == TY::Tsarray) {
-      result = new DLValue(e->type, eptr);
+      const unsigned elemAlign = DtoAlignment(etype->nextOf());
+      unsigned alignment = elemAlign;
+      if (etype->ty == TY::Tsarray) {
+        alignment = DtoLValAlignment(v);
+        if (e->lwr)
+          alignment = llvm::MinAlign(alignment, size(etype->nextOf()));
+      }
+      result = new DLValue(e->type, eptr, alignment);
       return;
     }
 
@@ -1599,17 +1620,21 @@ public:
       TypeStruct *ts = static_cast<TypeStruct *>(ntype);
 
       LLValue *mem;
+      unsigned memAlign;
       if (e->placement) {
-        mem = DtoLVal(e->placement);
+        DValue *placement = toElem(e->placement);
+        mem = DtoLVal(placement);
+        memAlign = DtoLValAlignment(placement);
       } else {
         // allocate (via _d_newitemT template lowering)
         assert(e->lowering);
         mem = DtoRVal(e->lowering);
+        memAlign = DtoAlignment(ts);
       }
 
       if (!e->member && e->arguments) {
         IF_LOG Logger::println("Constructing using literal");
-        write_struct_literal(e->loc, mem, ts->sym, e->arguments);
+        write_struct_literal(e->loc, mem, memAlign, ts->sym, e->arguments);
       } else {
         // set nested context
         if (ts->sym->isNested() && ts->sym->vthis) {
@@ -1648,11 +1673,15 @@ public:
       assert(e->argprefix == NULL);
 
       LLValue *mem;
+      unsigned memAlign;
       if (e->placement) {
-        mem = DtoLVal(e->placement);
+        DValue *placement = toElem(e->placement);
+        mem = DtoLVal(placement);
+        memAlign = DtoLValAlignment(placement);
       } else {
         // allocate
         mem = DtoNew(e->loc, e->newtype);
+        memAlign = DtoAlignment(e->newtype);
       }
 
       Expression *exp = nullptr;
@@ -1667,7 +1696,7 @@ public:
       }
 
       // try to construct it in-place
-      DLValue tmpvar(e->newtype, mem);
+      DLValue tmpvar(e->newtype, mem, memAlign);
       if (!toInPlaceConstruction(&tmpvar, exp))
         DtoAssign(e->loc, &tmpvar, toElem(exp), EXP::blit);
 
@@ -2148,15 +2177,17 @@ public:
     p->ir->CreateCondBr(cond_val, condtrue, condfalse, branchweights);
 
     LLValue *u_val = nullptr;
+    unsigned u_align = 0;
     llvm::BasicBlock *u_bb = nullptr;
     p->ir->SetInsertPoint(condtrue);
     PGO.emitCounterIncrement(e);
     DValue *u = toElem(e->e1);
     if (u && u->type->toBasetype()->ty != TY::Tnoreturn) {
       if (isLvalue) {
+        u_align = u->isLVal() ? DtoLValAlignment(u) : DtoAlignment(u->type);
         u_val = makeLValue(e->loc, u);
       } else if (retPtr) {
-        DLValue dst(dtype, retPtr);
+        DLValue dst(dtype, retPtr, DtoAlignment(dtype));
         DtoAssign(e->loc, &dst, u, EXP::blit);
       }
     }
@@ -2171,14 +2202,16 @@ public:
     createBranch(condend, p->scopebb());
 
     LLValue *v_val = nullptr;
+    unsigned v_align = 0;
     llvm::BasicBlock *v_bb = nullptr;
     p->ir->SetInsertPoint(condfalse);
     DValue *v = toElem(e->e2);
     if (v && v->type->toBasetype()->ty != TY::Tnoreturn) {
       if (isLvalue) {
+        v_align = v->isLVal() ? DtoLValAlignment(v) : DtoAlignment(v->type);
         v_val = makeLValue(e->loc, v);
       } else if (retPtr) {
-        DLValue dst(dtype, retPtr);
+        DLValue dst(dtype, retPtr, DtoAlignment(dtype));
         DtoAssign(e->loc, &dst, v, EXP::blit);
       }
     }
@@ -2214,29 +2247,33 @@ public:
       };
 
       LLValue *val = nullptr;
+      unsigned alignment = 1;
 
       if (u_bb && v_bb) {
         llvm::PHINode *phi = p->ir->CreatePHI(ptrType, 2, "condtmp");
         phi->addIncoming(incomingFor(u_val), u_bb);
         phi->addIncoming(incomingFor(v_val), v_bb);
         val = phi;
+        alignment = std::min(u_val ? u_align : v_align, v_val ? v_align : u_align);
       } else if (u_bb) {
         val = incomingFor(u_val);
+        alignment = u_align;
       } else if (v_bb) {
         val = incomingFor(v_val);
+        alignment = v_align;
       } else {
         val = llvm::UndefValue::get(ptrType);
       }
 
       if (auto du = u ? u->isDDcomputeLVal() : nullptr) {
-        result = new DDcomputeLValue(e->type, du->lltype, val);
+        result = new DDcomputeLValue(e->type, du->lltype, val, alignment);
       } else if (auto dv = v ? v->isDDcomputeLVal() : nullptr) {
-        result = new DDcomputeLValue(e->type, dv->lltype, val);
+        result = new DDcomputeLValue(e->type, dv->lltype, val, alignment);
       } else {
-        result = new DLValue(e->type, val);
+        result = new DLValue(e->type, val, alignment);
       }
     } else if (retPtr) {
-      result = new DLValue(e->type, retPtr);
+      result = new DLValue(e->type, retPtr, DtoAlignment(e->type));
     }
   }
 
@@ -2440,12 +2477,13 @@ public:
 
     // allocated on the stack?
     if (!dyn || e->onstack) {
+      const unsigned alignment = DtoAlignment(elemType);
       llvm::Value *storage =
-          DtoRawAlloca(llStoType, DtoAlignment(elemType), "arrayliteral");
-      initializeArrayLiteral(p, e, storage, llStoType);
+          DtoRawAlloca(llStoType, alignment, "arrayliteral");
+      initializeArrayLiteral(p, e, storage, alignment, llStoType);
 
       if (arrayType->ty == TY::Tsarray) {
-        result = new DLValue(e->type, storage);
+        result = new DLValue(e->type, storage, alignment);
         return;
       }
 
@@ -2470,7 +2508,8 @@ public:
       DSliceValue *dynSlice = DtoNewDynArray(
           e->loc, arrayType,
           new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
-      initializeArrayLiteral(p, e, dynSlice->getPtr(), llStoType);
+      initializeArrayLiteral(p, e, dynSlice->getPtr(), DtoAlignment(elemType),
+                             llStoType);
       result = dynSlice;
     }
   }
@@ -2503,7 +2542,7 @@ public:
     DtoResolveStruct(e->sd);
 
     e->inProgressMemory = dstMem;
-    write_struct_literal(e->loc, dstMem, e->sd, e->elements);
+    write_struct_literal(e->loc, dstMem, dstAlign, e->sd, e->elements);
     e->inProgressMemory = nullptr;
 
     return new DLValue(e->type, dstMem, dstAlign);
@@ -2511,7 +2550,7 @@ public:
 
   void visit(StructLiteralExp *e) override {
     if (e->inProgressMemory) {
-      result = new DLValue(e->type, e->inProgressMemory);
+      result = new DLValue(e->type, e->inProgressMemory, 1);
       return;
     }
     result = emitStructLiteral(e, DtoAlloca(e->type, ".structliteral"),
@@ -2558,9 +2597,14 @@ public:
   DValue *toGEP(UnaExp *exp, unsigned index) {
     // (&a.foo).funcptr is a case where toElem(e1) is genuinely not an l-value.
     DValue * dv = toElem(exp->e1);
+    const unsigned baseAlign =
+        dv->isLVal() ? DtoLValAlignment(dv) : DtoAlignment(dv->type);
     LLValue *val = makeLValue(exp->loc, dv);
-    LLValue *v = DtoGEP(DtoType(dv->type),  val, 0, index);
-    return new DLValue(exp->type, v);
+    LLType *llType = DtoType(dv->type);
+    LLValue *v = DtoGEP(llType, val, 0, index);
+    const uint64_t offset = gDataLayout->getStructLayout(isaStruct(llType))
+                                ->getElementOffset(index);
+    return new DLValue(exp->type, v, llvm::MinAlign(baseAlign, offset));
   }
 
   void visit(DelegatePtrExp *e) override {
@@ -2630,7 +2674,7 @@ public:
                  gep);
       }
     }
-    result = new DLValue(e->type, val);
+    result = new DLValue(e->type, val, DtoKnownAlignment(val));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2697,13 +2741,18 @@ public:
       DValue *e1 = toElem(e->e1);
       LLValue *arrayPtr = DtoArrayPtr(e1);
       Type *srcElementType = tsrc->nextOf();
+      const unsigned srcAlign = tsrc->ty == TY::Tsarray
+                                    ? DtoLValAlignment(e1)
+                                    : DtoAlignment(srcElementType);
 
       if (DtoMemType(elementType) == DtoMemType(srcElementType)) {
-        DtoMemCpy(dstType, dstMem, arrayPtr);
+        DtoMemCpy(dstType, dstMem, arrayPtr, false, DtoAlignment(e->to),
+                  srcAlign);
       } else {
         for (unsigned i = 0; i < N; ++i) {
           LLValue *gep = DtoGEP1(DtoMemType(e1->type->nextOf()), arrayPtr, i);
-          DLValue srcElement(srcElementType, gep);
+          DLValue srcElement(srcElementType, gep,
+                             llvm::MinAlign(srcAlign, i * size(srcElementType)));
           LLValue *llVal = getCastElement(&srcElement);
           DtoStore(llVal, DtoGEP(dstType, dstMem, 0, i));
         }
@@ -2725,7 +2774,7 @@ public:
       }
     }
 
-    return new DLValue(e->to, dstMem);
+    return new DLValue(e->to, dstMem, DtoAlignment(e->to));
   }
 
   void visit(VectorExp *e) override {
@@ -2789,7 +2838,7 @@ public:
         resultType = getClassInfoType();
       }
 
-      result = new DLValue(resultType, typinf);
+      result = new DLValue(resultType, typinf, DtoAlignment(resultType));
       return;
     }
     llvm_unreachable("Unknown TypeidExp argument kind");
@@ -2876,6 +2925,10 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     return false;
   }
 
+  // An sret pointer, a ctor's `this`, a vector store and a temporary's storage
+  // all assume the type's alignment.
+  const bool lhsIsAligned = DtoLValAlignment(lhs) >= DtoAlignment(lhs->type);
+
   // skip over rhs casts only emitted because of differing constness
   if (auto ce = rhs->isCastExp()) {
     auto castSource = ce->e1;
@@ -2888,7 +2941,8 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     // E.g., `T v = foo();` if the callee `T foo()` uses sret.
     // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
     // construct the return value directly into the lhs lvalue.
-    if (!ce->f || !DtoIsIntrinsic(ce->f)) { // intrinsics don't use sret
+    if (lhsIsAligned &&
+        (!ce->f || !DtoIsIntrinsic(ce->f))) { // intrinsics don't use sret
       if (auto tf = ce->e1->type->toBasetype()->isTypeFunction()) {
         if (target.isReturnOnStack(tf, ce->f && ce->f->needThis())) {
           Logger::println("success, in-place-constructing sret return value");
@@ -2901,7 +2955,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     // detect <structliteral | temporary>.ctor(args)
     if (auto dve = ce->e1->isDotVarExp()) {
       auto fd = dve->var->isFuncDeclaration();
-      if (fd && fd->isCtorDeclaration()) {
+      if (lhsIsAligned && fd && fd->isCtorDeclaration()) {
         Logger::println("is a constructor call, checking lhs of DotVarExp");
         if (toInPlaceConstruction(lhs, dve->e1)) {
           Logger::println("success, calling ctor on in-place constructed lhs");
@@ -2923,18 +2977,19 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   else if (auto al = rhs->isArrayLiteralExp()) {
     if (lhs->type->toBasetype()->ty == TY::Tsarray) {
       Logger::println("success, in-place-constructing array literal");
-      initializeArrayLiteral(gIR, al, DtoLVal(lhs), DtoMemType(lhs->type));
+      initializeArrayLiteral(gIR, al, DtoLVal(lhs), DtoLValAlignment(lhs),
+                             DtoMemType(lhs->type));
       return true;
     }
   }
   // and vector literals
-  else if (auto ve = rhs->isVectorExp()) {
+  else if (auto ve = lhsIsAligned ? rhs->isVectorExp() : nullptr) {
     Logger::println("success, in-place-constructing vector");
     ToElemVisitor::emitVector(ve, DtoLVal(lhs));
     return true;
   }
   // and temporaries
-  else if (auto vd = isTemporaryVar(rhs)) {
+  else if (auto vd = lhsIsAligned ? isTemporaryVar(rhs) : nullptr) {
     Logger::println("success, in-place-constructing temporary");
     assert(!isSpecialRefVar(vd) && "Can this happen?");
 
@@ -2942,7 +2997,9 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     auto lval = DtoLVal(lhs);
 
     // pre-set the lvalue of the temporary to that address
-    getIrLocal(vd, true)->value = lval;
+    IrLocal *irLocal = getIrLocal(vd, true);
+    irLocal->value = lval;
+    irLocal->alignment = DtoLValAlignment(lhs);
     gIR->DBuilder.EmitLocalVariable(lval, vd);
 
     // evaluate rhs, constructing the pre-allocated temporary
