@@ -62,6 +62,8 @@
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/Transforms/Utils/Mem2Reg.h"
+#include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
 #include "llvm/Transforms/Instrumentation/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
@@ -594,8 +596,30 @@ bool ldc_optimize_module(llvm::Module *M, llvm::TargetMachine *TM) {
   // The optimisation is supposed to happen between the SPIRV -> native machine
   // code pass of the consumer of the binary.
   // TODO: run rudimentary optimisations to improve IR debuggability.
-  if (getComputeTargetType(M) == ComputeBackend::SPIRV)
+  if (getComputeTargetType(M) == ComputeBackend::SPIRV) {
+    if (llvm::Triple(M->getTargetTriple()).getOS() == llvm::Triple::OSType::Vulkan ||
+        llvm::Triple(M->getTargetTriple()).str().find("vulkan") != std::string::npos) {
+      llvm::LoopAnalysisManager LAM;
+      llvm::FunctionAnalysisManager FAM;
+      llvm::CGSCCAnalysisManager CGAM;
+      llvm::ModuleAnalysisManager MAM;
+      llvm::PassBuilder PB;
+      PB.registerModuleAnalyses(MAM);
+      PB.registerCGSCCAnalyses(CGAM);
+      PB.registerFunctionAnalyses(FAM);
+      PB.registerLoopAnalyses(LAM);
+      PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+      llvm::ModulePassManager MPM;
+      llvm::FunctionPassManager FPM;
+      FPM.addPass(llvm::SROAPass(llvm::SROAOptions(llvm::SROAOptions::ModifyCFG)));
+      FPM.addPass(llvm::PromotePass());
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+      MPM.run(*M, MAM);
+      return true;
+    }
     return false;
+  }
 #endif
 
   runOptimizationPasses(M, TM);
