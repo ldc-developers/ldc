@@ -6,6 +6,37 @@
 #### Platform support
 
 #### Bug fixes
+- Coverage now records an imported template's hits in its defining module's listing when modules are compiled separately. Previously the template body or its entire listing could be missing. (#2538)
+
+  For example, save these two files:
+
+  ```d
+  // numbers.d
+  module numbers;
+  int twice(T)(T x) {
+      return x + x;
+  }
+  ```
+
+  ```d
+  // sample.d
+  module sample;
+  import numbers : twice;
+  unittest { assert(twice(3) == 6); }
+  void main() {}
+  ```
+
+  In a POSIX shell, compile the modules separately, link them, and run the test:
+
+  ```sh
+  ldc2 -unittest -cov -c numbers.d
+  ldc2 -unittest -cov -c sample.d
+  ldc2 -of=sample sample.o numbers.o
+  ./sample
+  ```
+
+  The unittest in `sample.d` calls the template once. With the default runtime settings, `numbers.lst` now shows one hit on `return x + x;` in the defining module.
+
 - Struct copies and zero-initialisations through pointers, slice elements and `ref`s now carry the pointee type's alignment on the emitted `llvm.memcpy`/`llvm.memset` instead of alignment 1. On targets with strict alignment (e.g. `-mattr=+strict-align`), an alignment-1 memcpy is lowered to byte-wise loads and stores. (#5297)
 - dcompute: A `ref` return whose referent is reached through a `Pointer!(as, T)` does not emit an extra load anymore, so a `ref T opIndex()` accessor over a `GlobalPointer!T` no longer faults with `CUDA_ERROR_MISALIGNED_ADDRESS`. (#5284, #5285)
 

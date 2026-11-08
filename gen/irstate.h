@@ -20,6 +20,7 @@
 #include "ir/iraggr.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include <deque>
@@ -140,6 +141,12 @@ public:
   llvm::LLVMContext &context() const { return module.getContext(); }
 
   Module *dmodule = nullptr;
+  struct CoverageData {
+    llvm::GlobalVariable *counts = nullptr;
+    std::vector<uint64_t> valid;
+  };
+  // Reset for each emitting D module, including in single-object builds.
+  llvm::MapVector<Module *, CoverageData> coverage;
 
   LLStructType *moduleRefType = nullptr;
 
