@@ -796,7 +796,7 @@ static void buildRuntimeModule() {
   // extern (C) void _d_cover_register2(string filename, size_t[] valid,
   //                                    uint[] data, ubyte minPercent)
   if (global.params.cov) {
-    createFwdDecl(LINK::c, voidTy, {"_d_cover_register2"},
+    createFwdDecl(LINK::c, voidTy, {"_d_cover_register2", "_d_cover_register_boolean"},
                   {stringTy, arrayOf(sizeTy), arrayOf(uintTy), ubyteTy});
   }
 

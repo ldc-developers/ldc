@@ -13,6 +13,7 @@
 // RUN: mkdir %t/atomic    && %ldc --cov --cov-increment=atomic     --run %s --DRT-covopt="dstpath:%t/atomic"
 // RUN: mkdir %t/nonatomic && %ldc --cov --cov-increment=non-atomic --run %s --DRT-covopt="dstpath:%t/nonatomic"
 // RUN: mkdir %t/boolean   && %ldc --cov --cov-increment=boolean    --run %s --DRT-covopt="dstpath:%t/boolean"
+// RUN: %ldc --cov --cov-increment=boolean --run %s --DRT-covopt="merge:1 dstpath:%t/boolean"
 // Some sed xargs magic to replace '/' with '-' in the filename, and replace the extension '.d' with '.lst'
 // RUN: echo %s | sed -e "s,/,-,g" -e "s,\(.*\).d,\1.lst," | xargs printf "%%s%%s" "%t/atomic/"    | xargs cat | FileCheck --check-prefix=ATOMIC_LST %s
 // RUN: echo %s | sed -e "s,/,-,g" -e "s,\(.*\).d,\1.lst," | xargs printf "%%s%%s" "%t/nonatomic/" | xargs cat | FileCheck --check-prefix=NONATOMIC_LST %s

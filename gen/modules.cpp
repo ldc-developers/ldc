@@ -23,6 +23,7 @@
 #include "dmd/target.h"
 #include "dmd/template.h"
 #include "dmd/timetrace.h"
+#include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
@@ -289,9 +290,10 @@ void addCoverageAnalysis(Module *m) {
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(gIR->context(), "", ctor);
     IRBuilder<> builder(bb);
 
-    // Set up call to _d_cover_register2
-    llvm::Function *fn =
-        getRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
+    const char *registration = opts::coverageIncrement == opts::CoverageIncrement::boolean
+                                   ? "_d_cover_register_boolean"
+                                   : "_d_cover_register2";
+    llvm::Function *fn = getRuntimeFunction(Loc(), gIR->module, registration);
     LLValue *args[] = {DtoConstString(m->srcfile.toChars()),
                        d_cover_valid_slice, d_cover_data_slice,
                        DtoConstUbyte(global.params.covPercent)};
