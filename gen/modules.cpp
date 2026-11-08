@@ -23,10 +23,12 @@
 #include "dmd/target.h"
 #include "dmd/template.h"
 #include "dmd/timetrace.h"
+#include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/functions.h"
+#include "gen/coverage.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -206,64 +208,6 @@ void addCoverageAnalysis(Module *m) {
     Logger::indent();
   }
 
-  // size_t[# source lines / # bits in sizeTy] _d_cover_valid
-  LLValue *d_cover_valid_slice = nullptr;
-  {
-    unsigned Dsizet_bits = gDataLayout->getTypeSizeInBits(DtoSize_t());
-    size_t array_size = (m->numlines + (Dsizet_bits - 1)) / Dsizet_bits; // ceil
-
-    // Work around a bug in the interface of druntime's _d_cover_register2
-    // https://issues.dlang.org/show_bug.cgi?id=14417
-    // For safety, make the array large enough such that the slice passed to
-    // _d_cover_register2 is completely valid.
-    array_size = m->numlines;
-
-    IF_LOG Logger::println(
-        "Build private variable: size_t[%llu] _d_cover_valid",
-        static_cast<unsigned long long>(array_size));
-
-    llvm::ArrayType *type = llvm::ArrayType::get(DtoSize_t(), array_size);
-    llvm::ConstantAggregateZero *zeroinitializer =
-        llvm::ConstantAggregateZero::get(type);
-    m->d_cover_valid = new llvm::GlobalVariable(
-        gIR->module, type, /*isConstant=*/true, LLGlobalValue::InternalLinkage,
-        zeroinitializer, "_d_cover_valid");
-    d_cover_valid_slice = DtoConstSlice(
-        DtoConstSize_t(type->getArrayNumElements()), m->d_cover_valid);
-
-    // Assert that initializer array elements have enough bits
-    assert(sizeof(m->d_cover_valid_init[0]) * 8 >=
-           gDataLayout->getTypeSizeInBits(DtoSize_t()));
-    m->d_cover_valid_init.setDim(array_size);
-    m->d_cover_valid_init.zero();
-  }
-
-  // uint[# source lines] _d_cover_data
-  LLValue *d_cover_data_slice = nullptr;
-  {
-    IF_LOG Logger::println("Build private variable: uint[%d] _d_cover_data",
-                           m->numlines);
-
-    LLArrayType *type =
-        LLArrayType::get(LLType::getInt32Ty(gIR->context()), m->numlines);
-
-    llvm::Constant *init;
-    if (!m->ctfe_cov) {
-      init = llvm::ConstantAggregateZero::get(type);
-    } else {
-      std::vector<unsigned> initData(m->numlines);
-      m->initCoverageDataWithCtfeCoverage(initData.data());
-      init = llvm::ConstantDataArray::get(gIR->context(), initData);
-    }
-
-    m->d_cover_data = new llvm::GlobalVariable(gIR->module, type, false,
-                                               LLGlobalValue::InternalLinkage,
-                                               init, "_d_cover_data");
-
-    d_cover_data_slice =
-        DtoConstSlice(DtoConstSize_t(m->numlines), m->d_cover_data);
-  }
-
   // Create "static constructor" that calls _d_cover_register2(string filename,
   // size_t[] valid, uint[] data, ubyte minPercent)
   // Build ctor name
@@ -289,18 +233,27 @@ void addCoverageAnalysis(Module *m) {
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(gIR->context(), "", ctor);
     IRBuilder<> builder(bb);
 
-    // Set up call to _d_cover_register2
-    llvm::Function *fn =
-        getRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
-    LLValue *args[] = {DtoConstString(m->srcfile.toChars()),
-                       d_cover_valid_slice, d_cover_data_slice,
-                       DtoConstUbyte(global.params.covPercent)};
-    // Check if argument types are correct
-    for (unsigned i = 0; i < 4; ++i) {
-      assert(args[i]->getType() == fn->getFunctionType()->getParamType(i));
+    const char *registration = opts::coverageIncrement == opts::CoverageIncrement::boolean
+                                   ? "_d_cover_register_boolean"
+                                   : "_d_cover_register2";
+    llvm::Function *fn = getRuntimeFunction(Loc(), gIR->module, registration);
+    for (auto &entry : gIR->coverage) {
+      Module *source = entry.first;
+      const auto &data = entry.second;
+      // The valid slice length is in bits, but the runtime signature uses size_t[].
+      // Preserve the allocation expected by the existing ABI (issue 14417).
+      auto validType = llvm::ArrayType::get(DtoSize_t(), source->numlines);
+      std::vector<LLConstant *> words(source->numlines, DtoConstSize_t(0));
+      for (size_t i = 0; i < data.valid.size(); ++i)
+        words[i] = DtoConstSize_t(data.valid[i]);
+      auto valid = new llvm::GlobalVariable(gIR->module, validType, true,
+          LLGlobalValue::InternalLinkage, llvm::ConstantArray::get(validType, words),
+          "_d_cover_valid");
+      const auto length = DtoConstSize_t(source->numlines);
+      builder.CreateCall(fn, {DtoConstString(source->srcfile.toChars()),
+          DtoConstSlice(length, valid), DtoConstSlice(length, data.counts),
+          DtoConstUbyte(source == m ? global.params.covPercent : 0)});
     }
-
-    builder.CreateCall(fn, args);
 
     builder.CreateRetVoid();
   }
@@ -313,20 +266,6 @@ void addCoverageAnalysis(Module *m) {
   }
 
   IF_LOG Logger::undent();
-}
-
-// Initialize _d_cover_valid for coverage analysis
-void addCoverageAnalysisInitializer(Module *m) {
-  IF_LOG Logger::println("Adding coverage analysis _d_cover_valid initializer");
-
-  size_t array_size = m->d_cover_valid_init.size();
-
-  llvm::ArrayType *type = llvm::ArrayType::get(DtoSize_t(), array_size);
-  std::vector<LLConstant *> arrayInits(array_size);
-  for (size_t i = 0; i < array_size; i++) {
-    arrayInits[i] = DtoConstSize_t(m->d_cover_valid_init[i]);
-  }
-  m->d_cover_valid->setInitializer(llvm::ConstantArray::get(type, arrayInits));
 }
 
 // Load InstrProf data from file and store in it IrState
@@ -431,7 +370,7 @@ void codegenModule(IRState *irs, Module *m) {
   std::string name = m->toChars();
   const bool isPseudoModule = (name == "__entrypoint") || (name == "__main");
   if (global.params.cov && !isPseudoModule) {
-    addCoverageAnalysis(m);
+    createCoverageData(m);
   }
 
   if (!isPseudoModule) {
@@ -450,6 +389,9 @@ void codegenModule(IRState *irs, Module *m) {
     fatal();
   }
 
+  if (!irs->coverage.empty())
+    addCoverageAnalysis(m);
+
   // Skip emission of the ModuleInfo if:
   // a) the -betterC or -fno-moduleinfo switch is on,
   // b) requested explicitly by the user via pragma(LDC_no_moduleinfo),
@@ -461,9 +403,7 @@ void codegenModule(IRState *irs, Module *m) {
     registerModuleInfo(m);
   }
 
-  if (m->d_cover_valid) {
-    addCoverageAnalysisInitializer(m);
-  }
+  irs->coverage.clear();
 
   addModuleFlags(irs->module);
 

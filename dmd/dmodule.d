@@ -1047,11 +1047,6 @@ version (IN_LLVM)
     bool llvmForceLogging;
     bool noModuleInfo; /// Do not emit any module metadata.
 
-    // Coverage analysis
-    void* d_cover_valid;  // llvm::GlobalVariable* --> private immutable size_t[] _d_cover_valid;
-    void* d_cover_data;   // llvm::GlobalVariable* --> private uint[] _d_cover_data;
-    Array!size_t d_cover_valid_init; // initializer for _d_cover_valid
-
     void initCoverageDataWithCtfeCoverage(uint* data) const
     {
         assert(ctfe_cov, "Don't call if there's no CTFE data");

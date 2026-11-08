@@ -14,6 +14,9 @@
 
 #pragma once
 
+class Module;
 struct Loc;
+
+void createCoverageData(Module *source);
 
 void emitCoverageLinecountInc(Loc loc);

@@ -10,23 +10,46 @@
 #include "gen/coverage.h"
 
 #include "dmd/module.h"
+#include "dmd/declaration.h"
+#include "ir/irfunction.h"
 #include "driver/cl_options.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 
-void emitCoverageLinecountInc(Loc loc) {
-  Module *m = gIR->dmodule;
-
-  // Only emit coverage increment for locations in the source of the current
-  // module
-  // (for example, 'inlined' methods from other source files should be skipped).
-  if (!global.params.cov || !loc.linnum() || !loc.filename() ||
-      !m->d_cover_data || strcmp(m->srcfile.toChars(), loc.filename()) != 0) {
-    return;
+void createCoverageData(Module *source) {
+  auto &data = gIR->coverage[source];
+  auto type = llvm::ArrayType::get(LLType::getInt32Ty(gIR->context()), source->numlines);
+  llvm::Constant *init = llvm::ConstantAggregateZero::get(type);
+  // Imported fragments contribute runtime hits only.
+  if (source == gIR->dmodule && source->ctfe_cov) {
+    std::vector<unsigned> hits(source->numlines);
+    source->initCoverageDataWithCtfeCoverage(hits.data());
+    init = llvm::ConstantDataArray::get(gIR->context(), hits);
   }
+  data.counts = new llvm::GlobalVariable(gIR->module, type, false,
+      LLGlobalValue::InternalLinkage, init, "_d_cover_data");
+  const unsigned wordBits = gDataLayout->getTypeSizeInBits(DtoSize_t());
+  data.valid.resize((source->numlines + wordBits - 1) / wordBits);
+}
 
-  const unsigned line = loc.linnum() - 1; // convert to 0-based line# index
-  assert(line < m->numlines);
+void emitCoverageLinecountInc(Loc loc) {
+  if (gIR->coverage.empty() || !loc.linnum() || !loc.filename())
+    return;
+
+  Module *m = gIR->dmodule;
+  if (strcmp(m->srcfile.toChars(), loc.filename()) != 0) {
+    if (gIR->funcGenStates.empty())
+      return;
+    m = gIR->func()->decl->getModule();
+    if (!m || strcmp(m->srcfile.toChars(), loc.filename()) != 0)
+      return;
+  }
+  const unsigned line = loc.linnum() - 1;
+  if (line >= m->numlines)
+    return;
+  if (!gIR->coverage.count(m))
+    createCoverageData(m);
+  auto &data = gIR->coverage.find(m)->second;
 
   IF_LOG Logger::println("Coverage: increment _d_cover_data[%d]", line);
   LOG_SCOPE;
@@ -36,7 +59,7 @@ void emitCoverageLinecountInc(Loc loc) {
   LLType *i32Type = LLType::getInt32Ty(gIR->context());
   LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(line)};
   LLValue *ptr = llvm::ConstantExpr::getGetElementPtr(
-      LLArrayType::get(i32Type, m->numlines), m->d_cover_data, idxs, true);
+      LLArrayType::get(i32Type, m->numlines), data.counts, idxs, true);
   // ...and generate the "increment" instruction(s)
   switch (opts::coverageIncrement) {
   case opts::CoverageIncrement::_default: // fallthrough
@@ -79,5 +102,5 @@ void emitCoverageLinecountInc(Loc loc) {
   unsigned idx = line / num_sizet_bits;
   unsigned bitidx = line % num_sizet_bits;
   IF_LOG Logger::println("_d_cover_valid[%d] |= (1 << %d)", idx, bitidx);
-  m->d_cover_valid_init[idx] |= (size_t(1) << bitidx);
+  data.valid[idx] |= uint64_t(1) << bitidx;
 }
