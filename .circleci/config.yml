@@ -6,41 +6,27 @@ commonSteps: &commonSteps
         command: |
           set -ux
           cd ..
-          if [ "$CI_OS" = "linux" ]; then
-            export DEBIAN_FRONTEND=noninteractive
-            if [[ "${EXTRA_CMAKE_FLAGS:-}" = *-DMULTILIB?ON* ]]; then
-              sudo dpkg --add-architecture i386
-              gcc_pkg="g++-multilib"
-              libcurl_pkg="libcurl4t64 libcurl4t64:i386"
-            else
-              gcc_pkg="g++"
-              libcurl_pkg="libcurl4t64"
-            fi
-            sudo apt-get -q update
-            sudo apt-get -yq install \
-              git-core $gcc_pkg cmake \
-              llvm-$LLVM_MAJOR-dev libclang-rt-$LLVM_MAJOR-dev zlib1g-dev \
-              $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
-              ${EXTRA_APT_PACKAGES:-}
-            # Download & extract Ninja
-            curl -fL --retry 3 --max-time 60 -O https://github.com/symmetryinvestments/ninja/releases/download/v1.11.1-sym1/ninja-linux.zip
-            mkdir ninja
-            unzip ninja-linux.zip -d ninja
-            rm ninja-linux.zip
-            # Add Ninja to PATH for future steps
-            echo "export PATH=$PWD/ninja:\$PATH" >> $BASH_ENV
+
+          export DEBIAN_FRONTEND=noninteractive
+          if [[ "${EXTRA_CMAKE_FLAGS:-}" = *-DMULTILIB?ON* ]]; then
+            sudo dpkg --add-architecture i386
+            gcc_pkg="g++-multilib"
+            libcurl_pkg="libcurl4t64 libcurl4t64:i386"
+          else
+            gcc_pkg="g++"
+            libcurl_pkg="libcurl4t64"
           fi
+          sudo apt-get -q update
+          sudo apt-get -yq install \
+            git-core $gcc_pkg cmake ninja-build \
+            llvm-$LLVM_MAJOR-dev libclang-rt-$LLVM_MAJOR-dev zlib1g-dev \
+            $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
+            ${EXTRA_APT_PACKAGES:-}
+
           # Install lit
           python3 --version
           python3 -m pip install --user lit psutil
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
-          # Download & extract host LDC if HOST_LDC_VERSION is set
-          if [[ -v HOST_LDC_VERSION ]]; then
-            curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
-            mkdir host-ldc
-            tar -xf ldc2.tar.xz --strip 1 -C host-ldc
-            rm ldc2.tar.xz
-          fi
     - checkout
     - run:
         name: Merge PR with target branch
@@ -64,10 +50,8 @@ commonSteps: &commonSteps
           cd build
           cmake -G Ninja $CIRCLE_WORKING_DIRECTORY \
             -DCMAKE_BUILD_TYPE=Release \
-            ${HOST_LDC_VERSION:+-DD_COMPILER=$PWD/../host-ldc/bin/ldmd2} \
-            -DLDC_LINK_MANUALLY=OFF \
             ${EXTRA_CMAKE_FLAGS:-}
-          ninja -j$PARALLELISM obj/ldc2.o all ldc2-unittest all-test-runners
+          ninja obj/ldc2.o all ldc2-unittest all-test-runners
           bin/ldc2 -version
     - run:
         name: Run LDC D unittests
@@ -78,16 +62,14 @@ commonSteps: &commonSteps
         when: always
         command: |
           set -ux
-          if [ "$CI_OS" = "linux" ]; then
-            # FIXME: lsan_interceptors.cpp:82 "((!lsan_init_is_running)) != (0)"
-            rm tests/sanitizers/lsan_memleak.d
-          fi
-          cd ../build/tests
-          python3 runlit.py -v -j $PARALLELISM .
+          # FIXME: lsan_interceptors.cpp:82 "((!lsan_init_is_running)) != (0)"
+          rm tests/sanitizers/lsan_memleak.d
+          cd ../build
+          ctest -V -R lit-tests
     - run:
         name: Run DMD testsuite
         when: always
-        command: cd ../build && DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
+        command: cd ../build && ctest -V -R dmd-testsuite
     - run:
         name: Run defaultlib unittests & druntime integration tests
         when: always
@@ -97,7 +79,7 @@ commonSteps: &commonSteps
           # FIXME: https://github.com/dlang/phobos/issues/10730
           excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
           cd ../build
-          ctest -j$PARALLELISM --output-on-failure -E "$excludes" --timeout 180
+          ctest -j$(nproc) --output-on-failure -E "$excludes" --timeout 180
 
 version: 2.1
 jobs:
@@ -107,10 +89,8 @@ jobs:
       image: ubuntu-2404:current
     resource_class: large.gen3
     environment:
-      - PARALLELISM: 4
-      - CI_OS: linux
       - LLVM_MAJOR: 18
-      - HOST_LDC_VERSION: 1.39.0
+      - EXTRA_APT_PACKAGES: ldc
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
   Ubuntu-26-sharedLibsOnly-gdmd:
     <<: *commonSteps
@@ -118,12 +98,10 @@ jobs:
       image: ubuntu-2604:current
     resource_class: large.gen3
     environment:
-      - PARALLELISM: 4
-      - CI_OS: linux
       - LLVM_MAJOR: 21
       # libcurl-dev required for linking ldc-profdata, due to LLVM built with non-default LLVM_ENABLE_CURL=ON
       - EXTRA_APT_PACKAGES: gdmd libcurl4-openssl-dev
-      - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
+      - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
 workflows:
   build:
