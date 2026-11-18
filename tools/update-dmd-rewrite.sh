@@ -106,13 +106,20 @@ if [[ "$initialize" != 1 ]]; then
     echo "----------"
     git diff --name-only --diff-filter=A --relative=dmd "ldc/${refs_prefix}master..${refs_prefix}master"
     echo "----------"
-    if [[ "${FORCE:-0}" == 1 ]]; then
-      echo "Adding these files due to env variable FORCE=1."
-    else
+
+    proceed=0
+    if [[ ! -v GITHUB_EVENT_NAME ]]; then
+      read -p "Are *all* of these newly added files of interest to LDC, i.e., should they all be included in the rewrite? [yN] " yn
+      if [[ "$yn" == y ]]; then
+        proceed=1
+        echo "Okay, proceeding with adding these new files for LDC too."
+      fi
+    fi
+    if [[ "$proceed" -ne 1 ]]; then
       echo "Aborting due to these newly added files."
       echo "Please check if they are of interest to LDC:"
       echo "* If they aren't, have them removed via filter-repo in this script, then re-run the script."
-      echo "* If they are, re-run this script with env variable FORCE=1."
+      echo "* If they are, re-run this script interactively and confirm the according prompt."
       exit 1
     fi
     set -x
