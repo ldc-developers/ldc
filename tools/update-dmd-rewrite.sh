@@ -94,9 +94,11 @@ else
   git remote add ldc git@github.com:ldc-developers/ldc.git
 fi
 
-# check for newly added DMD source files
 if [[ "$initialize" != 1 ]]; then
-  git fetch ldc "${refs_prefix}master"
+  # fetch the current rewritten branches
+  git fetch ldc ${branches[@]/#/${refs_prefix}}
+
+  # check for newly added DMD source files
   numFiles="$(git diff --name-only --diff-filter=A --relative=dmd "ldc/${refs_prefix}master..${refs_prefix}master" | wc -l)"
   if [[ "$numFiles" != 0 ]]; then
     set +x
@@ -115,10 +117,29 @@ if [[ "$initialize" != 1 ]]; then
     fi
     set -x
   fi
+
+  # check if all branches can be fast-forwarded
+  set +x
+  fast_forward=1
+  for b in ${branches[@]}; do
+    branch="${refs_prefix}${b}"
+    if ! git merge-base --is-ancestor ldc/$branch $branch; then
+      fast_forward=0
+      echo "Error: Branch $branch cannot be fast-forwarded!"
+      echo "       The last common ancestor is: $(git merge-base ldc/$branch $branch)"
+    fi
+  done
+  if [[ $fast_forward -ne 1 ]]; then
+    echo "Keeping repository in $PWD for manual investigation."
+    exit 1
+  fi
+  set -x
 fi
 
-# push prefixed branches and tags
-git push --tags --atomic ldc ${branches[@]/#/${refs_prefix}}
+# push prefixed branches and tags (except for PR runs)
+if [[ "${GITHUB_EVENT_NAME:-}" != pull_request ]]; then
+  git push --tags --atomic ldc ${branches[@]/#/${refs_prefix}}
+fi
 
 cd ../..
 rm -rf "$temp_dir"
