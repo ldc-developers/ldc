@@ -120,7 +120,8 @@ bool DFuncValue::definedInFuncEntryBB() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
+DLValue::DLValue(Type *t, LLValue *v, unsigned alignment)
+    : DValue(t, v), alignment(alignment ? alignment : 1) {
   assert(t->toBasetype()->ty == TY::Ttuple || v->getType()->isPointerTy());
 }
 
@@ -164,7 +165,8 @@ DRValue *DSpecialRefValue::getRVal() {
 }
 
 DLValue *DSpecialRefValue::getLVal() {
-  return new DLValue(type, DtoLoad(getOpaquePtrType(), val));
+  return new DLValue(type, DtoLoad(getOpaquePtrType(), val),
+                     DtoAlignment(type));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -50,7 +50,7 @@ runs:
         set OS=windows
         if "${{ inputs.arch }}" == x86 (set MODEL=32) else (set MODEL=64)
         :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is
-        set "PATH=%CD%\build\lib;%CD%\libcurl\ldc2;C:\Program Files\Git\usr\bin;%PATH%"
+        set "PATH=%CD%\build\lib;%CD%\libcurl;C:\Program Files\Git\usr\bin;%PATH%"
         call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ matrix.arch }} || exit /b
         echo on
         cd build || exit /b

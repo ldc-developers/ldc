@@ -598,13 +598,19 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     llvm_unreachable("Floating point ABI type unknown.");
   case FloatABI::Soft:
     features.push_back("+soft-float");
+#if LLVM_VERSION_MAJOR < 24
     targetOptions.FloatABIType = llvm::FloatABI::Soft;
+#endif
     break;
   case FloatABI::SoftFP:
+#if LLVM_VERSION_MAJOR < 24
     targetOptions.FloatABIType = llvm::FloatABI::Soft;
+#endif
     break;
   case FloatABI::Hard:
+#if LLVM_VERSION_MAJOR < 24
     targetOptions.FloatABIType = llvm::FloatABI::Hard;
+#endif
     break;
   }
 

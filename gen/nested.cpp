@@ -528,7 +528,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       }
       if (depth > 1) {
         DtoMemCpy(frame, src, DtoConstSize_t((depth - 1) * target.ptrsize),
-                  getABITypeAlign(getOpaquePtrType()));
+                  target.ptrsize, target.ptrsize);
       }
       // Copy nestArg into framelist; the outer frame is not in the list of
       // pointers

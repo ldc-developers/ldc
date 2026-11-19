@@ -2,12 +2,12 @@
 
 // REQUIRES: target_X86
 
-// CHECK: !llvm.linker.options = !{!0, !1, !2}
+// CHECK: !llvm.linker.options = !{![[OPT0:[0-9]+]], ![[OPT1:[0-9]+]], ![[OPT2:[0-9]+]]}
 
-// CHECK: !0 = !{!"/DEFAULTLIB:\22mylib\22"}
+// CHECK: ![[OPT0]] = !{!"/DEFAULTLIB:\22mylib\22"}
 pragma(lib, "mylib");
 
-// CHECK: !1 = !{!"-myflag"}
+// CHECK: ![[OPT1]] = !{!"-myflag"}
 pragma(linkerDirective, "-myflag");
-// CHECK: !2 = !{!"-framework", !"CoreFoundation"}
+// CHECK: ![[OPT2]] = !{!"-framework", !"CoreFoundation"}
 pragma(linkerDirective, "-framework", "CoreFoundation");

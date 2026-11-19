@@ -233,11 +233,15 @@ bool ArgsBuilder::isLldDefaultLinker() {
 std::string getCompilerRTArchName(const llvm::Triple &triple) {
   auto result = [&]() -> std::string {
     bool IsWindows = triple.isOSWindows();
-    auto floatABI = gTargetMachine->Options.FloatABIType;
+#if LLVM_VERSION_MAJOR >= 24
+    bool isHardFloat = triple.isHardFloatABI();
+#else
+    bool isHardFloat = (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard);
+#endif
 
     if (triple.getArch() == llvm::Triple::arm
 	|| triple.getArch() == llvm::Triple::armeb)
-      return (floatABI == llvm::FloatABI::Hard && !IsWindows)
+      return (isHardFloat && !IsWindows)
 	? "armhf"
 	: "arm";
 

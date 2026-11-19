@@ -12,7 +12,7 @@ module rt.dso;
 
 pragma(LDC_no_moduleinfo); // not needed; avoid collision across shared druntime and other binaries
 
-import ldc.attributes : hidden;
+import ldc.attributes : hidden, assumeUsed;
 import rt.sections_elf_shared; // : CompilerDSOData, _d_dso_registry;
 
 static if (is(CompilerDSOData)): // only for targets supporting rt.sections_elf_shared
@@ -81,6 +81,19 @@ version (Posix)
         void* getTLSAnchor() nothrow @nogc
         {
             return &tlsAnchor;
+        }
+    }
+
+    version (CRuntime_Bionic)
+    {
+        // Android on ARM/AArch64 requires the TLS segment of each binary to have an alignment of at least 32/64 bytes.
+        // The lld linker sadly doesn't handle it for us; take care of it with a dummy variable per DSO.
+        version (ARM)     version = ARM_Any;
+        version (AArch64) version = ARM_Any;
+
+        version (ARM_Any)
+        {
+            @assumeUsed align(size_t.sizeof * 8) byte tlsAlignmentDummy;
         }
     }
 }

@@ -208,8 +208,12 @@ void DIBuilder::SetValue(Loc loc, llvm::Value *value,
                          DILocalVariable divar, DIExpression diexpr) {
   auto debugLoc = llvm::DILocation::get(IR->context(), loc.linnum(),
                                         getColumn(loc), GetCurrentScope());
+#if LLVM_VERSION_MAJOR >= 24
+  DBuilder.insertDbgValue(value, divar, diexpr, debugLoc, IR->scopebb());
+#else
   DBuilder.insertDbgValueIntrinsic(value, divar, diexpr, debugLoc,
                                    IR->scopebb());
+#endif
 }
 
 std::string DIBuilder::remapDIPath(llvm::StringRef path) {
@@ -1212,13 +1216,23 @@ void DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
   if (!mustEmitFullDebugInfo() || !debugVariable)
     return;
 
+#if LLVM_VERSION_MAJOR >= 24
+  auto instr = DBuilder.insertDbgValue(
+      val, debugVariable, DBuilder.createExpression(),
+      IR->ir->getCurrentDebugLocation(), IR->scopebb());
+  (instr)->setDebugLoc(IR->ir->getCurrentDebugLocation());
+#elif LLVM_VERSION_MAJOR >= 19
   auto instr = DBuilder.insertDbgValueIntrinsic(
       val, debugVariable, DBuilder.createExpression(),
       IR->ir->getCurrentDebugLocation(), IR->scopebb());
-#if LLVM_VERSION_MAJOR >= 19
   llvm::cast<llvm::DbgRecord *>
-#endif
   (instr)->setDebugLoc(IR->ir->getCurrentDebugLocation());
+#else
+  auto instr = DBuilder.insertDbgValueIntrinsic(
+      val, debugVariable, DBuilder.createExpression(),
+      IR->ir->getCurrentDebugLocation(), IR->scopebb());
+  (instr)->setDebugLoc(IR->ir->getCurrentDebugLocation());
+#endif
 }
 
 void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,

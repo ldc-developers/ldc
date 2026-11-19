@@ -206,9 +206,11 @@ void DtoMemSetZero(LLType *type, LLValue *dst, unsigned align = 1);
  * @param dst Destination memory.
  * @param src Source memory.
  * @param nbytes Number of bytes to copy.
- * @param align The minimum alignment of the source and destination memory.
+ * @param dstAlign The minimum alignment of the destination memory.
+ * @param srcAlign The minimum alignment of the source memory.
  */
-void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align = 1);
+void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes,
+               unsigned dstAlign = 1, unsigned srcAlign = 1);
 
 /**
  * The same as DtoMemCpy but figures out the size itself based on the dst
@@ -216,10 +218,11 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align = 1);
  * @param dst Destination memory.
  * @param src Source memory.
  * @param withPadding Use the dst pointee's padded size, not its store size.
- * @param align The minimum alignment of the source and destination memory.
+ * @param dstAlign The minimum alignment of the destination memory.
+ * @param srcAlign The minimum alignment of the source memory.
  */
 void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding = false,
-               unsigned align = 1);
+               unsigned dstAlign = 1, unsigned srcAlign = 1);
 
 /**
  * Generates a call to C memcmp.

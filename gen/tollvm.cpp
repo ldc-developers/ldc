@@ -438,15 +438,18 @@ void DtoMemSetZero(LLType *type, LLValue *dst, unsigned align) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
-  auto A = llvm::MaybeAlign(align);
-  gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
+void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned dstAlign,
+               unsigned srcAlign) {
+  gIR->ir->CreateMemCpy(dst, llvm::MaybeAlign(dstAlign), src,
+                        llvm::MaybeAlign(srcAlign), nbytes,
+                        false /*isVolatile*/);
 }
 
-void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
+void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding,
+               unsigned dstAlign, unsigned srcAlign) {
   uint64_t n =
       withPadding ? getTypeAllocSize(type) : getTypeStoreSize(type);
-  DtoMemCpy(dst, src, DtoConstSize_t(n), align);
+  DtoMemCpy(dst, src, DtoConstSize_t(n), dstAlign, srcAlign);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

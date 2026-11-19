@@ -160,7 +160,10 @@ public:
 /// keep structs and static arrays in memory.
 class DLValue : public DValue {
 public:
-  DLValue(Type *t, llvm::Value *v);
+  /// The alignment the pointer is guaranteed to have, 1 if unknown.
+  const unsigned alignment;
+
+  DLValue(Type *t, llvm::Value *v, unsigned alignment = 1);
 
   DRValue *getRVal() override;
   virtual DLValue *getLVal() { return this; }
@@ -168,7 +171,7 @@ public:
   DLValue *isLVal() override { return this; }
 
 protected:
-  DLValue(llvm::Value *v, Type *t) : DValue(t, v) {}
+  DLValue(llvm::Value *v, Type *t) : DValue(t, v), alignment(1) {}
 
   friend llvm::Value *DtoLVal(DValue *v);
 };

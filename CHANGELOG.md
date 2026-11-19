@@ -1,10 +1,17 @@
 # LDC master
 
 #### Big news
+- Windows: The bundled `libcurl.dll` (from https://curl.se/windows/) doesn't need/come with a `curl-ca-bundle.crt` file anymore, except for 32-bit, where we bundle an old DLL version (as the official 32-bit libcurl Windows build was discontinued earlier this year). (#5308)
 
 #### Platform support
 
 #### Bug fixes
+- Android:
+  - Fix some `signal.h` bindings in druntime. This also fixes `ldc2` stack-corruption crashes with the prebuilt Android packages. (#4383, #5321, #5323)
+  - Handle TLS segment alignment requirements for ARM and AArch64 binaries. (#5325)
+- RISC-V: Fix v1.43 Phobos build regression for hard-float targets. (#5322, #5326)
+- Struct copies and zero-initialisations through pointers, slice elements and `ref`s now carry the pointee type's alignment on the emitted `llvm.memcpy`/`llvm.memset` instead of alignment 1. On targets with strict alignment (e.g. `-mattr=+strict-align`), an alignment-1 memcpy is lowered to byte-wise loads and stores. (#5297)
+- dcompute: A `ref` return whose referent is reached through a `Pointer!(as, T)` does not emit an extra load anymore, so a `ref T opIndex()` accessor over a `GlobalPointer!T` no longer faults with `CUDA_ERROR_MISALIGNED_ADDRESS`. (#5284, #5285)
 
 # LDC 1.43.0 (2026-08-30)
 

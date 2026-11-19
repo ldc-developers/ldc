@@ -216,8 +216,11 @@ version (LDC)
         int e = (u & exp_mask) >> exp_shft;
         if (_expect(e != exp_msh, true))
         {
-            if (_expect(e == 0, false)) // subnormals input
+            if (_expect(e == 0, false)) // zero or subnormal input
             {
+                if (vf == 0)
+                    return vf; // preserve the sign of zero
+
                 bool overflow;
                 vf *= norm_factor;
                 u = (cast(U*)&vf)[idx];
@@ -368,6 +371,42 @@ unittest {
     }
     else
         assert(false, "Only 128bit, 80bit and 64bit reals expected here");
+}
+
+// https://github.com/ldc-developers/ldc/issues/5302
+@safe pure nothrow @nogc unittest
+{
+    // Force a runtime call even in optimized builds.
+    pragma(inline, false)
+    T scale(T)(T value, int exponent)
+    {
+        return ldexp(value, exponent);
+    }
+
+    void check(T)()
+    {
+        foreach (zero; [T(0.0), T(-0.0)])
+        {
+            foreach (exponent; [int.min, -1510, -75, 0, 23, 24, 52, 53, 75, 1510, int.max])
+            {
+                const result = scale(zero, exponent);
+                assert(result is zero);
+            }
+        }
+
+        // Nonzero subnormals still need normalization.
+        const smallest = T.min_normal * T.epsilon;
+        foreach (sign; [T(1), T(-1)])
+        {
+            assert(scale(sign * smallest, T.mant_dig - 1) == sign * T.min_normal);
+            assert(scale(sign * T.min_normal, 1 - T.mant_dig) == sign * smallest);
+            assert(scale(sign * T(1.5), 3) == sign * T(12));
+        }
+    }
+
+    check!float();
+    check!double();
+    check!real();
 }
 
 /*******************************

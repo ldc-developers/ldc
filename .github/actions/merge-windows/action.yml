@@ -104,13 +104,10 @@ runs:
       shell: bash
       run: |
         set -eux
-        url='https://curl.se/windows/latest.cgi?p=win64a-mingw.zip'
-        curl -fL --retry 3 --max-time 60 -o libcurl.zip "$url"
+        curl -fL --retry 3 --max-time 60 -o libcurl.zip 'https://curl.se/windows/latest.cgi?p=win64a-mingw.zip'
         7z x libcurl.zip >/dev/null
-        rm libcurl.zip
-        cp curl-*/bin/{libcurl*.dll,curl-ca-bundle.crt} ldc2-multilib/lib-windows-arm64/
-        rm -rf curl-*
-        mv ldc2-multilib/lib-windows-arm64/libcurl*.dll ldc2-multilib/lib-windows-arm64/libcurl.dll
+        mv curl-*/bin/libcurl*.dll ldc2-multilib/lib-windows-arm64/libcurl.dll
+        rm -rf curl-* libcurl.zip
 
     - name: Pack multilib package
       shell: bash

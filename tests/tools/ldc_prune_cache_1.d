@@ -10,6 +10,7 @@
 // RUN: %ldc %s -cache=%t-dir -vv -d-version=NEW_OBJ_FILE | FileCheck --check-prefix=NO_HIT %s
 // RUN: %prunecache %t-dir -f
 // RUN: %ldc %s -cache=%t-dir -vv | FileCheck --check-prefix=MUST_HIT %s
+// RUN: %ldc %s -c -of=%t%obj -cache=%t-dir
 // RUN: %ldc -d-version=SLEEP -run %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -vv | FileCheck --check-prefix=MUST_HIT %s
 // RUN: %prunecache --force --max-bytes=200000 %t-dir

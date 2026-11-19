@@ -3,8 +3,8 @@
 
 // REQUIRES: target_X86
 
-// CHECK: !llvm.dependent-libraries = !{!0}
-// CHECK: !0 = !{!"mylib"}
+// CHECK: !llvm.dependent-libraries = !{![[LIB:[0-9]+]]}
+// CHECK: ![[LIB]] = !{!"mylib"}
 pragma(lib, "mylib");
 
 // not (yet?) embeddable in ELF object file

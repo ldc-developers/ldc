@@ -13,6 +13,16 @@
 
 #pragma once
 
+#include "llvm/Config/llvm-config.h"
+#include "llvm/IR/PassManager.h"
+
+#if LLVM_VERSION_MAJOR >= 24
+namespace llvm {
+template <typename DerivedT>
+using PassInfoMixin = detail::PassInfoMixin<DerivedT>;
+}
+#endif
+
 namespace llvm {
 class FunctionPass;
 class ModulePass;

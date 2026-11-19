@@ -24,7 +24,7 @@ runs:
         mv ldc2-*-windows-multilib/lib-windows-arm64 addon-windows/
 
         # add x86_64 DLLs from bin/ dir (already present in the other lib dirs)
-        mv ldc2-*-windows-multilib/bin/{*.dll,*.pdb,curl-ca-bundle.crt} addon-windows/lib-windows-x86_64/
+        mv ldc2-*-windows-multilib/bin/{*.dll,*.pdb} addon-windows/lib-windows-x86_64/
 
         # extract (and rename) .conf files
         mkdir -p addon-windows/etc/ldc2.conf
