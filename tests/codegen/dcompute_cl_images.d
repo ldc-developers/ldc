@@ -8,9 +8,9 @@
 import ldc.dcompute;
 import ldc.opencl;
 
-// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_ro_t).Pointer" = type { ptr addrspace(1) }
-// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_wo_t).Pointer" = type { ptr addrspace(1) }
-// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Shared, sampler_t).Pointer" = type { ptr addrspace(2) }
+// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_ro_t)" = type { ptr addrspace(1) }
+// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_wo_t)" = type { ptr addrspace(1) }
+// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Shared, sampler_t)" = type { ptr addrspace(2) }
 
 pragma(mangle,"__translate_sampler_initializer")
     Sampler makeSampler(int);
