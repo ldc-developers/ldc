@@ -135,7 +135,14 @@ else version (AArch64)
     else version = WithArgTypes;
 }
 
-static assert(Object.__monitor.offsetof == size_t.sizeof);
+version (LDC)
+{
+    // size_t/ptrdiff_t are currently at least 32 bits - even for 8/16 bit archs.
+    // See https://github.com/ldc-developers/ldc/pull/4466 for context.
+    static assert(Object.__monitor.offsetof == (void*).sizeof);
+}
+else
+    static assert(Object.__monitor.offsetof == size_t.sizeof);
 
 /**
  * All D class objects inherit from Object.
