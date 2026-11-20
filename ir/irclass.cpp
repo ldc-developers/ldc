@@ -372,7 +372,7 @@ LLConstant *IrClass::getClassInfoInit() {
   // string name
   const char *name = cd->ident->toChars();
   if (strncmp(name, "TypeInfo_", 9) != 0) {
-    name = cd->toPrettyChars(/*QualifyTypes=*/true);
+    name = cd->toPrettyChars(/*QualifyTypes=*/true, /*keepOneMember=*/true);
   }
   b.push_string(name);
 
