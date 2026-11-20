@@ -64,7 +64,7 @@
 using namespace dmd;
 
 bool isAnyMainFunction(FuncDeclaration *fd) {
-  return fd->isMain() || fd->isCMain();
+  return fd->isDMain() || fd->isCMain();
 }
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
@@ -476,7 +476,7 @@ void onlyOneMainCheck(FuncDeclaration *fd) {
   // Unfortunately, a D main implies a C main, so only check C mains with
   // -betterC.
   const bool isOSWindows = global.params.targetTriple->isOSWindows();
-  if (fd->isMain() || (global.params.betterC && fd->isCMain()) ||
+  if (fd->isDMain() || (global.params.betterC && fd->isCMain()) ||
       (isOSWindows && (fd->isWinMain() || fd->isDllMain()))) {
     // global - across all modules compiled in this compiler invocation
     static FuncDeclaration *lastMain = nullptr;
@@ -561,7 +561,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   // DMD treats _Dmain as having C calling convention and this has been
   // hardcoded into druntime, even if the frontend type has D linkage (Bugzilla
   // issue 9028).
-  const bool forceC = DtoIsIntrinsic(fdecl) || fdecl->isMain();
+  const bool forceC = DtoIsIntrinsic(fdecl) || fdecl->isDMain();
 
   // mangled name
   const auto irMangle = getIRMangledName(fdecl, forceC ? LINK::c : f->linkage);

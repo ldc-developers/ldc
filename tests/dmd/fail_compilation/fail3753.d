@@ -1,5 +1,5 @@
 /*
-DISABLED: dragonflybsd freebsd linux osx win32 openbsd LDC
+DISABLED: dragonflybsd freebsd linux osx win32 openbsd hurd LDC
 TEST_OUTPUT:
 ---
 Error: cannot mix `core.std.stdlib.alloca()` and exception handling in `_Dmain()`

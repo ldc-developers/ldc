@@ -196,7 +196,7 @@ template pure_hashOf(K)
     }
 }
 
-// for backward compatibilty pretend the comparison is @safe, pure, etc
+// for backward compatibility pretend the comparison is @safe, pure, etc
 // this also breaks cyclic inference on recursive data types
 template pure_keyEqual(K1, K2 = K1)
 {
@@ -339,7 +339,7 @@ private:
         firstUsed = 0;
         used -= deleted;
         deleted = 0;
-        obuckets.length = 0; // safe to free b/c impossible to reference, but doesn't really free
+        // must not free obuckets, because it might still be iterated over
     }
 
     void clear() pure nothrow

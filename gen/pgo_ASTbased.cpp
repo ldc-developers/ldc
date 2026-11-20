@@ -276,7 +276,7 @@ struct MapRegionCounters : public StoppableVisitor {
     SKIP_VISITED(stmt);
     CounterMap[stmt] = NextCounter++;
     Hash.combine(PGOHash::UnrolledLoopIterationScope);
-    for (auto s : *stmt->statements) {
+    for (auto s : stmt->statements) {
       CounterMap[s] = NextCounter++;
       Hash.combine(PGOHash::UnrolledLoopIterationScope);
     }
@@ -515,7 +515,7 @@ struct ComputeRegionCounts : public RecursiveVisitor {
 
     // Iteration statement counters track the entry block of each iteration
     // (redundant for first iteration)
-    for (auto iteration_stmt : *S->statements) {
+    for (auto iteration_stmt : S->statements) {
       setCount(PGO.getRegionCount(iteration_stmt));
       RecordNextStmtCount = true;
       recurse(iteration_stmt);

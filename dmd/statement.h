@@ -224,7 +224,7 @@ public:
 class CompoundStatement : public Statement
 {
 public:
-    Statements *statements;
+    Statements statements;
 
     static CompoundStatement *create(Loc loc, Statement *s1, Statement *s2);
     CompoundStatement *syntaxCopy() override;
@@ -251,7 +251,7 @@ public:
 class UnrolledLoopStatement final : public Statement
 {
 public:
-    Statements *statements;
+    Statements statements;
 
     UnrolledLoopStatement *syntaxCopy() override;
     bool hasBreak() const override;
@@ -552,6 +552,7 @@ public:
     Expression *exp;
     size_t caseDim;
     FuncDeclaration *fesFunc;   // nested function for foreach it is in
+    Scope* scope_;
 
     ReturnStatement *syntaxCopy() override;
 
@@ -623,6 +624,7 @@ public:
     Catches *catches;
 
     Statement *tryBody;   /// set to enclosing TryCatchStatement or TryFinallyStatement if in _body portion
+    TOK loweredFromScopeGuard;  // set when this was lowered from a scope guard (onScopeFailure, onScopeSuccess)
 
     TryCatchStatement *syntaxCopy() override;
     bool hasBreak() const override;
@@ -657,6 +659,8 @@ public:
 
     Statement *tryBody;   // set to enclosing TryCatchStatement or TryFinallyStatement if in _body portion
     d_bool bodyFallsThru;   // true if _body falls through to finally
+    TOK loweredFromScopeGuard;  // set when this was lowered from a scope guard (onScopeExit, onScopeSuccess)
+    VarDeclaration *loweredFrom; // set when this was lowered from a variable with a destructor
 
     static TryFinallyStatement *create(Loc loc, Statement *body, Statement *finalbody);
     TryFinallyStatement *syntaxCopy() override;

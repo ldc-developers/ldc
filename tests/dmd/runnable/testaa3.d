@@ -496,7 +496,7 @@ void test23065()
     static struct B { A!B x; }
 
     A!B a;
-    a == a;
+    cast(void) (a == a);
 }
 
 // https://github.com/dlang/dmd/issues/23182

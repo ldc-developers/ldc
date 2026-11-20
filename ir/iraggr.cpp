@@ -195,8 +195,8 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
     constants.push_back(irClass->getVtblSymbol());
     offset += target.ptrsize;
 
-    // add monitor (except for C++ classes)
-    if (!cd->isCPPclass()) {
+    // add monitor
+    if (cd->hasMonitor()) {
       constants.push_back(getNullPtr());
       offset += target.ptrsize;
     }

@@ -11,7 +11,7 @@
 
 module rt.alloca;
 
-version (LDC) {} else:
+version (DigitalMars):
 
 /*******************************************
  * Allocate data from the caller's stack frame.

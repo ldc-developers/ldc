@@ -54,6 +54,9 @@ else:
 
 version (Posix):
 
+version (WASI) {}
+else:
+
 import core.internal.string;
 
 version (OSX)

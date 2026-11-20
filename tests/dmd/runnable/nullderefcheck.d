@@ -7,6 +7,17 @@ struct Struct
     int field;
 }
 
+class Class
+{
+    int i;
+
+    final void method()
+    {
+    }
+
+    final int get() { return i; }
+}
+
 void aLazyFunc(lazy int val)
 {
     int storage = val;
@@ -18,6 +29,8 @@ void main()
     wrap!(() { int* ptr; int val = *ptr; })(__LINE__);
     wrap!(() { Object ptr; auto del = &ptr.toString; del(); })(__LINE__);
     wrap!(() { Object obj; obj.toString(); })(__LINE__);
+    wrap!(() { Class obj; obj.method(); })(__LINE__);
+    wrap!(() { Class obj; int v = obj.get(); })(__LINE__);
     wrap!(() { void function() func; func(); })(__LINE__);
     wrap!(() { void delegate() del; del(); })(__LINE__);
 

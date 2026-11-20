@@ -486,8 +486,11 @@ class ConservativeGC : GC
 
         adjustAttrs(bits, ti);
 
-        immutable padding = __allocPad(size, bits);
+        auto alignAttr = cast(BlkAttr)(bits & BlkAttr.ALIGNMENT_MASK);
+        size_t alignment = alignAttr <= BlkAttr.ALIGNMENT_16 ? 16
+            : core.memory.GC.convertBlkAttrToAlignment(alignAttr);
 
+        immutable padding = __allocPad(size, alignment, bits);
         bool overflow;
         import core.checkedint : addu;
         immutable needed = addu(size, padding, overflow);
@@ -502,7 +505,7 @@ class ConservativeGC : GC
 
         invalidate(p[0 .. localAllocSize], 0xF0, true);
 
-        auto ret = setupMetadata(p[0 .. localAllocSize], bits, padding, size, ti);
+        auto ret = setupMetadata(p[0 .. localAllocSize], bits, padding, size, alignment, ti);
 
         if (!(bits & BlkAttr.NO_SCAN))
         {
@@ -593,7 +596,11 @@ class ConservativeGC : GC
 
         adjustAttrs(bits, ti);
 
-        immutable padding = __allocPad(size, bits);
+        auto alignAttr = cast(BlkAttr)(bits & BlkAttr.ALIGNMENT_MASK);
+        size_t alignment = alignAttr <= BlkAttr.ALIGNMENT_16 ? 16
+            : core.memory.GC.convertBlkAttrToAlignment(alignAttr);
+
+        immutable padding = __allocPad(size, alignment, bits);
         bool overflow;
         import core.checkedint : addu;
         immutable needed = addu(size, padding, overflow);
@@ -609,7 +616,7 @@ class ConservativeGC : GC
 
         debug (VALGRIND) makeMemUndefined(p[0..size]);
 
-        auto ret = setupMetadata(p[0 .. localAllocSize], bits, padding, size, ti);
+        auto ret = setupMetadata(p[0 .. localAllocSize], bits, padding, size, alignment, ti);
 
         invalidate((ret.ptr + size)[0 .. ret.length - size], 0xF0, true);
 
@@ -1519,7 +1526,7 @@ class ConservativeGC : GC
         auto existingUsed = slice.length + offset;
 
         size_t typeInfoSize = (info.attr & BlkAttr.STRUCTFINAL) ? size_t.sizeof : 0;
-        if (__setArrayAllocLengthImpl(info, newUsed, atomic, existingUsed, typeInfoSize))
+        if (__setArrayAllocLength(info, newUsed, atomic, existingUsed, typeInfoSize))
         {
             // could expand without extending
             if (!bic && !atomic)
@@ -1534,7 +1541,7 @@ class ConservativeGC : GC
             return false;
 
         // try extending the block into subsequent pages.
-        immutable requiredExtension = newUsed - (info.size - LARGEPAD);
+        immutable requiredExtension = newUsed - (info.size - LARGEPAD(info.base));
         auto extendedSize = extend(info.base, requiredExtension, requiredExtension, null);
         if (extendedSize == 0)
             // could not extend, can't satisfy the request
@@ -1547,7 +1554,7 @@ class ConservativeGC : GC
             __insertBlkInfoCache(info, null);
 
         // this should always work.
-        return __setArrayAllocLengthImpl(info, newUsed, atomic, existingUsed, typeInfoSize);
+        return __setArrayAllocLength(info, newUsed, atomic, existingUsed, typeInfoSize);
     }
 
     bool shrinkArrayUsed(void[] slice, size_t existingUsed, bool atomic = false) nothrow
@@ -1576,7 +1583,7 @@ class ConservativeGC : GC
 
         size_t typeInfoSize = (info.attr & BlkAttr.STRUCTFINAL) ? size_t.sizeof : 0;
 
-        if (__setArrayAllocLengthImpl(info, newUsed, atomic, existingUsed, typeInfoSize))
+        if (__setArrayAllocLength(info, newUsed, atomic, existingUsed, typeInfoSize))
         {
             if (!bic && !atomic)
                 __insertBlkInfoCache(info, null);
@@ -1710,6 +1717,14 @@ short[PAGESIZE / 16][Bins.B_NUMSMALL + 1] calcBinBase()
     return bin;
 }
 
+immutable binAlignAttr = ()
+{
+    uint[Bins.B_NUMSMALL + 1] attr;
+    for (int i = 0; i <= Bins.B_NUMSMALL; i++)
+        attr[i] = core.memory.GC.convertAlignmentToBlkAttr(binsize[i] & -binsize[i]); // extract lowest bit
+    return attr;
+}();
+
 size_t baseOffset(size_t offset, Bins bin) @nogc nothrow
 {
     assert(bin <= Bins.B_PAGE);
@@ -1790,7 +1805,7 @@ struct Gcx
         usedSmallPages = usedLargePages = 0;
         mappedPages = 0;
         //printf("gcx = %p, self = %x\n", &this, self);
-        version(WASI) {}
+        version (WASI) {}
         else version (Posix)
         {
             import core.sys.posix.pthread : pthread_atfork;
@@ -2185,7 +2200,14 @@ struct Gcx
 
     void* smallAlloc(size_t size, ref size_t alloc_size, uint bits, const TypeInfo ti) nothrow
     {
-        immutable bin = binTable[size];
+        Bins bin = binTable[size];
+        auto alignAttr = bits & BlkAttr.ALIGNMENT_MASK;
+        if (alignAttr > BlkAttr.ALIGNMENT_16)
+        {
+            while (binAlignAttr[bin] < alignAttr)
+                if (++bin >= Bins.B_NUMSMALL)
+                    return bigAlloc(size, alloc_size, bits, ti); // large alignment needs big alloc
+        }
         alloc_size = binsize[bin];
 
         void* p = bucket[bin];
@@ -2267,6 +2289,10 @@ struct Gcx
     {
         debug(PRINTF) printf("In bigAlloc.  Size:  %zd\n", size);
 
+        auto alignAttr = cast(BlkAttr)(bits & BlkAttr.ALIGNMENT_MASK);
+        size_t pageAlign = alignAttr <= BlkAttr.ALIGNMENT_4K ? 1
+            : core.memory.GC.convertBlkAttrToAlignment(alignAttr) / PAGESIZE;
+
         LargeObjectPool* pool;
         size_t pn;
         immutable npages = LargeObjectPool.numPages(size);
@@ -2280,7 +2306,7 @@ struct Gcx
                 if (!p.isLargeObject || p.freepages < npages)
                     continue;
                 auto lpool = cast(LargeObjectPool*) p;
-                if ((pn = lpool.allocPages(npages)) == OPFAIL)
+                if ((pn = lpool.allocPages(npages, pageAlign)) == OPFAIL)
                     continue;
                 pool = lpool;
                 return true;
@@ -2290,9 +2316,9 @@ struct Gcx
 
         bool tryAllocNewPool() nothrow
         {
-            pool = cast(LargeObjectPool*) newPool(npages, true);
+            pool = cast(LargeObjectPool*) newPool(npages + pageAlign - 1, true);
             if (!pool) return false;
-            pn = pool.allocPages(npages);
+            pn = pool.allocPages(npages, pageAlign);
             assert(pn != OPFAIL);
             return true;
         }
@@ -4416,9 +4442,14 @@ struct LargeObjectPool
 
     /**
      * Allocate n pages from Pool.
-     * Returns OPFAIL on failure.
+     *
+     * Params:
+     *  n = number of pages to allocate
+     *  pageAlign = required alignment of resulting page (including base address)
+     * Returns:
+     *  OPFAIL on failure.
      */
-    size_t allocPages(size_t n) nothrow
+    size_t allocPages(size_t n, size_t pageAlign) nothrow
     {
         if (largestFree < n || searchStart + n > npages)
             return OPFAIL;
@@ -4433,11 +4464,26 @@ struct LargeObjectPool
         while (searchStart < npages && pagetable[searchStart] == Bins.B_PAGE)
             searchStart += bPageOffsets[searchStart];
 
+        size_t basePage = (cast(size_t)baseAddr / PAGESIZE);
         for (size_t i = searchStart; i < npages; )
         {
             assert(pagetable[i] == Bins.B_FREE);
 
             auto p = bPageOffsets[i];
+            if (pageAlign > 1)
+            {
+                size_t ialigned = ((basePage + i + pageAlign - 1) & -pageAlign) - basePage;
+                if (ialigned + n > i + p)
+                    goto L_next;
+                if (ialigned + n < i + p)
+                    setFreePageOffsets(ialigned + n, i + p - (ialigned + n));
+                if (ialigned > i)
+                {
+                    setFreePageOffsets(i, ialigned - i);
+                    i = ialigned;
+                }
+                goto L_found;
+            }
             if (p > n)
             {
                 setFreePageOffsets(i + n, p - n);
@@ -4457,6 +4503,7 @@ struct LargeObjectPool
                 freepages -= n;
                 return i;
             }
+            L_next:
             if (p > largest)
                 largest = p;
 
@@ -5533,7 +5580,7 @@ private void adjustAttrs(ref uint attrs, const TypeInfo ti) nothrow
 // metadata.
 //
 // The return value is the true data that the user can use.
-private void[] setupMetadata(void[] block, uint bits, size_t padding, size_t used, const TypeInfo ti) nothrow
+private void[] setupMetadata(void[] block, uint bits, size_t padding, size_t used, size_t alignment, const TypeInfo ti) nothrow
 {
     import core.internal.gc.blockmeta;
     import core.internal.array.utils;
@@ -5545,11 +5592,11 @@ private void[] setupMetadata(void[] block, uint bits, size_t padding, size_t use
     );
 
 
-    __setBlockFinalizerInfo(info, ti);
+    __setBlockMetaInfo(info, ti, alignment);
 
     if (bits & BlkAttr.APPENDABLE) {
         auto typeInfoSize = (bits & BlkAttr.STRUCTFINAL) ? (void*).sizeof : 0;
-        auto success = __setArrayAllocLengthImpl(info, used, false, size_t.max, typeInfoSize);
+        auto success = __setArrayAllocLength(info, used, false, size_t.max, typeInfoSize);
         assert(success);
         return __arrayStart(info)[0 .. block.length - padding];
     }

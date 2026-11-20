@@ -11,6 +11,7 @@
 #include "dmd/declaration.h"
 #include "dmd/errors.h"
 #include "dmd/hdrgen.h" // for parametersTypeToChars()
+#include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/mangle.h"
 #include "dmd/mtype.h"
@@ -327,7 +328,7 @@ unsigned buildClassinfoFlags(ClassDeclaration *cd) {
   for (ClassDeclaration *pc = cd; pc; pc = pc->baseClass) {
     for (VarDeclaration *vd : pc->fields) {
       // printf("vd = %s %s\n", vd->kind(), vd->toChars());
-      if (hasPointers(vd)) {
+      if (vd->ident != Id::__monitor && hasPointers(vd)) {
         return flags;
       }
     }
@@ -371,7 +372,7 @@ LLConstant *IrClass::getClassInfoInit() {
   // string name
   const char *name = cd->ident->toChars();
   if (strncmp(name, "TypeInfo_", 9) != 0) {
-    name = cd->toPrettyChars(/*QualifyTypes=*/true);
+    name = cd->toPrettyChars(/*QualifyTypes=*/true, /*keepOneMember=*/true);
   }
   b.push_string(name);
 

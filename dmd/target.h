@@ -137,10 +137,11 @@ struct Target
         OS_FreeBSD      = 0x10,
         OS_Solaris      = 0x20,
         OS_DragonFlyBSD = 0x40,
+        OS_Hurd         = 0x80,
 
         // Combination masks
-        all = OS_linux | OS_Windows | OS_OSX | OS_OpenBSD | OS_FreeBSD | OS_Solaris | OS_DragonFlyBSD,
-        Posix = OS_linux | OS_OSX | OS_OpenBSD | OS_FreeBSD | OS_Solaris | OS_DragonFlyBSD,
+        all = OS_linux | OS_Windows | OS_OSX | OS_OpenBSD | OS_FreeBSD | OS_Solaris | OS_DragonFlyBSD | OS_Hurd,
+        Posix = OS_linux | OS_OSX | OS_OpenBSD | OS_FreeBSD | OS_Solaris | OS_DragonFlyBSD | OS_Hurd,
     };
 
     OS os;
@@ -153,7 +154,6 @@ struct Target
     uint8_t realsize;           // size a real consumes in memory
     uint8_t realpad;            // 'padding' added to the CPU real size to bring it up to realsize
     uint8_t realalignsize;      // alignment for reals
-    uint8_t classinfosize;      // size of 'ClassInfo'
     uint64_t maxStaticDataSize; // maximum size of static data
 
     // C ABI

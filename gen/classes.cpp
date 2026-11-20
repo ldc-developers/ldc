@@ -150,15 +150,15 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   DtoStore(val, tmp);
 
   // For D classes, set the monitor field to null.
-  const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
-  if (!isCPPclass) {
+  const bool hasMonitor = tc->sym->hasMonitor();
+  if (hasMonitor) {
     tmp = DtoGEP(st, dst, 0, 1, "monitor");
     val = LLConstant::getNullValue(st->getElementType(1));
     DtoStore(val, tmp);
   }
 
   // Copy the rest from the static initializer, if any.
-  unsigned const firstDataIdx = isCPPclass ? 1 : 2;
+  unsigned const firstDataIdx = hasMonitor ? 2 : 1;
   uint64_t const dataBytes =
       tc->sym->structsize - target.ptrsize * firstDataIdx;
   if (dataBytes == 0) {
@@ -211,6 +211,9 @@ void DtoFinalizeScopeClass(Loc loc, DValue *dval,
 
   // no dtors => only finalize (via druntime call) if monitor is set,
   // see https://github.com/ldc-developers/ldc/issues/2515
+  if (!cd->hasMonitor())
+    return;
+
   llvm::BasicBlock *ifbb = gIR->insertBB("if");
   llvm::BasicBlock *endbb = gIR->insertBBAfter(ifbb, "endif");
 
