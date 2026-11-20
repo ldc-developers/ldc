@@ -1707,22 +1707,6 @@ private void loadStackAndRegInfo(Thread t, const bool sameThread) nothrow @nogc
             t.m_curr.tstack = getStackTop();
         }
     }
-    else version (WASI)
-    {
-        if (!sameThread)
-        {
-            if ( !t.isRunning )
-            {
-                Thread.remove( t );
-                return false;
-            }
-            onThreadError( "Unable to suspend thread" );
-        }
-        else if ( !t.m_lock )
-        {
-            t.m_curr.tstack = getStackTop();
-        }
-    }
     else version (Posix)
     {
         if (sameThread && !t.m_lock)
