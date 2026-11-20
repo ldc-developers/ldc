@@ -7,10 +7,9 @@ Code generation,
 Codegen: function add, object.add
 Codegen: function uses, object.uses
 Codegen: module object, object
+Generate IR, object
 Import object.object, object.object
-Inline: add, object.add
-Inline: uses, object.uses
-Inlining,
+Optimize, $r:.*ftimetrace_inline_0\.o(bj)?$
 Parse: Module object, object
 Parsing,
 Sema1: Function add, object.add
@@ -21,6 +20,7 @@ Sema2: uses, object.uses
 Sema3: add, object.add
 Sema3: uses, object.uses
 Semantic analysis,
+Write file(s), $r:.*ftimetrace_inline_0\.o(bj)?$
 ---
 */
 

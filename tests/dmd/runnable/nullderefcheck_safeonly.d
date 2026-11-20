@@ -1,4 +1,5 @@
 // REQUIRED_ARGS: -check=nullderef=safeonly
+// DISABLED: LDC // not implemented
 // PERMUTE_ARGS:
 
 struct Struct

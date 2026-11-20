@@ -20,7 +20,6 @@ Import object.object, object.object
 Optimize, $r:.*ftimetrace_0\.o(bj)?$
 Parse: Module object, object
 Parsing,
-Prune object file cache,
 Sema1: Function add, object.add
 Sema1: Function fun, object.fun
 Sema1: Function id, object.id!int

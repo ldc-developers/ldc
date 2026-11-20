@@ -1401,10 +1401,7 @@ void codegenModules(Modules &modules) {
       global.params.link = false;
   }
 
-  {
-    dmd::TimeTraceScope timeScope("Prune object file cache");
-    cache::pruneCache();
-  }
+  cache::pruneCache();
 
   freeRuntime();
 }

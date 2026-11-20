@@ -8,10 +8,9 @@ Codegen: function cube, object.cube
 Codegen: function square, object.square
 Codegen: function uses, object.uses
 Codegen: module object, object
+Generate IR, object
 Import object.object, object.object
-Inline: cube, object.cube
-Inline: uses, object.uses
-Inlining,
+Optimize, $r:.*ftimetrace_pragma_0\.o(bj)?$
 Parse: Module object, object
 Parsing,
 Sema1: Function cube, object.cube
@@ -25,6 +24,7 @@ Sema3: cube, object.cube
 Sema3: square, object.square
 Sema3: uses, object.uses
 Semantic analysis,
+Write file(s), $r:.*ftimetrace_pragma_0\.o(bj)?$
 ---
 */
 
