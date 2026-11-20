@@ -71,3 +71,19 @@ struct DComputePointerRewrite : ABIRewrite {
     arg.attrs.removeAttribute(llvm::Attribute::NonNull);
   }
 };
+
+struct DcomputeMetalScalarRewrite : ABIRewrite {
+  LLType *type(Type* t) override {
+    // XXX: Scalar variables are stored in the constant memory space for Metal GPU
+    return llvm::PointerType::get(gIR->context(), 2/*Constant Memory space*/);
+  }
+
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    return v;
+  }
+
+  LLValue *put(DValue *v, bool isLValueExp, bool) override {
+    auto value = DtoRVal(v);
+    return value;
+  }
+};
