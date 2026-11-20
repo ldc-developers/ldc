@@ -510,7 +510,10 @@ else
 
     extern (C++) void _init()
     {
-        errorSink = new ErrorSinkCompiler;
+        version (IN_LLVM) { /* errorSink already set */ } else
+        {
+            errorSink = new ErrorSinkCompiler;
+        }
         errorSinkNull = new ErrorSinkNull;
 
         this.fileManager = new FileManager();
