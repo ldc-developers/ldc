@@ -66,4 +66,7 @@ DComputeTarget *createCUDATarget(llvm::LLVMContext &c, int sm);
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
 DComputeTarget *createOCLTarget(llvm::LLVMContext &c, int oclver);
+#if LLVM_VERSION_MAJOR >= 23
+DComputeTarget *createVulkanTarget(llvm::LLVMContext &c, int ver);
+#endif
 #endif
