@@ -562,6 +562,7 @@ immutable Msgtable[] msgtable =
     { "LDC_never_inline" },
     { "LDC_inline_asm" },
     { "LDC_inline_ir" },
+    { "LDC_inline_mlir" },
     { "LDC_fence" },
     { "LDC_atomic_load" },
     { "LDC_atomic_store" },

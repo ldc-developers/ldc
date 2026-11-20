@@ -48,6 +48,15 @@ if(IS_DIRECTORY "${LLVM_INCLUDE_DIRS}/mlir")
             list(TRANSFORM mlir_names APPEND ".lib" OUTPUT_VARIABLE MLIR_LIBS)
         else()
             list(TRANSFORM mlir_names PREPEND "-l" OUTPUT_VARIABLE MLIR_LIBS)
+
+            # The libraries are globbed, so they're in alphabetical rather than
+            # dependency order. GNU ld and gold scan static archives only once,
+            # left to right, so wrap them in a group to make the linker rescan
+            # them until no new symbols get resolved.
+            if(NOT APPLE)
+                list(PREPEND MLIR_LIBS "-Wl,--start-group")
+                list(APPEND MLIR_LIBS "-Wl,--end-group")
+            endif()
         endif()
 
         list(LENGTH mlir_names mlir_count)
