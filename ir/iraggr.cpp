@@ -196,7 +196,7 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
     offset += target.ptrsize;
 
     // add monitor
-    if (cd->hasMonitor()) {
+    if (getIrType(cd->type)->isClass()->hasMonitor()) {
       constants.push_back(getNullPtr());
       offset += target.ptrsize;
     }

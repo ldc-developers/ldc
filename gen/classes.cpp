@@ -150,7 +150,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   DtoStore(val, tmp);
 
   // For D classes, set the monitor field to null.
-  const bool hasMonitor = tc->sym->hasMonitor();
+  const bool hasMonitor = getIrType(tc->sym->type)->isClass()->hasMonitor();
   if (hasMonitor) {
     tmp = DtoGEP(st, dst, 0, 1, "monitor");
     val = LLConstant::getNullValue(st->getElementType(1));
@@ -211,14 +211,14 @@ void DtoFinalizeScopeClass(Loc loc, DValue *dval,
 
   // no dtors => only finalize (via druntime call) if monitor is set,
   // see https://github.com/ldc-developers/ldc/issues/2515
-  if (!cd->hasMonitor())
+  IrTypeClass *irtc = getIrType(cd->type)->isClass();
+  if (!irtc->hasMonitor())
     return;
 
   llvm::BasicBlock *ifbb = gIR->insertBB("if");
   llvm::BasicBlock *endbb = gIR->insertBBAfter(ifbb, "endif");
 
-  llvm::StructType *st =
-      isaStruct(getIrType(cd->type, true)->isClass()->getMemoryLLType());
+  llvm::StructType *st = isaStruct(irtc->getMemoryLLType());
   const auto monitor =
       DtoLoad(st->getElementType(1), DtoGEP(st, inst, 0, 1), ".monitor");
   const auto hasMonitor =
