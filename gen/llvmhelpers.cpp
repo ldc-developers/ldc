@@ -1546,6 +1546,11 @@ DValue *DtoSymbolAddress(Loc loc, Type *type, Declaration *decl) {
       error(loc, "special ldc inline ir is not a normal function");
       fatal();
     }
+    if (fdecl->type->isTypeFunction()->isCtfeOnly()) {
+      error(loc, "function `%s` is `@__ctfe` and cannot be used at runtime",
+            fdecl->toPrettyChars());
+      // continue with a valid DFuncValue, there might be more usages/errors
+    }
     DtoResolveFunction(fdecl);
     assert(!DtoIsMagicIntrinsic(fdecl));
     return new DFuncValue(fdecl, DtoCallee(fdecl));
