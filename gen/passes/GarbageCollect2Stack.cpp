@@ -208,41 +208,6 @@ Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) 
 
   return alloca;
 }
-bool AllocClassFI::analyze(CallBase *CB, const G2StackAnalysis &A) {
-  if (CB->arg_size() != 1) {
-    return false;
-  }
-  Value *arg = CB->getArgOperand(0)->stripPointerCasts();
-  GlobalVariable *ClassInfo = dyn_cast<GlobalVariable>(arg);
-  if (!ClassInfo) {
-    return false;
-  }
-
-  const auto metaname = getMetadataName(CD_PREFIX, ClassInfo);
-
-  NamedMDNode *meta = A.M.getNamedMetadata(metaname);
-  if (!meta) {
-    return false;
-  }
-
-  MDNode *node = static_cast<MDNode *>(meta->getOperand(0));
-  if (!node || node->getNumOperands() != CD_NumFields) {
-    return false;
-  }
-
-  // Inserting destructor calls is not implemented yet, so classes
-  // with destructors are ignored for now.
-  auto hasDestructor =
-      mdconst::dyn_extract<Constant>(node->getOperand(CD_Finalize));
-  if (hasDestructor == nullptr ||
-      hasDestructor != ConstantInt::getFalse(A.M.getContext())) {
-    return false;
-  }
-
-  Ty = mdconst::dyn_extract<Constant>(node->getOperand(CD_BodyType))
-           ->getType();
-  return A.DL.getTypeAllocSize(Ty) < SizeLimit;
-}
 bool UntypedMemoryFI::analyze(CallBase *CB, const G2StackAnalysis &A) {
   if (CB->arg_size() < SizeArgNr + 1) {
     return false;
@@ -430,7 +395,6 @@ bool GarbageCollect2Stack::run(Function &F, std::function<DominatorTree& ()> get
      .Case("_d_allocmemoryT", &AllocMemoryT)
      .Case("_d_newarrayU",    &NewArrayU)
      .Case("_d_newarrayT",    &NewArrayT)
-     .Case("_d_allocclass",   &AllocClass)
      .Case("_d_allocmemory",  &AllocMemory)
      .Default(nullptr);
 

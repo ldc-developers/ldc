@@ -6978,8 +6978,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 result = exp;
                 return;
             }
-            else if (!IN_LLVM && // LDC: not using the `_d_newclassT` lowering yet
-                     sc.needsCodegen() && // interpreter doesn't need this lowered
+            else if (sc.needsCodegen() && // interpreter doesn't need this lowered
                      !exp.placement &&
                      !exp.onstack && !exp.type.isScopeClass()) // these won't use the GC
             {

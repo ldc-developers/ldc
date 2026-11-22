@@ -21,19 +21,6 @@
 // value of the LLVM type corresponding to the D type the TypeInfo is for.
 #define TD_PREFIX "llvm.ldc.typeinfo."
 
-// *** Metadata for ClassInfo instances ***
-#define CD_PREFIX "llvm.ldc.classinfo."
-
-/// The fields in the metadata node for a ClassInfo instance.
-/// (Its name will be CD_PREFIX ~ <Name of ClassInfo global>)
-enum ClassDataFields {
-  CD_BodyType,     /// A value of the LLVM type corresponding to the class body.
-  CD_Finalize,     /// True if this class (or a base class) has a destructor.
-
-  // Must be kept last
-  CD_NumFields /// The number of fields in ClassInfo metadata
-};
-
 inline std::string getMetadataName(const char *prefix,
                                    llvm::GlobalVariable *forGlobal) {
   llvm::StringRef globalName = forGlobal->getName();

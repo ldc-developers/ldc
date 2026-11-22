@@ -117,22 +117,7 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
 
     // Generate some metadata on this ClassInfo if it's for a class.
     if (!aggrdecl->isInterfaceDeclaration()) {
-      // regular TypeInfo metadata
       emitTypeInfoMetadata(typeInfo, aggrdecl->type);
-
-      // Gather information
-      LLType *bodyType = getLLStructType();
-      bool hasDestructor = (aggrdecl->dtor != nullptr);
-      // Construct the fields
-      llvm::Metadata *mdVals[CD_NumFields];
-      mdVals[CD_BodyType] =
-          llvm::ConstantAsMetadata::get(llvm::UndefValue::get(bodyType));
-      mdVals[CD_Finalize] = llvm::ConstantAsMetadata::get(
-          LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor));
-      // Construct the metadata and insert it into the module.
-      const auto metaname = getMetadataName(CD_PREFIX, typeInfo);
-      llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
-      node->addOperand(llvm::MDNode::get(gIR->context(), mdVals));
     }
 
     if (!define)
