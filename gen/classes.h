@@ -29,7 +29,7 @@ class TypeClass;
 void DtoResolveClass(ClassDeclaration *cd);
 
 DValue *DtoNewClass(Loc loc, TypeClass *type, NewExp *newexp);
-void DtoInitClass(TypeClass *tc, llvm::Value *dst);
+void DtoInitClass(TypeClass *tc, llvm::Value *dst, bool vptrOnly);
 void DtoFinalizeClass(Loc loc, llvm::Value *inst);
 void DtoFinalizeScopeClass(Loc loc, DValue *dval,
                            bool dynTypeMatchesStaticType);
