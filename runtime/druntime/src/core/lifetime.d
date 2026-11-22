@@ -2691,7 +2691,15 @@ if (is(T == class))
     }
 
     // initialize it
-    p[0 .. init.length] = cast(void[]) init[];
+    version (LDC)
+    {
+        // TODO: specify alignment once implemented
+        imported!"ldc.intrinsics".llvm_memcpy!size_t(p, init.ptr, init.length);
+    }
+    else
+    {
+        p[0 .. init.length] = cast(void[]) init[];
+    }
 
     debug(PRINTF) printf("initialization done\n");
     return cast(T) p;
