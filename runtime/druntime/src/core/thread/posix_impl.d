@@ -36,7 +36,7 @@ version (all)
     static import core.sys.posix.pthread;
     import core.stdc.errno : EINTR, errno;
 
-    version (CRuntime_WASI)
+    version (WASI)
         import core.sys.posix.pthread : pthread_attr_destroy, pthread_attr_getstack,
             pthread_attr_init, pthread_attr_setstacksize, pthread_create, pthread_detach,
             pthread_join, pthread_self, sched_yield;
@@ -674,7 +674,7 @@ class Thread : ThreadBase
         else version (Solaris)
         {
         }
-        else version (CRuntime_WASI)
+        else version (WASI)
         {
         }
         else
@@ -811,7 +811,7 @@ package bool suspendThreadImpl(Thread t) @nogc nothrow
         return thread_suspend(t.m_tdescr.tmach) == KERN_SUCCESS;
     else version (Solaris)
         return thr_suspend(t.m_tdescr.tid) == 0;
-    else version (CRuntime_WASI)
+    else version (WASI)
         return false;
     else
         return pthread_kill(t.m_tdescr.tid, suspendSignalNumber) == 0;
@@ -824,7 +824,7 @@ package bool resumeThreadImpl(Thread t) @nogc nothrow
         return thread_resume(t.m_tdescr.tmach) == KERN_SUCCESS;
     else version (Solaris)
         return thr_continue(t.m_tdescr.tid) == 0;
-    else version (CRuntime_WASI)
+    else version (WASI)
         return false;
     else
         return pthread_kill(t.m_tdescr.tid, resumeSignalNumber) == 0;
