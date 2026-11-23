@@ -49,9 +49,6 @@
 
 module core.internal.backtrace.dwarf;
 
-version (WASI) {}
-else:
-
 version (Posix):
 
 version (WASI) {}
