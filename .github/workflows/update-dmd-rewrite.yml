@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: "0 0 * * *"  # run every day at 00:00
   workflow_dispatch:  # enable manual runs
+  # also run for PRs touching the script
+  pull_request:
+    paths:
+      - tools/update-dmd-rewrite.sh
 
 permissions:
   contents: write
