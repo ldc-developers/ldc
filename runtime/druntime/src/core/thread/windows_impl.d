@@ -136,7 +136,11 @@ class Thread : ThreadBase
             //       add and resume it with slock acquired
             assert(m_sz <= uint.max, "m_sz must be less than or equal to uint.max");
             version (Shared)
+            {
+                auto ps = cast(void**).malloc(2 * size_t.sizeof);
+                if (ps is null) onOutOfMemoryError();
                 auto threadArg = cast(void*) ps;
+            }
             else
                 auto threadArg = cast(void*) this;
             m_tdescr.hndl = cast(HANDLE) _beginthreadex( null, cast(uint) m_sz, &thread_entryPoint, threadArg, CREATE_SUSPENDED, &m_tdescr.tid );
@@ -155,8 +159,6 @@ class Thread : ThreadBase
                 auto libs = externDFunc!("rt.sections_elf_shared.pinLoadedLibraries",
                                          void* function() @nogc nothrow)();
 
-                auto ps = cast(void**).malloc(2 * size_t.sizeof);
-                if (ps is null) onOutOfMemoryError();
                 ps[0] = cast(void*)this;
                 ps[1] = cast(void*)libs;
                 if ( ResumeThread( m_tdescr.hndl ) == -1 )
