@@ -136,8 +136,10 @@ extern (C++) struct Mem
         {
             static if(__VERSION__ < 2085)
                 __gshared string[] disable_options = [ "gcopt=disable:1" ];
-            else
+            else static if(__VERSION__ < 2096)
                 __gshared string[] disable_options = [ "gcopt=disable:1 cleanup:none" ];
+            else // use the custom BumpPointerGC implementation
+                __gshared string[] disable_options = [ "gcopt=disable:1 gc:bump cleanup:none" ];
             rt_options = disable_options;
         }
         _isGCEnabled = false;
