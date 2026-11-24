@@ -79,26 +79,23 @@ DValue *DtoNewClass(Loc loc, TypeClass *tc, NewExp *newexp) {
 
   // allocate
   LLValue *mem;
-  bool doInit = true;
+  bool initVptrOnly = false;
   if (newexp->placement) {
     mem = DtoLVal(newexp->placement);
   } else if (newexp->onstack) {
     mem = DtoRawAlloca(irClass->getLLStructType(), tc->sym->alignsize,
                        ".newclass_alloca");
-  } else if (global.params.ehnogc && newexp->thrownew) {
-    // _d_newThrowable template lowering
+  } else {
+    // _d_newclassT / _d_newThrowable template lowering
     assert(newexp->lowering);
     mem = DtoRVal(newexp->lowering);
-    doInit = false;
-  } else {
-    llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocclass");
-    LLConstant *ci = irClass->getClassInfoSymbol();
-    mem = gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc");
+    // The init symbol is already blitted;
+    // re-init the vptr to help with devirtualization.
+    initVptrOnly = true;
   }
 
   // init
-  if (doInit)
-    DtoInitClass(tc, mem);
+  DtoInitClass(tc, mem, initVptrOnly);
 
   // init inner-class outer reference
   if (newexp->thisexp) {
@@ -138,16 +135,19 @@ DValue *DtoNewClass(Loc loc, TypeClass *tc, NewExp *newexp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoInitClass(TypeClass *tc, LLValue *dst) {
+void DtoInitClass(TypeClass *tc, LLValue *dst, bool vptrOnly) {
   DtoResolveClass(tc->sym);
 
   IrClass *irClass = getIrAggr(tc->sym);
   llvm::StructType *st = irClass->getLLStructType();
 
-  // Set vtable field. Doing this seperately might be optimized better.
-  LLValue *tmp = DtoGEP(st, dst, 0u, 0, "vtbl");
+  // Set vptr field. Doing this separately helps with devirtualization.
+  LLValue *tmp = DtoGEP(st, dst, 0u, 0, "vptr");
   LLValue *val = irClass->getVtblSymbol();
   DtoStore(val, tmp);
+
+  if (vptrOnly)
+    return;
 
   // For D classes, set the monitor field to null.
   const bool hasMonitor = getIrType(tc->sym->type)->isClass()->hasMonitor();

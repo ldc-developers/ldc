@@ -2,6 +2,7 @@
 
 #### Big news
 - Windows: The bundled `libcurl.dll` (from https://curl.se/windows/) doesn't need/come with a `curl-ca-bundle.crt` file anymore, except for 32-bit, where we bundle an old DLL version (as the official 32-bit libcurl Windows build was discontinued earlier this year). (#5308)
+- The GC2Stack optimization pass doesn't promote any class objects to the stack anymore. (#5327)
 
 #### Platform support
 

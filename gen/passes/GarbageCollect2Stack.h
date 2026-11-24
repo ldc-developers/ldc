@@ -61,15 +61,6 @@ public:
   llvm::Value *promote(llvm::CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) override;
 
 };
-// FunctionInfo for _d_allocclass
-class AllocClassFI : public FunctionInfo {
-public:
-  bool analyze(llvm::CallBase *CB, const G2StackAnalysis &A) override;
-
-  // The default promote() should be fine.
-
-  AllocClassFI() : FunctionInfo(ReturnType::Pointer) {}
-};
 /// Describes runtime functions that allocate a chunk of memory with a
 /// given size.
 class UntypedMemoryFI : public FunctionInfo {
@@ -99,7 +90,6 @@ struct GarbageCollect2Stack {
   TypeInfoFI AllocMemoryT;
   ArrayFI NewArrayU;
   ArrayFI NewArrayT;
-  AllocClassFI AllocClass;
   UntypedMemoryFI AllocMemory;
 
   GarbageCollect2Stack();

@@ -243,8 +243,6 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
   Optimizations["_d_newarraymT"] = &Allocation;
   Optimizations["_d_newarraymiT"] = &Allocation;
   Optimizations["_d_newarraymvT"] = &Allocation;
-  Optimizations["_d_newclass"] = &Allocation;
-  Optimizations["_d_allocclass"] = &Allocation;
 }
 
 /// runOnFunction - Top level algorithm.

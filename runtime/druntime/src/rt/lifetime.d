@@ -99,9 +99,7 @@ Params:
 
 Returns: newly created object
 */
-// adapted for LDC
-pragma(inline, true)
-private extern (D) Object _d_newclass(bool initialize)(const ClassInfo ci)
+extern (C) Object _d_newclass(const ClassInfo ci) @weak
 {
     void* p;
     auto init = ci.initializer;
@@ -145,34 +143,11 @@ private extern (D) Object _d_newclass(bool initialize)(const ClassInfo ci)
         printf("init[4] = %x\n", (cast(uint*) init)[4]);
     }
 
-  static if (initialize) // LDC
-  {
     // initialize it
     p[0 .. init.length] = cast(void[]) init[];
-  }
 
     debug(PRINTF) printf("initialization done\n");
     return cast(Object) p;
-}
-
-version (LDC)
-{
-
-/**
- *
- */
-extern (C) Object _d_newclass(const ClassInfo ci) @weak
-{
-    return _d_newclass!true(ci);
-}
-
-// Initialization is performed in DtoNewClass(), so only allocate
-// the class in druntime (LDC issue #966).
-extern (C) Object _d_allocclass(const ClassInfo ci) @weak
-{
-    return _d_newclass!false(ci);
-}
-
 }
 
 

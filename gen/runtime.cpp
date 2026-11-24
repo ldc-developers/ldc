@@ -78,9 +78,7 @@ static void checkForImplicitGCCall(Loc loc, const char *name) {
         "_d_newarrayT",
         "_d_newarrayiT",
         "_d_newarrayU",
-        "_d_newclass",
-        "_d_allocclass",
-        // TODO: _d_newitemT, _d_newarraymTX, _d_arrayappendcTX instantiations
+        // TODO: _d_newitemT, _d_newarraymTX, _d_arrayappendcTX, _d_newclassT instantiations
     };
 
     if (binary_search(&GCNAMES[0],
@@ -624,11 +622,6 @@ static void buildRuntimeModule() {
   // void[] _d_arrayappendwd(ref byte[] x, dchar c)
   createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayappendcd", "_d_arrayappendwd"},
                 {voidArrayTy, dcharTy}, {STCref, 0});
-
-  // Object _d_newclass(const ClassInfo ci)
-  // Object _d_allocclass(const ClassInfo ci)
-  createFwdDecl(LINK::c, objectTy, {"_d_newclass", "_d_allocclass"},
-                {classInfoTy}, {STCconst});
 
   // void _d_delarray_t(void[]* p, const TypeInfo_Struct ti)
   createFwdDecl(LINK::c, voidTy, {"_d_delarray_t"},
