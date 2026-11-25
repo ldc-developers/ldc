@@ -13,6 +13,7 @@
 #include "dmd/enum.h"
 #include "dmd/errors.h"
 #include "dmd/expression.h"
+#include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/import.h"
 #include "dmd/mangle.h"
@@ -531,6 +532,8 @@ void DIBuilder::AddFields(AggregateDeclaration *ad, DIFile file,
   size_t narr = ad->fields.length;
   elems.reserve(narr);
   for (auto vd : ad->fields) {
+    if (vd->ident == Id::__monitor)
+      continue;
     if (vd->type->toBasetype()->isTypeNoreturn())
       continue;
 
@@ -1020,7 +1023,7 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
     // emit into module & use fully qualified name
     scope = GetCU();
     name = processDIName(fd->toPrettyChars(true));
-  } else if (fd->isMain()) {
+  } else if (fd->isDMain()) {
     scope = GetSymbolScope(fd);
     name = fd->toPrettyChars(true); // `D main`
   } else {

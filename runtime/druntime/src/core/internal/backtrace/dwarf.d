@@ -49,10 +49,10 @@
 
 module core.internal.backtrace.dwarf;
 
+version (Posix):
+
 version (WASI) {}
 else:
-
-version (Posix):
 
 import core.internal.string;
 

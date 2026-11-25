@@ -188,7 +188,9 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
   // TypeInfo_Class name with a 'D' prefix (the first character is skipped in
   // debugger output).
   const auto TypeNameString =
-      (llvm::Twine("D") + cd->toPrettyChars(/*QualifyTypes=*/true)).str();
+      (llvm::Twine("D") +
+       cd->toPrettyChars(/*QualifyTypes=*/true, /*keepOneMember=*/true))
+          .str();
 
   const auto TypeDescName = getIRMangledAggregateName(cd, "@TypeDescriptor");
 

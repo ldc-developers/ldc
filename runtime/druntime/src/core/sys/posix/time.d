@@ -164,6 +164,10 @@ else version (Solaris)
 {
     enum CLOCK_MONOTONIC = 4;
 }
+else version (Hurd)
+{
+    enum CLOCK_MONOTONIC = 1;
+}
 else version (Emscripten)
 {
     enum CLOCK_MONOTONIC = 1;
@@ -277,6 +281,14 @@ else version (Solaris)
     }
 
     alias timestruc_t = timespec;
+}
+else version (Hurd)
+{
+    struct timespec
+    {
+        time_t  tv_sec;
+        c_long  tv_nsec;
+    }
 }
 else version (Emscripten)
 {

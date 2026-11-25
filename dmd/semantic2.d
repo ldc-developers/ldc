@@ -246,8 +246,7 @@ private extern(C++) final class Semantic2Visitor : Visitor
             // https://issues.dlang.org/show_bug.cgi?id=14166
             // https://issues.dlang.org/show_bug.cgi?id=20417
             // Don't run CTFE for the temporary variables inside typeof or __traits(compiles)
-            vd._init = vd._init.initializerSemantic(sc, vd.type, sc.intypeof == 1 || sc.traitsCompiles ? INITnointerpret : INITinterpret);
-            lowerStaticAAs(vd, sc);
+            vd._init = vd._init.initializerSemantic(sc, vd.type, sc.intypeof == 1 || sc.traitsCompiles ? INITnointerpret : INITinterpret, global.errorSink);
             vd.inuse--;
         }
         if (vd._init && vd.storage_class & STC.manifest)
@@ -352,7 +351,7 @@ private extern(C++) final class Semantic2Visitor : Visitor
         {
             const uwidth = bfd.fieldWidth;
             error(ei.loc, "default initializer `%s` is not representable as bitfield type `%s:%lld`",
-                  ei.exp.toChars(), bfd.type.toBasetype().toChars(), cast(long)uwidth);
+                  ei.exp.toErrMsg(), bfd.type.toBasetype().toErrMsg(), cast(long)uwidth);
             if (isUnsigned)
                 errorSupplemental(bfd.loc, "bitfield `%s` default initializer must be a value between `%llu..%llu`",
                                   bfd.toChars(), bounds.imin.value, bounds.imax.value);
@@ -683,14 +682,23 @@ private extern(C++) final class Semantic2Visitor : Visitor
         /// Checks that the given class implements all methods of its interfaces.
         static void checkInterfaceImplementations(ClassDeclaration cd)
         {
-            foreach (base; cd.interfaces)
+            // `direct` is false for those inherited from an abstract base class.
+            // A directly-declared interface requires an implementation that isn't
+            // merely inherited from an unrelated base class, like h coming from G
+            // instead of H here:
+            // ---
+            // class G { int h() { return 1; } }
+            // interface H { int h(); }
+            // class K : G, H {}
+            // ---
+            void checkBase(BaseClass* base, bool direct)
             {
                 // https://issues.dlang.org/show_bug.cgi?id=22729
                 // interfaces that have errors or that
                 // inherit from interfaces that have errors
                 // might have an uninitialized vtable
                 if (!base.sym.vtbl.length)
-                    continue;
+                    return;
 
                 // first entry is ClassInfo reference
                 auto methods = base.sym.vtbl[base.sym.vtblOffset .. $];
@@ -716,7 +724,7 @@ private extern(C++) final class Semantic2Visitor : Visitor
                         // Check that it is current
                         //printf("newinstance = %d fd.toParent() = %s ifd.toParent() = %s\n",
                             //newinstance, fd.toParent().toChars(), ifd.toParent().toChars());
-                        if (fd.toParent() != cd && ifd.toParent() == base.sym)
+                        if (direct && fd.toParent() != cd && ifd.toParent() == base.sym)
                             .error(cd.loc, "%s `%s` interface function `%s` is not implemented", cd.kind, cd.toPrettyChars, ifd.toFullSignature());
                     }
                     else
@@ -728,6 +736,17 @@ private extern(C++) final class Semantic2Visitor : Visitor
                     }
                 }
             }
+
+            // Check the interfaces directly declared by `cd`, as well as those
+            // inherited from abstract base classes. A concrete base class would
+            // already have had its own interfaces checked.
+            // https://github.com/dlang/dmd/issues/19807
+            foreach (base; cd.interfaces)
+                checkBase(base, true);
+
+            for (auto b = cd.baseClass; b && b.isAbstract(); b = b.baseClass)
+                foreach (base; b.interfaces)
+                    checkBase(base, false);
         }
 
         if (cd.semanticRun >= PASS.semantic2done)
@@ -773,7 +792,7 @@ private void doGNUABITagSemantic(ref Expression e, ref Expression* lastTag)
     // When `@gnuAbiTag` is used, the type will be the UDA, not the struct literal
     if (e.op == EXP.type)
     {
-        error(e.loc, "`@%s` at least one argument expected", Id.udaGNUAbiTag.toChars());
+        error(e.loc, "`@%s` at least one argument expected", Id.udaGNUAbiTag.toErrMsg());
         return;
     }
 
@@ -791,7 +810,7 @@ private void doGNUABITagSemantic(ref Expression e, ref Expression* lastTag)
     auto ale = (*sle.elements)[0].isArrayLiteralExp();
     if (ale is null)
     {
-        error(e.loc, "`@%s` at least one argument expected", Id.udaGNUAbiTag.toChars());
+        error(e.loc, "`@%s` at least one argument expected", Id.udaGNUAbiTag.toErrMsg());
         return;
     }
 
@@ -800,7 +819,7 @@ private void doGNUABITagSemantic(ref Expression e, ref Expression* lastTag)
     {
         const str1 = (*lastTag.isStructLiteralExp().elements)[0].toString();
         const str2 = ale.toString();
-        error(e.loc, "only one `@%s` allowed per symbol", Id.udaGNUAbiTag.toChars());
+        error(e.loc, "only one `@%s` allowed per symbol", Id.udaGNUAbiTag.toErrMsg());
         errorSupplemental(e.loc, "instead of `@%s @%s`, use `@%s(%.*s, %.*s)`",
             lastTag.toChars(), e.toChars(), Id.udaGNUAbiTag.toChars(),
             // Avoid [ ... ]
@@ -818,7 +837,7 @@ private void doGNUABITagSemantic(ref Expression e, ref Expression* lastTag)
         if (!str.length)
         {
             error(e.loc, "argument `%d` to `@%s` cannot be %s", cast(int)(idx + 1),
-                    Id.udaGNUAbiTag.toChars(),
+                    Id.udaGNUAbiTag.toErrMsg(),
                     elem.isNullExp() ? "`null`".ptr : "empty".ptr);
             continue;
         }
@@ -828,7 +847,7 @@ private void doGNUABITagSemantic(ref Expression e, ref Expression* lastTag)
             if (!c.isValidMangling())
             {
                 error(e.loc, "`@%s` char `0x%02x` not allowed in mangling",
-                        Id.udaGNUAbiTag.toChars(), c);
+                        Id.udaGNUAbiTag.toErrMsg(), c);
                 break;
             }
         }
@@ -971,22 +990,6 @@ FuncDeclaration findFunc(ClassDeclaration _this, Identifier ident, TypeFunction 
 
 
 /**
- * Try lower a variable's Associative Array initializer to a newaa struct
- * so it can be put in static data.
- * Params:
- *   vd = Variable to lower
- *   sc = Scope
- */
-void lowerStaticAAs(VarDeclaration vd, Scope* sc)
-{
-    if (auto ei = vd._init.isExpInitializer())
-    {
-        scope v = new StaticAAVisitor(sc, vd.storage_class);
-        ei.exp.accept(v);
-    }
-}
-
-/**
  * Try lower all Associative Array literals in an expression to a newaa struct
  * so it can be put in static data.
  * Params:
@@ -995,7 +998,7 @@ void lowerStaticAAs(VarDeclaration vd, Scope* sc)
  */
 void lowerStaticAAs(Expression e, Scope* sc)
 {
-    scope v = new StaticAAVisitor(sc, STC.none);
+    scope v = new StaticAAVisitor(sc);
     e.accept(v);
 }
 
@@ -1004,12 +1007,10 @@ private extern(C++) final class StaticAAVisitor : SemanticTimeTransitiveVisitor
 {
     alias visit = SemanticTimeTransitiveVisitor.visit;
     Scope* sc;
-    STC storage_class;
 
-    this(Scope* sc, STC storage_class) scope @safe
+    this(Scope* sc) scope @safe
     {
         this.sc = sc;
-        this.storage_class = storage_class;
     }
 
     override void visit(AssocArrayLiteralExp aaExp)
@@ -1017,17 +1018,16 @@ private extern(C++) final class StaticAAVisitor : SemanticTimeTransitiveVisitor
         if (!aaExp.lowering)
             expressionSemantic(aaExp, sc);
         assert(aaExp.lowering);
-        if (!(storage_class & STC.manifest)) // manifest constants create runtime copies
-            if (!aaExp.loweringCtfe)
-            {
-                aaExp.loweringCtfe = aaExp.lowering.ctfeInterpret();
-                aaExp.loweringCtfe.accept(this); // lower AAs in keys and values
-            }
+        if (!aaExp.loweringCtfe)
+        {
+            aaExp.loweringCtfe = aaExp.lowering.ctfeInterpret();
+            aaExp.loweringCtfe.accept(this); // lower AAs in keys and values
+        }
         semanticTypeInfo(sc, aaExp.lowering.type);
     }
 
     // https://issues.dlang.org/show_bug.cgi?id=24602
-    // TODO: Is this intionally not visited by SemanticTimeTransitiveVisitor?
+    // TODO: Is this intentionally not visited by SemanticTimeTransitiveVisitor?
     override void visit(ClassReferenceExp crExp)
     {
         this.visit(crExp.value);
@@ -1075,7 +1075,7 @@ void staticAssertFail(StaticAssert sa, Scope* sc)
         error(sa.loc, "static assert:  %s", msgbuf.extractChars());
     }
     else
-        error(sa.loc, "static assert:  `%s` is false", sa.exp.toChars());
+        error(sa.loc, "static assert:  `%s` is false", sa.exp.toErrMsg());
     if (sc.tinst)
         sc.tinst.printInstantiationTrace();
     if (!global.gag)

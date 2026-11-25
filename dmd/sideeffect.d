@@ -78,6 +78,8 @@ bool hasSideEffect(Expression e, bool assumeImpureCalls = false)
     extern (C++) final class LambdaHasSideEffect : StoppableVisitor
     {
         alias visit = typeof(super).visit;
+        Expression e;
+        bool assumeImpureCalls;
     public:
         extern (D) this() scope @safe
         {
@@ -91,6 +93,8 @@ bool hasSideEffect(Expression e, bool assumeImpureCalls = false)
     }
 
     scope LambdaHasSideEffect v = new LambdaHasSideEffect();
+    v.e = e;
+    v.assumeImpureCalls = assumeImpureCalls;
     return walkPostorder(e, v);
 }
 
@@ -241,6 +245,19 @@ private bool lambdaHasSideEffect(Expression e, bool assumeImpureCalls = false)
  */
 bool discardValue(Expression e)
 {
+    void checkOpOverload(CallExp ce)
+    {
+        if (ce.f && ce.f.ident == Id.opEquals && ce.fromOpOverload)
+        {
+            import dmd.root.string : startsWith;
+            // avoid breaking `lhs.should == rhs`
+            // https://github.com/atilaneves/unit-threaded#custom-assertions
+            // lowered: `should(lhs).opEquals(rhs)`
+            auto dve = ce.e1.isDotVarExp();
+            if (!dve || !dve.e1.type.toString().startsWith("Should"))
+                error(ce.loc, "the result of the equality expression `%s` is discarded", e.toErrMsg());
+        }
+    }
     if (lambdaHasSideEffect(e)) // check side-effect shallowly
     {
         // check for e.g. `arrayLiteral[index] = expr;`
@@ -264,9 +281,10 @@ bool discardValue(Expression e)
         {
             if (auto dve = ce.e1.isDotVarExp())
             {
+                import dmd.dcast : implicitConvTo;
                 auto lhs = dve.e1;
                 auto ts = lhs.type.isTypeStruct();
-                if (ts && !lhs.isLvalue() && !ts.sym.hasPointerField) // Don't disallow writing to data through a pointer field
+                if (ts && !lhs.isLvalue() && ts.constOf().implicitConvTo(ts)) // Don't disallow writing to data through a *mutable* pointer field
                 {
                     error(lhs.loc, "assignment to struct rvalue `%s` is discarded",
                         lhs.toChars());
@@ -275,6 +293,8 @@ bool discardValue(Expression e)
                 }
             }
         }
+        if (ce)
+            checkOpOverload(ce);
         return false;
     }
     switch (e.op)
@@ -310,11 +330,13 @@ bool discardValue(Expression e)
         auto ce = e.isCallExp();
         if (const f = ce.f)
         {
+            // check `==` lowering for slices
             if (f.ident == Id.__equals && ce.arguments && ce.arguments.length == 2)
             {
                 return discardValue(new EqualExp(EXP.equal, e.loc, (*ce.arguments)[0], (*ce.arguments)[1]));
             }
         }
+        checkOpOverload(ce);
         return false;
     case EXP.andAnd:
     case EXP.orOr:

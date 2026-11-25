@@ -19,12 +19,18 @@
 template <typename TYPE>
 struct Array
 {
-    d_size_t length;
+    uint32_t length;
 
   private:
-    DArray<TYPE> data;
+    uint32_t allocated;
     #define SMALLARRAYCAP       1
-    TYPE smallarray[SMALLARRAYCAP];    // inline storage for small arrays
+    union
+    {
+        TYPE smallarray[SMALLARRAYCAP];    // inline storage for small arrays
+        TYPE* _ptr;
+    };
+    TYPE* data() { return allocated <= SMALLARRAYCAP ? smallarray : _ptr; }
+    const TYPE* data() const { return allocated <= SMALLARRAYCAP ? smallarray : _ptr; }
 
 #if !IN_LLVM
     Array(const Array&);
@@ -33,15 +39,14 @@ struct Array
   public:
     Array()
     {
-        data.ptr = nullptr;
         length = 0;
-        data.length = 0;
+        allocated = SMALLARRAYCAP;
     }
 
     ~Array()
     {
-        if (data.ptr != &smallarray[0])
-            mem.xfree(data.ptr);
+        if (allocated > SMALLARRAYCAP)
+            mem.xfree(_ptr);
     }
 
     char *toChars() const
@@ -50,7 +55,7 @@ struct Array
         d_size_t len = 2;
         for (d_size_t u = 0; u < length; u++)
         {
-            buf[u] = ((TYPE)data.ptr[u])->toChars();
+            buf[u] = (data()[u])->toChars();
             len += strlen(buf[u]) + 1;
         }
         char *str = (char *)mem.xmalloc(len);
@@ -74,7 +79,7 @@ struct Array
     void push(TYPE ptr)
     {
         reserve(1);
-        data.ptr[length++] = ptr;
+        data()[length++] = ptr;
     }
 
     void append(Array *a)
@@ -84,38 +89,38 @@ struct Array
 
     void reserve(d_size_t nentries)
     {
-        //printf("Array::reserve: length = %d, data.length = %d, nentries = %d\n", (int)length, (int)data.length, (int)nentries);
-        if (data.length - length < nentries)
+        //printf("Array::reserve: length = %d, allocated = %d, nentries = %d\n", (int)length, (int)allocated, (int)nentries);
+        if (allocated - length < nentries)
         {
-            if (data.length == 0)
+            if (allocated == 0)
             {
                 // Not properly initialized, someone memset it to zero
                 if (nentries <= SMALLARRAYCAP)
                 {
-                    data.length = SMALLARRAYCAP;
-                    data.ptr = SMALLARRAYCAP ? &smallarray[0] : nullptr;
+                    allocated = SMALLARRAYCAP;
                 }
                 else
                 {
-                    data.length = nentries;
-                    data.ptr = (TYPE *)mem.xmalloc(data.length * sizeof(TYPE));
+                    allocated = nentries;
+                    _ptr = (TYPE *)mem.xmalloc(allocated * sizeof(TYPE));
                 }
             }
-            else if (data.length == SMALLARRAYCAP)
+            else if (allocated <= SMALLARRAYCAP)
             {
-                data.length = length + nentries;
-                data.ptr = (TYPE *)mem.xmalloc(data.length * sizeof(TYPE));
-                memcpy(data.ptr, &smallarray[0], length * sizeof(TYPE));
+                allocated = length + nentries;
+                TYPE* p = (TYPE *)mem.xmalloc(allocated * sizeof(TYPE));
+                memcpy(p, &smallarray[0], length * sizeof(TYPE));
+                _ptr = p;
             }
             else
             {
                 /* Increase size by 1.5x to avoid excessive memory fragmentation
                  */
-                d_size_t increment = length / 2;
+                auto increment = length / 2;
                 if (nentries > increment)       // if 1.5 is not enough
-                    increment = nentries;
-                data.length = length + increment;
-                data.ptr = (TYPE *)mem.xrealloc(data.ptr, data.length * sizeof(TYPE));
+                    increment = (uint32_t)nentries;
+                allocated = length + increment;
+                _ptr = (TYPE *)mem.xrealloc(_ptr, allocated * sizeof(TYPE));
             }
         }
     }
@@ -123,7 +128,7 @@ struct Array
     void remove(d_size_t i)
     {
         if (length - i - 1)
-            memmove(data.ptr + i, data.ptr + i + 1, (length - i - 1) * sizeof(TYPE));
+            memmove(data() + i, data() + i + 1, (length - i - 1) * sizeof(TYPE));
         length--;
     }
 
@@ -131,11 +136,11 @@ struct Array
     {
         if (a)
         {
-            d_size_t d = a->length;
+            auto d = a->length;
             reserve(d);
             if (length != index)
-                memmove(data.ptr + index + d, data.ptr + index, (length - index) * sizeof(TYPE));
-            memcpy(data.ptr + index, a->data.ptr, d * sizeof(TYPE));
+                memmove(data() + index + d, data() + index, (length - index) * sizeof(TYPE));
+            memcpy(data() + index, a->data(), d * sizeof(TYPE));
             length += d;
         }
     }
@@ -143,8 +148,8 @@ struct Array
     void insert(d_size_t index, TYPE ptr)
     {
         reserve(1);
-        memmove(data.ptr + index + 1, data.ptr + index, (length - index) * sizeof(TYPE));
-        data.ptr[index] = ptr;
+        memmove(data() + index + 1, data() + index, (length - index) * sizeof(TYPE));
+        data()[index] = ptr;
         length++;
     }
 
@@ -161,7 +166,7 @@ struct Array
     {
         for (d_size_t i = 0; i < length; i++)
         {
-            if (data.ptr[i] == ptr)
+            if (data()[i] == ptr)
                 return i;
         }
         return SIZE_MAX;
@@ -177,95 +182,81 @@ struct Array
 #ifdef DEBUG
         assert(index < length);
 #endif
-        return data.ptr[index];
+        return data()[index];
     }
 
     TYPE *tdata()
     {
-        return data.ptr;
+        return data();
     }
 
     Array *copy()
     {
         Array *a = new Array();
         a->setDim(length);
-        memcpy(a->data.ptr, data.ptr, length * sizeof(TYPE));
+        memcpy(a->data(), data(), length * sizeof(TYPE));
         return a;
     }
 
     void shift(TYPE ptr)
     {
         reserve(1);
-        memmove(data.ptr + 1, data.ptr, length * sizeof(TYPE));
-        data.ptr[0] = ptr;
+        memmove(data() + 1, data(), length * sizeof(TYPE));
+        data()[0] = ptr;
         length++;
     }
 
     void zero()
     {
-        memset(data.ptr, 0, length * sizeof(TYPE));
+        memset(data(), 0, length * sizeof(TYPE));
     }
 
     TYPE pop()
     {
-        return data.ptr[--length];
+        return data()[--length];
     }
 
 #if IN_LLVM
     // Define members and types like std::vector
     typedef size_t size_type;
 
-    Array(const Array &a) : length(0), data()
+    Array(const Array &a) : Array()
     {
         setDim(a.length);
-        memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
+        memcpy(data(), a.data(), length * sizeof(TYPE));
     }
 
     Array &operator=(Array &a)
     {
         setDim(a.length);
-        memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
+        memcpy(data(), a.data(), length * sizeof(TYPE));
         return *this;
     }
 
-    Array(Array &&a)
+    Array(Array &&a) : Array()
     {
-        if (data.ptr != &smallarray[0])
-            mem.xfree(data.ptr);
         length = a.length;
-        if (a.data.ptr == &a.smallarray[0])
-        {
-            data.ptr = &smallarray[0];
-            data.length = a.data.length;
-            memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
-        }
+        allocated = a.allocated;
+        if (allocated <= SMALLARRAYCAP)
+            memcpy(smallarray, a.smallarray, length * sizeof(TYPE));
         else
-        {
-            data = a.data;
-            a.data.ptr = nullptr;
-        }
+            _ptr = a._ptr;
         a.length = 0;
-        a.data.length = 0;
+        a.allocated = SMALLARRAYCAP;
     }
 
     Array &operator=(Array<TYPE> &&a)
     {
-        if (data.ptr != &smallarray[0])
-            mem.xfree(data.ptr);
+        if (allocated > SMALLARRAYCAP)
+            mem.xfree(_ptr);
         length = a.length;
-        if (a.data.ptr == &a.smallarray[0])
-        {
-            data.ptr = &smallarray[0];
-            data.length = a.data.length;
-            memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
-        }
+        allocated = a.allocated;
+        if (allocated <= SMALLARRAYCAP)
+            memcpy(smallarray, a.smallarray, length * sizeof(TYPE));
         else
-        {
-            data = a.data;
-            a.data.ptr = nullptr;
-        }
+            _ptr = a._ptr;
         a.length = 0;
-        a.data.length = 0;
+        a.allocated = SMALLARRAYCAP;
         return *this;
     }
 
@@ -274,7 +265,7 @@ struct Array
 #ifdef DEBUG
         assert(index < length);
 #endif
-        return data.ptr[index];
+        return data()[index];
     }
 
     size_type size() const
@@ -289,12 +280,12 @@ struct Array
 
     TYPE front() const
     {
-        return data.ptr[0];
+        return data()[0];
     }
 
     TYPE back() const
     {
-        return data.ptr[length-1];
+        return data()[length-1];
     }
 
     void push_back(TYPE a)
@@ -312,21 +303,21 @@ struct Array
     typedef std::reverse_iterator<iterator> reverse_iterator;
     typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
-    iterator begin() { return static_cast<iterator>(data.ptr); }
-    iterator end() { return static_cast<iterator>(&data.ptr[length]); }
+    iterator begin() { return static_cast<iterator>(data()); }
+    iterator end() { return static_cast<iterator>(&data()[length]); }
     reverse_iterator rbegin() { return reverse_iterator(end()); }
     reverse_iterator rend() { return reverse_iterator(begin()); }
 
-    const_iterator begin() const { return static_cast<const_iterator>(data.ptr); }
-    const_iterator end() const { return static_cast<const_iterator>(&data.ptr[length]); }
+    const_iterator begin() const { return static_cast<const_iterator>(data()); }
+    const_iterator end() const { return static_cast<const_iterator>(&data()[length]); }
     const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
     const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
 
     iterator erase(iterator pos)
     {
-        size_t index = pos - data.ptr;
+        size_t index = pos - data();
         remove(index);
-        return static_cast<iterator>(&data.ptr[index]);
+        return static_cast<iterator>(&data()[index]);
     }
 #endif // IN_LLVM
 };

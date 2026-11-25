@@ -227,7 +227,7 @@ package void setLengthVarIfKnown(VarDeclaration lengthVar, Expression arr)
     if (auto se = arr.isStringExp())
         len = se.len;
     else if (auto ale = arr.isArrayLiteralExp())
-        len = ale.elements.length;
+        len = ale.length;
     else
     {
         auto tsa = arr.type.toBasetype().isTypeSArray();
@@ -466,7 +466,7 @@ Expression optimize(Expression e, int result, bool keepLvalue = false)
                     {
                         auto t = v.isThis();
                         assert(t);
-                        .error(e.loc, "taking the address of non-static variable `%s` requires an instance of `%s`", v.toChars(), t.toChars());
+                        .error(e.loc, "taking the address of non-static variable `%s` requires an instance of `%s`", v.toErrMsg(), t.toErrMsg());
                         ret = ErrorExp.get();
                         return;
                     }
@@ -1087,7 +1087,7 @@ Expression optimize(Expression e, int result, bool keepLvalue = false)
         // All negative integral powers are illegal.
         if (e.e1.type.isIntegral() && (e.e2.op == EXP.int64) && cast(sinteger_t)e.e2.toInteger() < 0)
         {
-            error(e.loc, "cannot raise `%s` to a negative integer power.", e.e1.type.toBasetype().toChars());
+            error(e.loc, "cannot raise `%s` to a negative integer power.", e.e1.type.toBasetype().toErrMsg());
             errorSupplemental(e.loc, "did you mean `(cast(real)%s)^^%s` ?", e.e1.toChars(), e.e2.toChars());
             return errorReturn();
         }

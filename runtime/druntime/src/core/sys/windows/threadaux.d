@@ -17,6 +17,7 @@ import core.sys.windows.winbase/+ : CloseHandle, GetCurrentThreadId, GetCurrentP
     GetModuleHandleA, GetProcAddress+/;
 import core.sys.windows.windef/+ : BOOL, DWORD, FALSE, HRESULT+/;
 import core.stdc.stdlib;
+import core.memory;
 
 public import core.thread;
 
@@ -139,10 +140,14 @@ struct thread_aux
     // get the thread environment block (TEB) of the thread with the given handle
     static void** getTEB( HANDLE hnd ) nothrow @nogc
     {
-        HANDLE nthnd = GetModuleHandleA( "NTDLL" );
-        assert( nthnd, "cannot get module handle for ntdll" );
-        fnNtQueryInformationThread fn = cast(fnNtQueryInformationThread) GetProcAddress( nthnd, "NtQueryInformationThread" );
-        assert( fn, "cannot find NtQueryInformationThread in ntdll" );
+        __gshared fnNtQueryInformationThread fn;
+        if( !fn )
+        {
+            HANDLE nthnd = GetModuleHandleA( "NTDLL" );
+            assert( nthnd, "cannot get module handle for ntdll" );
+            fn = cast(fnNtQueryInformationThread) GetProcAddress( nthnd, "NtQueryInformationThread" );
+            assert( fn, "cannot find NtQueryInformationThread in ntdll" );
+        }
 
         THREAD_BASIC_INFORMATION tbi;
         int Status = (*fn)(hnd, ThreadBasicInformation, &tbi, tbi.sizeof, null);
@@ -392,6 +397,7 @@ extern(C) void** GetTlsEntryAdr()
 // run rt_moduleTlsCtor in the context of the given thread
 void thread_moduleTlsCtor( uint id )
 {
+    GC.disable(); scope(exit) GC.enable();
     thread_aux.impersonate_thread(id, &rt_moduleTlsCtor);
 }
 
@@ -399,5 +405,6 @@ void thread_moduleTlsCtor( uint id )
 // run rt_moduleTlsDtor in the context of the given thread
 void thread_moduleTlsDtor( uint id )
 {
+    GC.disable(); scope(exit) GC.enable();
     thread_aux.impersonate_thread(id, &rt_moduleTlsDtor);
 }

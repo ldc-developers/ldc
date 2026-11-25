@@ -307,6 +307,9 @@ void parseCommandLine(Strings &sourceFiles) {
                               const_cast<char **>(filteredArgs.data()),
                               "LDC - the LLVM D compiler\n");
 
+  // need to sync this early, as we might emit errors soon below
+  global.errorSink->errorLimit = global.params.v.errorLimit;
+
   if (opts::printTargetFeaturesHelp()) {
     auto triple = llvm::Triple(cfg_triple);
     std::string errMsg;
@@ -1401,10 +1404,7 @@ void codegenModules(Modules &modules) {
       global.params.link = false;
   }
 
-  {
-    dmd::TimeTraceScope timeScope("Prune object file cache");
-    cache::pruneCache();
-  }
+  cache::pruneCache();
 
   freeRuntime();
 }

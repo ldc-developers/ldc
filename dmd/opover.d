@@ -292,7 +292,7 @@ Expression opOverloadUnary(UnaExp e, Scope* sc)
         // For ++ and --, rewrites to += and -= are also tried, so don't error yet
         if (!e.isPreExp())
         {
-            error(e.loc, "operator `%s` is not defined for `%s`", EXPtoString(e.op).ptr, ad.toChars());
+            error(e.loc, "operator `%s` is not defined for `%s`", EXPtoString(e.op).ptr, ad.toErrMsg());
             errorSupplemental(ad.loc, "perhaps overload the operator with `auto opUnary(string op : \"%s\")() {}`",
                 EXPtoString(e.op).ptr);
             return ErrorExp.get();
@@ -363,7 +363,9 @@ Expression opOverloadArray(ArrayExp ae, Scope* sc)
              */
             Expressions* a = ae.arguments.copy();
             Expression result = new DotIdExp(ae.loc, ae.e1, Id.opIndex);
-            result = new CallExp(ae.loc, result, a);
+            auto ce = new CallExp(ae.loc, result, a);
+            ce.fromOpOverload = true;
+            result = ce;
             if (maybeSlice) // a[] might be: a.opSlice()
                 result = result.trySemantic(sc);
             else
@@ -401,7 +403,9 @@ Expression opOverloadArray(ArrayExp ae, Scope* sc)
                 a.push(ie.upr);
             }
             Expression result = new DotIdExp(ae.loc, ae.e1, Id.opSlice);
-            result = new CallExp(ae.loc, result, a);
+            auto ce = new CallExp(ae.loc, result, a);
+            ce.fromOpOverload = true;
+            result = ce;
             result = result.expressionSemantic(sc);
             return Expression.combine(e0, result);
         }
@@ -513,7 +517,7 @@ Expression binAliasThis(BinExp e, Scope* sc, Type[2] aliasThisStop)
     if (rewrittenLhs)
     {
         error(e.loc, "cannot use `alias this` to partially initialize variable `%s` of type `%s`. Use `%s`",
-                e.e1.toChars(), ad1.toChars(), rewrittenLhs.toChars());
+                e.e1.toErrMsg(), ad1.toErrMsg(), rewrittenLhs.toErrMsg());
         return ErrorExp.get();
     }
     return null;
@@ -559,14 +563,14 @@ Expression opOverloadBinary(BinExp e, Scope* sc, Type[2] aliasThisStop)
 
     if (s && !(s.isTemplateDeclaration() || s.isOverloadSet))
     {
-        error(e.e1.loc, "`%s.opBinary` isn't a template", e.e1.toChars());
+        error(e.e1.loc, "`%s.opBinary` isn't a template", e.e1.toErrMsg());
         return ErrorExp.get();
     }
 
     Dsymbol s_r = search_function(ad2, Id.opBinaryRight);
     if (s_r && !(s_r.isTemplateDeclaration() || s_r.isOverloadSet()))
     {
-        error(e.e2.loc, "`%s.opBinaryRight` isn't a template", e.e2.toChars());
+        error(e.e2.loc, "`%s.opBinaryRight` isn't a template", e.e2.toErrMsg());
         return ErrorExp.get();
     }
     if (s_r && s_r == s) // https://issues.dlang.org/show_bug.cgi?id=12778
@@ -638,7 +642,7 @@ bool suggestOpOpAssign(BinAssignExp exp, Scope* sc, Expression parent)
 
     if (parent && (parent.isPreExp() || parent.isPostExp()))
     {
-        error(exp.loc, "operator `%s` not supported for `%s` of type `%s`", EXPtoString(parent.op).ptr, exp.e1.toChars(), ad.toChars());
+        error(exp.loc, "operator `%s` not supported for `%s` of type `%s`", EXPtoString(parent.op).ptr, exp.e1.toErrMsg(), ad.toErrMsg());
         errorSupplemental(ad.loc,
             "perhaps implement `auto opUnary(string op : \"%s\")() {}`"~
             " or `auto opOpAssign(string op : \"%s\")(int) {}`",
@@ -655,7 +659,7 @@ bool suggestOpOpAssign(BinAssignExp exp, Scope* sc, Expression parent)
     }
     else
     {
-        error(exp.loc, "operator `%s` not supported for `%s` of type `%s`", EXPtoString(exp.op).ptr, exp.e1.toChars(), ad.toChars());
+        error(exp.loc, "operator `%s` not supported for `%s` of type `%s`", EXPtoString(exp.op).ptr, exp.e1.toErrMsg(), ad.toErrMsg());
         errorSupplemental(ad.loc, "perhaps implement `auto opOpAssign(string op : \"%s\")(%s) {}`",
             EXPtoString(stripAssignOp(exp.op)).ptr, exp.e2.type.toChars());
     }
@@ -668,7 +672,9 @@ private Expression dotTemplateCall(Expression e, Identifier id, Objects* tiargs,
     auto ti = new DotTemplateInstanceExp(e.loc, e, id, tiargs);
     auto expressions = new Expressions();
     expressions.pushSlice(args);
-    return new CallExp(e.loc, ti, expressions);
+    auto ce = new CallExp(e.loc, ti, expressions);
+    ce.fromOpOverload = true;
+    return ce;
 }
 
 Expression opOverloadEqual(EqualExp e, Scope* sc, Type[2] aliasThisStop)
@@ -734,11 +740,12 @@ Expression opOverloadEqual(EqualExp e, Scope* sc, Type[2] aliasThisStop)
             Expression result = new IdentifierExp(e.loc, Id.empty);
             result = new DotIdExp(e.loc, result, Id.object);
             result = new DotIdExp(e.loc, result, Id.opEquals);
-            result = new CallExp(e.loc, result, e1x, e2x);
+            auto ce = new CallExp(e.loc, result, e1x, e2x);
+            ce.fromOpOverload = true;
+            result = ce;
             if (e.op == EXP.notEqual)
                 result = new NotExp(e.loc, result);
-            result = result.expressionSemantic(sc);
-            return result;
+            return result.expressionSemantic(sc);
         }
     }
 
@@ -900,8 +907,9 @@ Expression opOverloadCmp(CmpExp exp, Scope* sc, Type[2] aliasThisStop)
         arguments.push(exp.e1);
     }
 
-    cl = new CallExp(e.loc, cl, arguments);
-    cl = new CmpExp(cmpOp, exp.loc, cl, new IntegerExp(0));
+    auto ce = new CallExp(e.loc, cl, arguments);
+    ce.fromOpOverload = true;
+    cl = new CmpExp(cmpOp, exp.loc, ce, new IntegerExp(0));
     return cl.expressionSemantic(sc);
 }
 
@@ -1015,7 +1023,7 @@ Expression opOverloadBinaryAssign(BinAssignExp e, Scope* sc, Type[2] aliasThisSt
     Dsymbol s = search_function(ad1, Id.opOpAssign);
     if (s && !(s.isTemplateDeclaration() || s.isOverloadSet()))
     {
-        error(e.loc, "`%s.opOpAssign` isn't a template", e.e1.toChars());
+        error(e.loc, "`%s.opOpAssign` isn't a template", e.e1.toErrMsg());
         return ErrorExp.get();
     }
 
@@ -1087,7 +1095,7 @@ private Expression pickBestBinaryOverload(Scope* sc, Objects* tiargs, Dsymbol s,
         if (!(m.lastf == lastf && m.count == 2 && count == 1))
         {
             // Error, ambiguous
-            error(e.loc, "overloads `%s` and `%s` both match argument list for `%s`", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
+            error(e.loc, "overloads `%s` and `%s` both match argument list for `%s`", m.lastf.type.toErrMsg(), m.nextf.type.toErrMsg(), m.lastf.toErrMsg());
         }
     }
     else if (m.last == MATCH.nomatch)
@@ -1171,7 +1179,7 @@ private Expression compare_overload(BinExp e, Scope* sc, Identifier id, ref EXP 
 /***********************************
  * Utility to build a function call out of this reference and argument.
  */
-Expression build_overload(Loc loc, Scope* sc, Expression ethis, Expression earg, Dsymbol d)
+private Expression build_overload(Loc loc, Scope* sc, Expression ethis, Expression earg, Dsymbol d)
 {
     assert(d);
     Expression e;
@@ -1179,9 +1187,9 @@ Expression build_overload(Loc loc, Scope* sc, Expression ethis, Expression earg,
         e = new DotVarExp(loc, ethis, decl, false);
     else
         e = new DotIdExp(loc, ethis, d.ident);
-    e = new CallExp(loc, e, earg);
-    e = e.expressionSemantic(sc);
-    return e;
+    auto ce = new CallExp(loc, e, earg);
+    ce.fromOpOverload = true;
+    return ce.expressionSemantic(sc);
 }
 
 /***************************************
@@ -1534,7 +1542,7 @@ private FuncDeclaration findBestOpApplyMatch(Expression ethis, FuncDeclaration f
     if (fd_ambig)
     {
         .error(ethis.loc, "`%s.%s` matches more than one declaration:",
-            ethis.toChars(), fstart.ident.toChars());
+            ethis.toErrMsg(), fstart.ident.toErrMsg());
         .errorSupplemental(fd_best.loc, "`%s`\nand:", fd_best.type.toChars());
         .errorSupplemental(fd_ambig.loc, "`%s`", fd_ambig.type.toChars());
         return null;
@@ -1558,12 +1566,19 @@ private bool matchParamsToOpApply(TypeFunction tf, Parameters* parameters, bool 
 {
     enum nomatch = false;
 
-    /* opApply/delegate has exactly one parameter, and that parameter
+    /* opApply/delegate has one required parameter, and any extra parameters
+     * must have default arguments.
      * is a delegate that looks like:
      *     int opApply(int delegate(ref Type [, ...]) dg);
      */
-    if (tf.parameterList.length != 1)
+    if (tf.parameterList.length < 1)
         return nomatch;
+
+    foreach (i; 1 .. tf.parameterList.length)
+    {
+        if (!tf.parameterList[i].defaultArg)
+            return nomatch;
+    }
 
     /* Get the type of opApply's dg parameter
      */

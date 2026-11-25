@@ -81,6 +81,12 @@ version (CRuntime_Microsoft)
     alias __int64 = long;
 }
 
+/* Make D's character types available in ImportC.
+ */
+alias __importc_char = char;
+alias __importc_wchar = wchar;
+alias __importc_dchar = dchar;
+
 /*********** floating point *************/
 
 /* https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
@@ -170,9 +176,10 @@ else version (LDC)
     alias __builtin_fabsl = imported!"ldc.intrinsics".llvm_fabs!real;
 
     alias __builtin_memcmp  = imported!"core.stdc.string".memcmp;
-    alias __builtin_memcpy  = imported!"ldc.intrinsics".llvm_memcpy!size_t;
-    alias __builtin_memmove = imported!"ldc.intrinsics".llvm_memmove!size_t;
-    alias __builtin_memset  = imported!"ldc.intrinsics".llvm_memset!size_t;
+    // note: ldc.intrinsics.llvm_mem{cpy,move,set} are overloads (`alignment` parameter)
+    alias __builtin_memcpy  = imported!"core.stdc.string".memcpy;
+    alias __builtin_memmove = imported!"core.stdc.string".memmove;
+    alias __builtin_memset  = imported!"core.stdc.string".memset;
 
     alias __builtin_bswap16 = imported!"ldc.intrinsics".llvm_bswap!ushort;
     alias __builtin_bswap32 = imported!"ldc.intrinsics".llvm_bswap!uint;

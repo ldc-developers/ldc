@@ -67,6 +67,15 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
 
 llvm::Type *IrTypeClass::getLLType() { return getOpaquePtrType(); }
 
+bool IrTypeClass::hasMonitor() const {
+  // ClassDeclaration::hasMonitor() conservatively returns true if
+  // there is no Object declaration (since it might not have gotten sema yet).
+  // As we only call this from codegen, there is no forward-referencing issue,
+  // so return false if there is no Object declaration in a custom
+  // druntime/object.d.
+  return ClassDeclaration::object && cd->hasMonitor();
+}
+
 // Lazily build the actual IR struct type when needed.
 // Note that it is this function that initializes most fields!
 llvm::Type *IrTypeClass::getMemoryLLType() {
@@ -99,8 +108,7 @@ llvm::Type *IrTypeClass::getMemoryLLType() {
         cd->vtblInterfaces ? cd->vtblInterfaces->length : 0;
   } else {
     // classes have monitor and fields
-    if (!cd->isCPPclass() && !cd->isCPPinterface()) {
-      // add monitor
+    if (hasMonitor()) {
       builder.addType(getOpaquePtrType(), target.ptrsize);
     }
 

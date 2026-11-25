@@ -496,7 +496,7 @@ void test23065()
     static struct B { A!B x; }
 
     A!B a;
-    a == a;
+    cast(void) (a == a);
 }
 
 // https://github.com/dlang/dmd/issues/23182
@@ -516,6 +516,14 @@ void test23182()
     arr().length++;
     assert(a.length == 1);
     assert(calls == 1);
+}
+
+// https://github.com/dlang/dmd/issues/23711
+void test23711()
+{
+    alias AliasSeq(T...) = T;
+    alias Cases = AliasSeq!(["first": [1]]);
+    assert(Cases[0]);
 }
 
 /***************************************************/
@@ -597,6 +605,25 @@ struct Bson23642
     }
 }
 
+// https://github.com/dlang/dmd/issues/23964
+void test23964()
+{
+    struct S
+    {
+        int[] data;
+
+        void opIndexAssign(int rhs, size_t i)
+        {
+            data[i] = rhs;
+        }
+    }
+
+    S[string] aa;
+    aa["a"] = S([1, 2, 3]);
+    aa["a"][0] = 11;
+    assert(aa["a"].data == [11, 2, 3]);
+}
+
 /***************************************************/
 
 void main()
@@ -631,4 +658,6 @@ void main()
     test19829();
     test23182();
     test23642();
+    test23711();
+    test23964();
 }

@@ -11,6 +11,7 @@
 
 #include "dmd/aggregate.h"
 #include "dmd/errors.h"
+#include "dmd/id.h"
 #include "dmd/init.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -109,6 +110,9 @@ void AggrTypeBuilder::addAggregate(
   for (int pass = explicitInits ? 0 : 1; pass < 2; ++pass) {
     for (size_t i = 0; i < ad->fields.length; ++i) {
       const auto field = ad->fields[i];
+
+      if (field->ident == Id::__monitor)
+        continue;
 
       bool haveExplicitInit =
           explicitInits && explicitInits->find(field) != explicitInits->end();

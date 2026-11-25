@@ -31,6 +31,7 @@
 
 #include "dmd/errors.h"
 #include "dmd/target.h"
+#include "dmd/timetrace.h"
 #include "driver/cache_pruning.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_sanitizers.h"
@@ -507,6 +508,7 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
 
 void pruneCache() {
   if (!opts::cacheDir.empty() && isPruningEnabled()) {
+    dmd::TimeTraceScope timeScope("Prune object file cache");
     ::pruneCache(opts::cacheDir.data(), opts::cacheDir.size(), pruneInterval,
                  pruneExpiration, pruneSizeLimitInBytes,
                  pruneSizeLimitPercentage);

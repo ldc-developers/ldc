@@ -33,6 +33,9 @@ public:
   ///
   llvm::Type *getLLType() override;
 
+  /// Whether the class has a __monitor field inherited from Object.
+  bool hasMonitor() const;
+
   /// Returns the actual storage type, i.e. without the indirection
   /// for the class reference.
   llvm::Type *getMemoryLLType();

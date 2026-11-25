@@ -54,7 +54,7 @@ endif()
 if("${TARGET_SYSTEM}" MATCHES "Windows")
     list(REMOVE_ITEM testnames valgrind)
 else()
-    list(REMOVE_ITEM testnames uuid)
+    list(REMOVE_ITEM testnames uuid link)
 endif()
 
 set(musl "")

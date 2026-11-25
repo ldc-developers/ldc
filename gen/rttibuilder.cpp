@@ -21,6 +21,7 @@
 #include "gen/tollvm.h"
 #include "ir/iraggr.h"
 #include "ir/irfunction.h"
+#include "ir/irtypeclass.h"
 
 using namespace dmd;
 
@@ -37,7 +38,8 @@ RTTIBuilder::RTTIBuilder(Type *baseType) {
     // just start with adding the vtbl
     push(baseir->getVtblSymbol());
     // and monitor
-    push_null_vp();
+    if (getIrType(cd->type)->isClass()->hasMonitor())
+      push_null_vp();
   }
 }
 

@@ -571,7 +571,7 @@ macro(compile_druntime d_flags lib_suffix path_suffix emit_bc all_at_once single
     endif()
     dc("${DRUNTIME_D}"
        "${RUNTIME_DIR}/src"
-       "-conf=;${d_flags};${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
+       "-conf=;${d_flags};${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src;-I${CMAKE_BINARY_DIR}/import"
        "${PROJECT_BINARY_DIR}/objects${target_suffix}"
        "${emit_bc}"
        "${all_at_once}"
@@ -592,7 +592,7 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once single_
     endif()
     dc("${PHOBOS2_D}"
        "${PHOBOS2_DIR}"
-       "-conf=;${d_flags};${PHOBOS2_EXTRA_FLAGS};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
+       "-conf=;${d_flags};${PHOBOS2_EXTRA_FLAGS};-I${RUNTIME_DIR}/src;-I${CMAKE_BINARY_DIR}/import;-I${PHOBOS2_DIR}"
        "${PROJECT_BINARY_DIR}/objects${target_suffix}"
        "${emit_bc}"
        "${all_at_once}"
