@@ -461,6 +461,10 @@ void msvc_eh_terminate() nothrow @naked
             cmp 0x2e(%rax), %rbx           // (libcmtd.lib/vcruntime140d.lib, 14.40.x.x)
             je L_retVC14_40_libcmtd
 
+            mov $$0xc348c483489001eb, %rbx // jmp L1; nop; L1: add rsp,48h; ret;
+            cmp 0x30(%rax), %rbx           // (libcmtd.lib, 14.52.x.x)
+            je L_retVC14_52_libcmtd
+
             jmp L_term
 
         L_retVC14_23_msvcrt:               // vcruntime140.dll 14.23.28105
@@ -479,6 +483,10 @@ void msvc_eh_terminate() nothrow @naked
 
         L_retVC14_40_libcmtd:              // libcmtd.lib/vcruntime140d.dll 14.40.33810
             lea 0x30(%rax), %rax
+            jmp L_rbxRestored              // rbx not saved
+
+        L_retVC14_52_libcmtd:              // libcmtd.lib/vcruntime140d.dll 14.52.37025
+            lea 0x33(%rax), %rax
             jmp L_rbxRestored              // rbx not saved
 
         L_retVC14_14:                      // (vcruntime140.dll 14.14.x.y)
