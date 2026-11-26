@@ -57,9 +57,14 @@ void DComputeTarget::emit(Module *m) {
   doCodeGen(m);
 }
 
+#include "llvm/Support/Program.h"
+#include "gen/optimizer.h"
+
 void DComputeTarget::writeModule(llvm::Module *hostModule) {
   addMetadata();
-
+  gABI = abi;
+  gIR = _ir;
+  gTargetMachine = targetMachine;
   std::string filename;
   llvm::raw_string_ostream os(filename);
   const bool is64 = global.params.targetTriple->isArch64Bit();
@@ -70,6 +75,20 @@ void DComputeTarget::writeModule(llvm::Module *hostModule) {
       FileName::combine(global.params.objdir.ptr, os.str().c_str());
 
   ::writeModule(&_ir->module, path);
+
+  if (optLevel() > 0 &&
+      (target == ID::Vulkan || target == ID::OpenCL)) {
+    if (auto spirvOpt = llvm::sys::findProgramByName("spirv-opt")) {
+      std::vector<llvm::StringRef> optArgs;
+      optArgs.push_back(*spirvOpt);
+      optArgs.push_back("-O");
+      optArgs.push_back(path);
+      optArgs.push_back("-o");
+      optArgs.push_back(path);
+      std::string errorMsg;
+      llvm::sys::ExecuteAndWait(*spirvOpt, optArgs, std::nullopt, {}, 0, 0, &errorMsg);
+    }
+  }
   
   delete _ir;
   _ir = nullptr;
