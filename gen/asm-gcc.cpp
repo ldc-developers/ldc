@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "dmd/errors.h"
+#include "dmd/declaration.h"
 #include "dmd/expression.h"
 #include "dmd/statement.h"
 #include "gen/irstate.h"
@@ -207,10 +208,36 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
   LLSmallVector<LLType *, 8> indirectTypes;
   LLSmallVector<LLValue *, 8> operands;
   if (stmt->args) {
+    // Skip IR for this statement on operand errors so later asm statements
+    // still get checked (no fatal(); fail_compilation expects every diagnostic).
+    bool hadError = false;
     for (size_t i = 0; i < stmt->args->length; ++i) {
       Expression *e = (*stmt->args)[i];
       const bool isOutput = (i < stmt->outputargs);
       const bool isIndirect = constraintsBuilder.isIndirectOperand(i);
+
+      // C11 6.5.3.2 / issue #4967: "m" / "=m" take the operand address.
+      if (isIndirect) {
+        Expression *op = e;
+        VarDeclaration *vd = nullptr;
+        for (;;) {
+          if (auto ve = op->isVarExp()) {
+            vd = ve->var->isVarDeclaration();
+            break;
+          }
+          if (auto ce = op->isCastExp()) {
+            op = ce->e1;
+            continue;
+          }
+          break;
+        }
+        if (vd && (vd->storage_class & STCregister)) {
+          error(e->loc, "cannot take address of register variable `%s`",
+                vd->toChars());
+          hadError = true;
+          continue;
+        }
+      }
 
       if (isOutput) {
         assert(dmd::isLvalue(e) && "should have been caught by front-end");
@@ -228,7 +255,8 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
                 "indirect `\"m\"` input operands require an lvalue, but `%s` "
                 "is an rvalue",
                 e->toChars());
-          fatal();
+          hadError = true;
+          continue;
         }
 
         LLValue *inputVal = isIndirect ? DtoLVal(e) : DtoRVal(e);
@@ -237,6 +265,8 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
           indirectTypes.push_back(DtoType(e->type));
       }
     }
+    if (hadError)
+      return;
   }
 
   const size_t N = outputTypes.size();
