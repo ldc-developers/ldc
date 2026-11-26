@@ -47,6 +47,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Compiler.h"
@@ -77,6 +78,26 @@ static RegisterPass<WasmPointersSpillLegacyPass>
 // Public interface to the pass.
 FunctionPass *createWasmPointersSpill() {
   return new WasmPointersSpillLegacyPass();
+}
+
+// Returns true if the result of the instruction can't be a GC pointer.
+static bool isNeverGCPointer(const Instruction &I) {
+  // Stack memory and TLS memory aren't in the GC heap.
+  if (isa<AllocaInst>(I))
+    return true;
+  if (auto *II = dyn_cast<IntrinsicInst>(&I))
+    return II->getIntrinsicID() == Intrinsic::threadlocal_address;
+  return false;
+}
+
+// Returns true if the instruction is a call which may trigger a GC.
+static bool isCallAcrossGC(const Instruction *I) {
+  if (!isa<CallBase>(I))
+    return false;
+  // llvm.threadlocal.address just computes an address.
+  if (auto *II = dyn_cast<IntrinsicInst>(I))
+    return II->getIntrinsicID() != Intrinsic::threadlocal_address;
+  return true;
 }
 
 static bool TypeContainsPointers(LLType *ty) {
@@ -140,7 +161,7 @@ bool WasmPointersSpill::run(Function &F) {
             ValuesStoredInAlloca[Alloca].insert(Store->getValueOperand());
         }
 
-        if (isa<AllocaInst>(I)) // the result of `alloca` can't be a GC pointer
+        if (isNeverGCPointer(I))
           continue;
 
         if (TypeContainsPointers(I.getType())) {
@@ -190,7 +211,7 @@ bool WasmPointersSpill::run(Function &F) {
 
       if (I->getType()->isVoidTy()) // we don't care about non-values
         continue;
-      if (isa<AllocaInst>(I)) // the result of `alloca` can't be a GC pointer
+      if (isNeverGCPointer(*I))
         continue;
 
       // small integers (and bools) can't hold values large enough to
@@ -293,7 +314,7 @@ bool WasmPointersSpill::run(Function &F) {
         TmpUses.reset(Idx);
       }
 
-      if (isa<CallBase>(&I)) {
+      if (isCallAcrossGC(&I)) {
         SeenCall = true;
         BBUsesAcrossCall |= TmpUses;
       }
@@ -559,7 +580,7 @@ bool WasmPointersSpill::run(Function &F) {
           (void)BBNum;
 
           for (Instruction &IterI : make_range(BB.rbegin(), BB.rend())) {
-            if (isa<CallBase>(&IterI)) {
+            if (isCallAcrossGC(&IterI)) {
               if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
                 BasicBlock *NormalDest = Invoke->getNormalDest();
                 if (NormalDest->getUniquePredecessor()) {
@@ -599,7 +620,7 @@ bool WasmPointersSpill::run(Function &F) {
               }
             }
 
-            if (Found && isa<CallBase>(&IterI)) {
+            if (Found && isCallAcrossGC(&IterI)) {
               if (auto *Invoke = dyn_cast<InvokeInst>(&IterI)) {
                 BasicBlock *NormalDest = Invoke->getNormalDest();
                 if (NormalDest->getUniquePredecessor()) {

@@ -536,3 +536,14 @@ void test17()
         result = getPtr();
     }
 }
+
+// CHECK-LABEL: define {{.*}}_D24wasm_spill_pointers_pass6test18FZv
+// TLS addresses aren't GC pointers, so don't need to be spilled.
+void test18()
+{
+    // CHECK-NOT: stackSpill
+    ptrGlobal = getPtr();
+    blackbox();
+    ptrGlobal = null;
+    // CHECK: ret void
+}

@@ -112,6 +112,7 @@ CtorStruct ctorStruct;
 void ctor() {
     ctorStruct = ctorStruct.init;
     // There is no dtor, so can be optimized to only a memcpy.
+    // CHECK-NEXT: call {{.*}}@llvm.threadlocal.address
     // CHECK-NEXT: call void @llvm.memcpy
     // CHECK-NEXT: ret void
 }

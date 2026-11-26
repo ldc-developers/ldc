@@ -1906,6 +1906,13 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
   if (!val) {
     assert(isIrVarCreated(vd) && "Variable not resolved.");
     val = getIrValue(vd);
+
+    // Access thread-local variables via llvm.threadlocal.address, like clang,
+    // so that LLVM can CSE/LICM the TLS address computation.
+    auto gvar = llvm::dyn_cast<llvm::GlobalVariable>(val);
+    if (gvar && gvar->isThreadLocal()) {
+      val = gIR->ir->CreateThreadLocalAddress(gvar);
+    }
   }
 
   assert(val->getType()->isPointerTy());

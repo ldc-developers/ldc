@@ -26,9 +26,7 @@ export
     // CHECK: define dllexport {{.*}}_D6export11exportedFooFZv
     void exportedFoo() {}
 
-    // CHECK: declare
-    // CHECK-NOT: dllimport
-    // CHECK-SAME: _D6export11importedFooFZv
+    // CHECK: declare {{x86_[a-z]+cc}} void @{{.*}}_D6export11importedFooFZv
     void importedFoo();
 }
 
