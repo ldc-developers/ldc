@@ -41,7 +41,7 @@ class Module;
 }
 
 namespace ComputeBackend {
-enum Type { None, SPIRV, NVPTX };
+enum Type { None, SPIRV, NVPTX, METAL };
 }
 
 ComputeBackend::Type getComputeTargetType(llvm::Module*);
