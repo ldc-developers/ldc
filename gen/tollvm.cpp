@@ -38,6 +38,7 @@
 #include "ir/irtypeclass.h"
 #include "ir/irtypefunction.h"
 #include "ir/irtypestruct.h"
+#include "llvm/Target/TargetMachine.h"
 
 using namespace dmd;
 
@@ -330,6 +331,21 @@ void setVisibility(bool isExplicitlyExported, bool maybeInstantiatedAsWeakODR,
            !(triple.isOSDarwin() && maybeInstantiatedAsWeakODR))) {
         obj->setVisibility(LLGlobalValue::HiddenVisibility);
       }
+    }
+
+    // Mark TLS definitions dso_local if they cannot be preempted, to let LLVM
+    // select the local-exec TLS model. That's the case if the code cannot end
+    // up in a shared library: non-PIC code, or PIC code with a PIE level (only
+    // set when we link an executable ourselves).
+    // Declarations are excluded, as they may be defined in a shared library
+    // (e.g., druntime/Phobos with -link-defaultlib-shared).
+    if (obj->isThreadLocal() && !obj->isDeclarationForLinker() &&
+        !obj->hasExternalWeakLinkage()) {
+      const bool isNonPreemptible =
+          gTargetMachine->getRelocationModel() == llvm::Reloc::Static ||
+          obj->getParent()->getPIELevel() != llvm::PIELevel::Default;
+      if (isNonPreemptible)
+        obj->setDSOLocal(true);
     }
   }
 }
