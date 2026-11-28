@@ -10,7 +10,8 @@ import ldc.opencl;
 
 // CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_ro_t).Pointer" = type { ptr addrspace(1) }
 // CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_wo_t).Pointer" = type { ptr addrspace(1) }
-// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Shared, sampler_t).Pointer" = type { ptr addrspace(2) }
+// address-space number change with LLVM v23: shared 2 => 3
+// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Shared, sampler_t).Pointer" = type { ptr addrspace([[SHARED:2|3]]) }
 
 pragma(mangle,"__translate_sampler_initializer")
     Sampler makeSampler(int);
@@ -23,8 +24,8 @@ pragma(mangle,"_Z12write_imagef11ocl_image1d_woiDv4_f")
 
 @kernel() void img(GlobalPointer!image1d_ro_t src, GlobalPointer!image1d_wo_t dst)
 {
-// CHECK: %{{[0-9+]}} = call spir_func ptr addrspace(2) @__translate_sampler_initializer(i32 0) {{.*}}
-// CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri(ptr addrspace(1) %.DComputePointerRewrite_arg, ptr addrspace(2) %.DComputePointerRewrite_arg1, i32 0) {{.*}}
+// CHECK: %{{[0-9+]}} = call spir_func ptr addrspace([[SHARED]]) @__translate_sampler_initializer(i32 0) {{.*}}
+// CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri(ptr addrspace(1) %.DComputePointerRewrite_arg, ptr addrspace([[SHARED]]) %.DComputePointerRewrite_arg1, i32 0) {{.*}}
     auto x = src.read(makeSampler(0), 0);
 // CHECK: call spir_func void @_Z12write_imagef11ocl_image1d_woiDv4_f(ptr addrspace(1) %.DComputePointerRewrite_arg2, i32 0, <4 x float> %{{[0-9+]}})
     dst.write(0,x);
@@ -32,7 +33,7 @@ pragma(mangle,"_Z12write_imagef11ocl_image1d_woiDv4_f")
 
 @kernel() void img2(GlobalPointer!image1d_ro_t src, Sampler samp)
 {
-// CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri(ptr addrspace(1) %.DComputePointerRewrite_arg, ptr addrspace(2) %.DComputePointerRewrite_arg1, i32 0) {{.*}}
+// CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri(ptr addrspace(1) %.DComputePointerRewrite_arg, ptr addrspace([[SHARED]]) %.DComputePointerRewrite_arg1, i32 0) {{.*}}
     auto x = src.read(samp, 0);
 }
 
