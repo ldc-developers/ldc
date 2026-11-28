@@ -26,6 +26,8 @@ nothrow:
  */
 // this has to match INSTR_PROF_DATA in profile-rt/InstrProfData.inc
 extern(C++) struct ProfileData {
+    import ldc.intrinsics : LLVM_major;
+
     ulong NameRef;
     ulong FuncHash;
     private void* RelativeCounters;
@@ -40,11 +42,19 @@ extern(C++) struct ProfileData {
         else
             return cast(inout(ulong)*) ((cast(size_t) &this) + cast(size_t) RelativeCounters);
     }
+    static if (LLVM_major >= 23)
+    {
+        private void* UniformCounters;
+    }
     void* BitmapPtr;
     void* FunctionPointer;
     void* Values;
     uint NumCounters;
     ushort NumValueSites;
+    static if (LLVM_major >= 23)
+    {
+        ushort OffloadDeviceWaveSize;
+    }
     uint NumBitmapBytes;
 }
 

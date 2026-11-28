@@ -11,8 +11,9 @@ import ldc.dcompute;
 
 // LL: %"ldc.dcompute.Pointer!(AddrSpace.Private, float).Pointer" = type { ptr }
 // LL: %"ldc.dcompute.Pointer!(AddrSpace.Global, float).Pointer" = type { ptr addrspace(1) }
-// LL: %"ldc.dcompute.Pointer!(AddrSpace.Shared, float).Pointer" = type { ptr addrspace(2) }
-// LL: %"ldc.dcompute.Pointer!(AddrSpace.Constant, immutable(float)).Pointer" = type { ptr addrspace(3) }
+// address-space number change with LLVM v23: shared 2 => 3, constant 3 => 2
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Shared, float).Pointer" = type { ptr addrspace([[SHARED:2|3]]) }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Constant, immutable(float)).Pointer" = type { ptr addrspace([[CONSTANT:3|2]]) }
 // LL: %"ldc.dcompute.Pointer!(AddrSpace.Generic, float).Pointer" = type { ptr addrspace(4) }
 
 // SPT-DAG: %{{[0-9]+}} = OpTypeVoid
@@ -37,12 +38,12 @@ void foo(GlobalPointer!float f) {
 }
 
 void foo(SharedPointer!float f) {
-    // LL: load float, ptr addrspace(2)
+    // LL: load float, ptr addrspace([[SHARED]])
     float g = *f;
 }
 
 void foo(ConstantPointer!float f) {
-    // LL: load float, ptr addrspace(3)
+    // LL: load float, ptr addrspace([[CONSTANT]])
     float g = *f;
 }
 

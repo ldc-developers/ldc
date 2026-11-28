@@ -66,10 +66,16 @@ class TargetOCL : public DComputeTarget {
   bool usedImage;
 public:
   TargetOCL(llvm::LLVMContext &c, int oclversion)
-      : DComputeTarget(c, oclversion, ID::OpenCL, "ocl", "spv", createSPIRVABI(),
-                       // Map from nomimal DCompute address space to OpenCL
-                       // address. For OpenCL this is a no-op.
-                       {{0, 1, 2, 3, 4}}) {
+      : DComputeTarget(c, oclversion, ID::OpenCL, "ocl", "spv",
+                       createSPIRVABI(),
+#if LLVM_VERSION_MAJOR >= 23
+                       // map nominal DCompute address space => SPIR-V space
+                       {{0, 1, 3, 2, 4}}
+#else
+                       // map nominal DCompute address space => OpenCL space
+                       {{0, 1, 2, 3, 4}}
+#endif
+        ) {
     const bool is64 = global.params.targetTriple->isArch64Bit();
 
     _ir = new IRState("dcomputeTargetOCL", ctx);
